@@ -21,5 +21,10 @@ export * from './types.js';
 export * from './function_invoker.js';
 export * from './standard_schema.js';
 export * from './schema_metadata.js';
+export {
+  getCatalogSchemaAdapter,
+  registerCatalogSchemaAdapter,
+  type CatalogSchemaAdapter,
+} from './schema_adapter.js';
 export {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 export {spec, specDef, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
