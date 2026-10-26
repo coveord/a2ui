@@ -18,7 +18,7 @@ import {CatalogInterface} from '../catalog/types.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {isValidUax31Identifier} from '../common/uax31.js';
 import {A2uiValidationError} from '../errors.js';
-import {formatZodIssue} from '../processing/format-zod-issue.js';
+import {formatValidationIssue} from './format-validation-issue.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {AccessibilityAttributesSchema, ComponentCommonSchema} from '../types/common-types.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
@@ -217,7 +217,7 @@ export class PayloadValidator {
 
     const result = componentApi.schema.safeParse(properties);
     if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
+      const formattedErrors = result.error.errors.map(formatValidationIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
         result.error.issues,
@@ -244,7 +244,7 @@ export class PayloadValidator {
       delete properties['accessibility'];
       const accResult = AccessibilityAttributesSchema.optional().safeParse(accVal);
       if (!accResult.success) {
-        const formattedErrors = accResult.error.errors.map(formatZodIssue).join(', ');
+        const formattedErrors = accResult.error.errors.map(formatValidationIssue).join(', ');
         throw new A2uiValidationError(
           `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
           accResult.error.issues,
@@ -258,7 +258,7 @@ export class PayloadValidator {
       delete properties['metadata'];
       const metaResult = ComponentCommonSchema.shape.metadata.safeParse(metaVal);
       if (!metaResult.success) {
-        const formattedErrors = metaResult.error.errors.map(formatZodIssue).join(', ');
+        const formattedErrors = metaResult.error.errors.map(formatValidationIssue).join(', ');
         throw new A2uiValidationError(
           `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
           metaResult.error.issues,
@@ -420,7 +420,7 @@ export class PayloadValidator {
 
     const result = fn.schema.safeParse(args ?? {});
     if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
+      const formattedErrors = result.error.errors.map(formatValidationIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for function '${name}': ${formattedErrors}`,
         result.error.issues,
@@ -444,7 +444,7 @@ export class PayloadValidator {
 
     const result = themeSchema.safeParse(theme);
     if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
+      const formattedErrors = result.error.errors.map(formatValidationIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for theme: ${formattedErrors}`,
         result.error.issues,

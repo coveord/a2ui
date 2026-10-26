@@ -17,7 +17,7 @@
 import {z} from 'zod';
 import {InternalOperation} from '../operations.js';
 import {A2uiValidationError} from '../../errors.js';
-import {formatZodIssue} from '../format-zod-issue.js';
+import {formatValidationIssue} from '../../validation/format-validation-issue.js';
 import {SemVer, normalizeVersionString, toSemVer, toCanonicalVersion} from '../../common/semver.js';
 
 /**
@@ -236,7 +236,7 @@ export abstract class BaseVersionAdapter implements VersionAdapter {
     const preparedPayload = this.preparePayloadForValidation(msgObj);
     const parseResult = this.schema.safeParse(preparedPayload);
     if (!parseResult.success) {
-      const formattedErrors = parseResult.error.errors.map(formatZodIssue).join('; ');
+      const formattedErrors = parseResult.error.errors.map(formatValidationIssue).join('; ');
       throw new A2uiValidationError(
         `Invalid ${this.version} message: ${formattedErrors}`,
         parseResult.error,

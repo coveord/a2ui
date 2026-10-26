@@ -15,4 +15,6 @@
  */
 
 /** Stable identity used when this package registers its catalog schema adapter. */
+export {formatZodIssue} from './format-zod-issue.js';
+
 export const ZOD_SCHEMA_ADAPTER_NAME = '@a2ui/schema-zod';

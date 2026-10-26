@@ -126,13 +126,12 @@ export interface MessageProcessorOptions {
   defaultTimeoutMs?: number;
 }
 
-import {formatZodIssue} from './format-zod-issue.js';
+export {formatValidationIssue} from '../validation/format-validation-issue.js';
 import {
   nestedCallRunsInCatalog,
   nonStringCatalogIdMessage,
   PayloadValidator,
 } from '../validation/payload-validator.js';
-export {formatZodIssue};
 
 /**
  * Central processor for A2UI protocol messages and surface state management.
