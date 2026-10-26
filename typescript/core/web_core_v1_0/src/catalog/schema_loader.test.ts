@@ -21,7 +21,7 @@ import {resolve} from 'node:path';
 import {z} from 'zod';
 import {Catalog} from './types.js';
 import {analyzeChildRefSchema} from './reference-map.js';
-import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
+import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 import {STRICT_VALIDATION} from '../validation/integrity-checker.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {A2uiCatalogError} from '../errors.js';

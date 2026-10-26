@@ -42,8 +42,8 @@ import {
 } from './reference-map.js';
 import {V08_CHILD_REF_OPTIONS} from '../v0_8/standard_defs.js';
 import {V09_CHILD_REF_OPTIONS} from '../v0_9/standard_defs.js';
-import {IndexImplementation} from '../v1_0/functions/system_functions.js';
-import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
+import {IndexImplementation} from '../functions/system_functions.js';
+import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 
 export type {ComponentChildRefs};
 export {inlinePeerAndLocalRefs};

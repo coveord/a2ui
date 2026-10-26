@@ -32,7 +32,7 @@ import {
 import {Catalog, ComponentApi} from './types.js';
 import {V08_CHILD_REF_OPTIONS} from '../v0_8/standard_defs.js';
 import {V09_CHILD_REF_OPTIONS} from '../v0_9/standard_defs.js';
-import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
+import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 import {z} from 'zod';
 
 describe('reference-map schema introspection', () => {

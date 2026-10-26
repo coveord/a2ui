@@ -20,7 +20,7 @@ import {
   type RefSchemaOptions,
   markChildRef,
   childRefKindOf,
-} from '../../types/child-ref-helpers.js';
+} from '../types/child-ref-helpers.js';
 import {
   ChildListSchema,
   ComponentCommonSchema,

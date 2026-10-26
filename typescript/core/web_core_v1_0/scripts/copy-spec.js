@@ -35,9 +35,8 @@ const repoRoot = join(rootDir, '..', '..', '..');
  *   catalog, or `undefined` when the version ships no standalone catalogs.
  *   Each catalog is copied to `src/<version>/schemas/catalogs/<name>`.
  */
-function copySchemas(version, catalogs) {
+function copySchemas(version, catalogs, destDir = join(rootDir, 'src', version, 'schemas')) {
   const srcJsonDir = join(repoRoot, 'specification', version, 'json');
-  const destDir = join(rootDir, 'src', version, 'schemas');
 
   mkdirSync(destDir, {recursive: true});
 
@@ -70,4 +69,8 @@ copySchemas(
 );
 // Catalogs are versioned independently of the protocol and live under the
 // top-level catalogs/ directory (see catalogs/README.md).
-copySchemas('v1_0', {basic: join(repoRoot, 'catalogs', 'basic', 'v1')});
+copySchemas(
+  'v1_0',
+  {basic: join(repoRoot, 'catalogs', 'basic', 'v1')},
+  join(rootDir, 'src', 'schemas'),
+);

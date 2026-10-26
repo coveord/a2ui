@@ -16,9 +16,9 @@
 
 import {z} from 'zod';
 
-import {createFunctionImplementation, FunctionImplementation} from '../../catalog/types.js';
-import {A2uiValidationError} from '../../errors.js';
-import {resolveContextIndex} from '../../resolution/data-context.js';
+import {createFunctionImplementation, FunctionImplementation} from '../catalog/types.js';
+import {A2uiValidationError} from '../errors.js';
+import {resolveContextIndex} from '../resolution/data-context.js';
 import {DataBindingSchema, FunctionCallSchema} from '../schema/common-types.js';
 
 /**

@@ -22,16 +22,15 @@ import {
   analyzeDependencies,
   compileDefToZod,
   writeIndexFile,
-} from '../../../scripts/zod-generator-core.mjs';
+} from './zod-generator-core.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const v10Dir = join(__dirname, '..');
-const rootDir = join(v10Dir, '..', '..');
+const rootDir = join(__dirname, '..');
 const specDir = join(rootDir, '..', '..', '..', 'specification', 'v1_0', 'json');
-const destDir = join(v10Dir, 'schema');
+const destDir = join(rootDir, 'src', 'schema');
 
 const VERSION_TAG = 'v1.0';
-const SCRIPT_SOURCE = 'src/v1_0/scripts/generate-schemas.mjs';
+const SCRIPT_SOURCE = 'scripts/generate-schemas.mjs';
 
 /**
  * Generates v1.0 common-types.ts.
@@ -47,8 +46,8 @@ function generateCommonTypes() {
   let commonTs =
     getHeader(VERSION_TAG, SCRIPT_SOURCE) +
     "import {z} from 'zod';\n" +
-    "import {isValidUax31Identifier} from '../../common/uax31.js';\n" +
-    "import {markChildRef} from '../../types/child-ref-helpers.js';\n\n";
+    "import {isValidUax31Identifier} from '../common/uax31.js';\n" +
+    "import {markChildRef} from '../types/child-ref-helpers.js';\n\n";
 
   const defKeys = [
     ...topologicalOrder.filter(k => k in commonJson.$defs),

@@ -47,7 +47,7 @@ import {
   ProtocolVersion,
   VersionAdapterResolver,
 } from './adapters/base.js';
-import {RendererCapabilities} from '../v1_0/schema/index.js';
+import {RendererCapabilities} from '../schema/index.js';
 import type {ServerToClientMessage as V08ServerToClientMessage} from '../v0_8/types/types.js';
 import type {
   A2uiMessage as V09A2uiMessage,
@@ -56,9 +56,9 @@ import type {
 import type {
   AgentToRendererMessage as V10AgentToRendererMessage,
   CallRendererFunctionMessage,
-} from '../v1_0/schema/agent-to-renderer.js';
-import type {RendererFunctionResponseMessage} from '../v1_0/schema/renderer-to-agent.js';
-import type {FunctionCall} from '../v1_0/schema/common-types.js';
+} from '../schema/agent-to-renderer.js';
+import type {RendererFunctionResponseMessage} from '../schema/renderer-to-agent.js';
+import type {FunctionCall} from '../schema/common-types.js';
 import {
   RpcHandler,
   CallOptions,

@@ -22,7 +22,7 @@ import {z} from 'zod';
 
 import {CheckRuleSchema} from '../types/common-types.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
-import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
+import {V10_STANDARD_DEFS} from '../standard_defs.js';
 import {cleanSchemaNode, generateValidationSchema} from './schema_generator.js';
 import {Catalog, ComponentApi, FunctionApi, FunctionImplementation} from './types.js';
 

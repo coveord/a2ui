@@ -22,7 +22,7 @@ import {formatZodIssue} from '../processing/format-zod-issue.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {AccessibilityAttributesSchema, ComponentCommonSchema} from '../types/common-types.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
-import {IndexApi} from '../v1_0/functions/system_functions.js';
+import {IndexApi} from '../functions/system_functions.js';
 import type {ValidationConfig} from './integrity-checker.js';
 import {validateReservedDirectives} from '../resolution/data-context.js';
 

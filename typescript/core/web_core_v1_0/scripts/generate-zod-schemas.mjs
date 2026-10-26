@@ -21,23 +21,25 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 /**
  * @fileoverview Master runner for Zod schema generation across all supported protocol versions.
  *
- * Discovers and executes each version-specific schema generator located in src/<version>/scripts/generate-schemas.mjs.
+ * Discovers version-specific generators under `src/<version>/scripts/` and
+ * runs the flattened v1.0 generator from `scripts/generate-schemas.mjs`.
  */
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const srcDir = join(__dirname, '..', 'src');
 
-// Discover all version directories containing a generate-schemas.mjs script
-const versionDirs = readdirSync(srcDir, {withFileTypes: true})
-  .filter(dirent => dirent.isDirectory())
-  .map(dirent => dirent.name)
-  .filter(name => existsSync(join(srcDir, name, 'scripts', 'generate-schemas.mjs')))
-  .sort();
+const generatorPaths = [
+  ...readdirSync(srcDir, {withFileTypes: true})
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => join(srcDir, dirent.name, 'scripts', 'generate-schemas.mjs'))
+    .filter(existsSync)
+    .sort(),
+  join(__dirname, 'generate-schemas.mjs'),
+];
 
-console.log(`Discovered schema generators for versions: ${versionDirs.join(', ')}`);
+console.log(`Running schema generators: ${generatorPaths.join(', ')}`);
 
-for (const vDir of versionDirs) {
-  const scriptPath = join(srcDir, vDir, 'scripts', 'generate-schemas.mjs');
+for (const scriptPath of generatorPaths) {
   const moduleUrl = pathToFileURL(scriptPath).href;
   const mod = await import(moduleUrl);
 
@@ -49,4 +51,4 @@ for (const vDir of versionDirs) {
   }
 }
 
-console.log(`Successfully finished generating Zod schemas for all discovered versions.`);
+console.log('Successfully finished generating Zod schemas.');

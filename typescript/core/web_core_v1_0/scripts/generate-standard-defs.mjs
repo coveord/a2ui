@@ -40,8 +40,6 @@ const HEADER = `/*
 
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated from specification/ via scripts/generate-standard-defs.mjs
-
-import type {ChildRefAnalysisOptions} from '../catalog/reference-map.js';
 `;
 
 /**
@@ -284,10 +282,14 @@ const V08_DEFS = {
  * Generates the standard_defs.ts source file content.
  */
 function generateDefsFile(versionPrefix, versionLabel, childRefOptions, defsObj) {
+  const catalogImport =
+    versionPrefix === 'V10' ? './catalog/reference-map.js' : '../catalog/reference-map.js';
   const childPropLine = childRefOptions.childPropertyNames
     ? `\n  childPropertyNames: new Set(${JSON.stringify(Array.from(childRefOptions.childPropertyNames))}),`
     : '';
   const code = `${HEADER}
+import type {ChildRefAnalysisOptions} from '${catalogImport}';
+
 /**
  * Child reference analysis configuration for A2UI ${versionLabel} schemas.
  */
@@ -324,7 +326,7 @@ const activeVersions = readdirSync(specDir)
     d =>
       d !== 'v0_8' &&
       existsSync(join(specDir, d, 'json', 'common_types.json')) &&
-      existsSync(join(rootDir, 'src', d)),
+      (d === 'v1_0' || existsSync(join(rootDir, 'src', d))),
   )
   .sort();
 
@@ -348,7 +350,12 @@ for (const v of activeVersions) {
     },
     commonJson.$defs,
   );
-  writeFileSync(join(rootDir, 'src', v, 'standard_defs.ts'), code);
+  writeFileSync(
+    v === 'v1_0'
+      ? join(rootDir, 'src', 'standard_defs.ts')
+      : join(rootDir, 'src', v, 'standard_defs.ts'),
+    code,
+  );
 }
 
 console.log(`Successfully generated standard_defs.ts for v0.8 and [${activeVersions.join(', ')}].`);

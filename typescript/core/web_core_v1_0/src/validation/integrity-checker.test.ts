@@ -24,7 +24,7 @@ import {getComponentReferences} from './integrity-checker.js';
 import {A2uiIntegrityError, A2uiRecursionError} from '../errors.js';
 import {buildComponentRefMap, ComponentRefMap} from '../catalog/reference-map.js';
 import {BASIC_COMPONENTS} from '../catalogs/basic/v1/components/basic_components.js';
-import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
+import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 
 describe('Integrity Verification', () => {
   describe('getComponentReferences', () => {

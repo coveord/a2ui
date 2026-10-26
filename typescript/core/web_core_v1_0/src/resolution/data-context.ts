@@ -37,7 +37,7 @@ import {SurfaceModel} from '../state/surface-model.js';
 
 import {Catalog, CatalogInterface} from '../catalog/types.js';
 import {SpecVersion} from '../spec_versions.js';
-import {IndexApi, SYSTEM_FUNCTIONS} from '../v1_0/functions/system_functions.js';
+import {IndexApi, SYSTEM_FUNCTIONS} from '../functions/system_functions.js';
 
 const schemaKeysCache = new WeakMap<z.ZodTypeAny, Set<string> | null>();
 

@@ -28,10 +28,32 @@ export * from './resolution/index.js';
 export * from './validation/index.js';
 export * from './reactivity/index.js';
 export * from './expressions/index.js';
+export * from './rpc/index.js';
+export * from './schema/index.js';
+export * from './standard_defs.js';
+export * from './functions/system_functions.js';
+export * from './functions/validation_functions_api.js';
+export * from './functions/validation_functions.js';
 export * from './errors.js';
 export * from './common/events.js';
 export * from './common/markdown.js';
 export * from './common/semver.js';
 export * from './common/uax31.js';
+export * from './catalogs/basic/v1/index.js';
+export {
+  A2uiController,
+  A2uiLitElement,
+  isWebComponentImplementation,
+  registerUniversalElement,
+  renderA2uiNode,
+  type A2uiChildRef,
+  type A2uiWebComponentElement,
+  type ResolvedChildList,
+  type WebComponentImplementation,
+} from './universal/index.js';
 export * from './spec_versions.js';
 export {isSafeRegex, type SafeRegexOptions} from './v0_9/basic_catalog/functions/safe_regex.js';
+
+import A2uiMessageSchemaRaw from './schemas/agent_to_renderer.json' with {type: 'json'};
+
+export const Schemas = {A2uiMessageSchemaRaw};

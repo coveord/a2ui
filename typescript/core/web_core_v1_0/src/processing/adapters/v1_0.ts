@@ -20,7 +20,7 @@ import {
   InternalOperation,
   INTERNAL_OPERATION_TYPES,
 } from '../operations.js';
-import {AgentToRendererMessageSchema} from '../../v1_0/schema/agent-to-renderer.js';
+import {AgentToRendererMessageSchema} from '../../schema/agent-to-renderer.js';
 
 /**
  * Protocol version adapter for specification v1.0.
