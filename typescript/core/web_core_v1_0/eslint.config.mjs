@@ -26,9 +26,9 @@ export default [
         {
           patterns: [
             {
-              group: ['@a2ui/web_core', '@a2ui/web_core/*'],
+              group: ['@a2ui/web_core_v1_0', '@a2ui/web_core_v1_0/*'],
               message:
-                'Use relative imports within @a2ui/web_core instead of self-importing the package.',
+                'Use relative imports within @a2ui/web_core_v1_0 instead of self-importing the package.',
             },
           ],
         },

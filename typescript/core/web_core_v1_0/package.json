@@ -1,10 +1,10 @@
 {
-  "name": "@a2ui/web_core",
-  "version": "0.14.0",
-  "description": "A2UI Core Library",
+  "name": "@a2ui/web_core_v1_0",
+  "version": "0.1.0",
+  "description": "A2UI web core for protocol v1.0",
   "homepage": "https://a2ui.org/",
   "repository": {
-    "directory": "typescript/core/web_core",
+    "directory": "typescript/core/web_core_v1_0",
     "type": "git",
     "url": "git+https://github.com/a2ui-project/a2ui.git"
   },
@@ -134,10 +134,6 @@
     "src"
   ],
   "scripts": {
-    "prepublishOnly": "node -e \"if(!process.cwd().endsWith('dist')) { console.error('Error: This package must be published from the dist/ directory. Run `yarn build` then `cd dist && yarn npm publish`'); process.exit(1); }\"",
-    "publish:package": "yarn build && node ../../scripts/prepare-publish.mjs && cd dist && touch yarn.lock && yarn install && yarn npm publish --access public",
-    "prepack": "yarn build",
-    "prepare": "yarn build",
     "build": "wireit",
     "build:tsc": "wireit",
     "test": "wireit",
@@ -318,5 +314,6 @@
     "validate-color": "^2.2.4",
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.25.2"
-  }
+  },
+  "private": true
 }
