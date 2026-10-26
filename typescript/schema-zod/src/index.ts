@@ -15,6 +15,14 @@
  */
 
 /** Stable identity used when this package registers its catalog schema adapter. */
+export {
+  getSpecAnnotation,
+  spec,
+  specDef,
+  type JsonSchemaObject,
+  type SpecAnnotation,
+  type SpecMixin,
+} from './spec_annotations.js';
 export {formatZodIssue} from './format-zod-issue.js';
 
 export const ZOD_SCHEMA_ADAPTER_NAME = '@a2ui/schema-zod';

@@ -164,6 +164,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@a2ui/catalog-basic@workspace:typescript/catalogs/basic"
   dependencies:
+    "@a2ui/schema-zod": "workspace:*"
     "@a2ui/web_core_v1_0": "workspace:*"
     "@lit/context": "npm:^1.1.6"
     "@types/jsdom": "npm:^28.0.3"
@@ -467,7 +468,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@a2ui/schema-zod@workspace:typescript/schema-zod":
+"@a2ui/schema-zod@workspace:*, @a2ui/schema-zod@workspace:typescript/schema-zod":
   version: 0.0.0-use.local
   resolution: "@a2ui/schema-zod@workspace:typescript/schema-zod"
   dependencies:

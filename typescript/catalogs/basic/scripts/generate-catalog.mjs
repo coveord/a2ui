@@ -32,7 +32,7 @@ generateCatalogApi({
   functionsOutPath: join(catalogSourceDir, 'functions', 'basic_functions_api.ts'),
   commonTypesImportPath: '@a2ui/web_core_v1_0',
   typesImportPath: '@a2ui/web_core_v1_0',
-  specImportPath: '@a2ui/web_core_v1_0',
+  specImportPath: '@a2ui/schema-zod',
 });
 
 console.log('Successfully generated Basic Catalog v1 APIs.');

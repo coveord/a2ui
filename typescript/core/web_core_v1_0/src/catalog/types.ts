@@ -27,7 +27,7 @@ import {
   linkEntry,
   parseCatalogSchema,
 } from './schema_loader.js';
-import type {JsonSchemaObject} from './spec_annotations.js';
+import type {JsonSchemaObject} from './schema_annotations.js';
 import {generateValidationSchema} from './schema_generator.js';
 import {
   deepCopyJson,

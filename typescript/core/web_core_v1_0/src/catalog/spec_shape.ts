@@ -34,7 +34,7 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 import {isAtLeastVersion, normalizeVersionString, toCanonicalVersion} from '../common/semver.js';
 import {V10_STANDARD_DEFS} from '../standard_defs.js';
 import {exclusiveUnionOverride} from './exclusive_union.js';
-import {getSpecAnnotation, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
+import {getSchemaAnnotation, type SpecAnnotation, type SpecMixin} from './schema_annotations.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -294,7 +294,7 @@ function collectAnnotation(schema: z.ZodTypeAny | undefined): SpecAnnotation {
   const chain: SpecAnnotation[] = [];
   let node: z.ZodTypeAny | undefined = schema;
   while (node && typeof node === 'object' && '_def' in node) {
-    const annotation = getSpecAnnotation(node);
+    const annotation = getSchemaAnnotation(node);
     if (annotation) chain.push(annotation);
     const next = innerSchema(node);
     if (!next) break;
@@ -477,18 +477,19 @@ export class SpecShaper {
   /** Returns the reference a component's definition makes to a mixin. */
   private mixinRef(mixin: SpecMixin, catalogDefs: Map<string, z.ZodTypeAny>): string {
     if (typeof mixin === 'string') return `${this.commonTypesUri}#/$defs/${mixin}`;
-    const name = collectAnnotation(mixin).defName;
+    const schema = mixin as z.ZodTypeAny;
+    const name = collectAnnotation(schema).defName;
     if (name === undefined) {
       throw new Error('A component mixin model must be named with specDef().');
     }
-    catalogDefs.set(name, mixin);
+    catalogDefs.set(name, schema);
     return `#/$defs/${name}`;
   }
 
   /** Returns the names of the properties a mixin declares. */
   private mixinProperties(mixin: SpecMixin): string[] {
     if (typeof mixin !== 'string') {
-      const core = coreSchema(mixin);
+      const core = coreSchema(mixin as z.ZodTypeAny);
       return defOf(core).typeName === 'ZodObject'
         ? Object.keys((core as z.AnyZodObject).shape)
         : [];

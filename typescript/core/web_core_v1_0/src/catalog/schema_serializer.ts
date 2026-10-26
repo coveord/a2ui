@@ -21,7 +21,7 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {loadedDefinition} from './json_entries.js';
-import {getSpecAnnotation, type JsonSchemaObject} from './spec_annotations.js';
+import {getSchemaAnnotation, type JsonSchemaObject} from './schema_annotations.js';
 import {
   DEFAULT_COMMON_TYPES_URI,
   isSpecComponentSchema,
@@ -488,7 +488,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
     for (const [defName, defModel] of catalogDefs) computedDefs.set(defName, defModel);
   }
   for (const defModel of catalog.defModels ?? []) {
-    const defName = getSpecAnnotation(defModel)?.defName;
+    const defName = getSchemaAnnotation(defModel)?.defName;
     if (defName === undefined) {
       throw new Error('A catalog definition model must be named with specDef().');
     }
@@ -631,7 +631,7 @@ export function serializeCatalogDocument(catalog: SerializableCatalog): JsonObje
   const defs: JsonObject = deepCopyJson({...model.defs});
   const themeLocation = catalog.themeLocation ?? (isAtLeastV10 ? undefined : 'defs');
   if (themeLocation === 'defs' && catalog.themeSchema && !hasAuthoredTheme(model)) {
-    defs.theme = getSpecAnnotation(catalog.themeSchema)
+    defs.theme = getSchemaAnnotation(catalog.themeSchema)
       ? new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri).defSchema(
           catalog.themeSchema,
         )

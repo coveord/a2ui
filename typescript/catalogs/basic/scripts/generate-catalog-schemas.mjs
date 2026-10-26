@@ -709,7 +709,8 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
   const idProp = 'id';
   const commonTypesImportPath = options.commonTypesImportPath || '../../schema/common-types.js';
   const typesImportPath = options.typesImportPath || '../../../catalog/types.js';
-  const specImportPath = typesImportPath.replace(/types\.js$/, 'spec_annotations.js');
+  const specImportPath =
+    options.specImportPath || typesImportPath.replace(/types\.js$/, 'spec_annotations.js');
   const commonTypesUri = options.reproduceDocument ? commonTypesUriOf(catalogJson) : undefined;
   const ctx = {commonDefs, usedImports, commonTypesUri};
   const reproduce = commonTypesUri !== undefined;
@@ -984,6 +985,7 @@ export function generateCatalogApi({
   if (componentsOutPath) {
     const componentsTs = generateComponentsFile(version, catalogJson, commonDefs, {
       commonTypesImportPath,
+      specImportPath,
       typesImportPath,
       reproduceDocument: true,
     });

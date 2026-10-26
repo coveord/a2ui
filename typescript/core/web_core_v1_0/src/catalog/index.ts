@@ -27,4 +27,10 @@ export {
   type CatalogSchemaAdapter,
 } from './schema_adapter.js';
 export {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
-export {spec, specDef, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
+export {
+  getSchemaAnnotation,
+  setSchemaAnnotation,
+  type JsonSchemaObject,
+  type SpecAnnotation,
+  type SpecMixin,
+} from './schema_annotations.js';

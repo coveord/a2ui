@@ -16,7 +16,7 @@
 
 import type {z} from 'zod';
 
-import type {JsonSchemaObject} from './spec_annotations.js';
+import type {JsonSchemaObject} from './schema_annotations.js';
 
 /**
  * The JSON Schema definitions of the entries `Catalog.fromJson` loaded, by

@@ -18,7 +18,7 @@
 // Generated from specification/ catalogs via scripts/generate-catalog-schemas.mjs
 import {z} from 'zod';
 
-import {spec} from '@a2ui/web_core_v1_0';
+import {spec} from '@a2ui/schema-zod';
 import {CatalogDocumentOptions, ComponentApi} from '@a2ui/web_core_v1_0';
 import {
   ActionSchema,
