@@ -16,7 +16,7 @@
 
 export interface StandardSchemaIssue {
   readonly message: string;
-  readonly path?: readonly (string | number)[];
+  readonly path?: readonly PropertyKey[];
 }
 
 export type StandardSchemaResult<Output> =
