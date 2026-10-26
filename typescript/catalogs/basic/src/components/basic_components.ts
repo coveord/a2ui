@@ -34,7 +34,27 @@ import {
 
 export const TextApi = {
   name: 'Text',
-  schemaMetadata: {dynamicFields: {text: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        text: {type: 'DYNAMIC'},
+        variant: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {text: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -60,7 +80,29 @@ export const TextApi = {
 
 export const ImageApi = {
   name: 'Image',
-  schemaMetadata: {dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        url: {type: 'DYNAMIC'},
+        description: {type: 'DYNAMIC'},
+        fit: {type: 'STATIC'},
+        variant: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -96,7 +138,26 @@ export const ImageApi = {
 
 export const IconApi = {
   name: 'Icon',
-  schemaMetadata: {dynamicFields: {name: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        name: {type: 'DYNAMIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {name: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -186,7 +247,27 @@ export const IconApi = {
 
 export const VideoApi = {
   name: 'Video',
-  schemaMetadata: {dynamicFields: {url: 'DYNAMIC', posterUrl: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        url: {type: 'DYNAMIC'},
+        posterUrl: {type: 'DYNAMIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {url: 'DYNAMIC', posterUrl: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -210,7 +291,27 @@ export const VideoApi = {
 
 export const AudioPlayerApi = {
   name: 'AudioPlayer',
-  schemaMetadata: {dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        url: {type: 'DYNAMIC'},
+        description: {type: 'DYNAMIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -234,7 +335,29 @@ export const AudioPlayerApi = {
 
 export const RowApi = {
   name: 'Row',
-  schemaMetadata: {childLists: ['children'], dynamicFields: {children: 'STRUCTURAL'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        children: {type: 'STRUCTURAL'},
+        justify: {type: 'STATIC'},
+        align: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    childLists: ['children'],
+    dynamicFields: {children: 'STRUCTURAL'},
+  },
   schema: spec(
     z
       .object({
@@ -272,7 +395,29 @@ export const RowApi = {
 
 export const ColumnApi = {
   name: 'Column',
-  schemaMetadata: {childLists: ['children'], dynamicFields: {children: 'STRUCTURAL'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        children: {type: 'STRUCTURAL'},
+        justify: {type: 'STATIC'},
+        align: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    childLists: ['children'],
+    dynamicFields: {children: 'STRUCTURAL'},
+  },
   schema: spec(
     z
       .object({
@@ -310,7 +455,29 @@ export const ColumnApi = {
 
 export const ListApi = {
   name: 'List',
-  schemaMetadata: {childLists: ['children'], dynamicFields: {children: 'STRUCTURAL'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        children: {type: 'STRUCTURAL'},
+        direction: {type: 'STATIC'},
+        align: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    childLists: ['children'],
+    dynamicFields: {children: 'STRUCTURAL'},
+  },
   schema: spec(
     z
       .object({
@@ -341,7 +508,26 @@ export const ListApi = {
 
 export const CardApi = {
   name: 'Card',
-  schemaMetadata: {childRefs: ['child']},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        child: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    childRefs: ['child'],
+  },
   schema: spec(
     z
       .object({
@@ -362,7 +548,30 @@ export const CardApi = {
 
 export const TabsApi = {
   name: 'Tabs',
-  schemaMetadata: {childLists: ['tabs'], nestedChildRefs: {tabs: ['child']}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        tabs: {
+          type: 'ARRAY',
+          element: {type: 'OBJECT', shape: {title: {type: 'DYNAMIC'}, child: {type: 'STATIC'}}},
+        },
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    childLists: ['tabs'],
+    nestedChildRefs: {tabs: ['child']},
+  },
   schema: spec(
     z
       .object({
@@ -394,7 +603,27 @@ export const TabsApi = {
 
 export const ModalApi = {
   name: 'Modal',
-  schemaMetadata: {childRefs: ['trigger', 'content']},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        trigger: {type: 'STATIC'},
+        content: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    childRefs: ['trigger', 'content'],
+  },
   schema: spec(
     z
       .object({
@@ -418,6 +647,25 @@ export const ModalApi = {
 
 export const DividerApi = {
   name: 'Divider',
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        component: {type: 'STATIC'},
+        axis: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+  },
   schema: spec(
     z
       .object({
@@ -440,7 +688,30 @@ export const DividerApi = {
 
 export const ButtonApi = {
   name: 'Button',
-  schemaMetadata: {childRefs: ['child'], dynamicFields: {action: 'ACTION'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        checks: {type: 'CHECKABLE'},
+        component: {type: 'STATIC'},
+        child: {type: 'STATIC'},
+        variant: {type: 'STATIC'},
+        action: {type: 'ACTION'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    childRefs: ['child'],
+    dynamicFields: {checks: 'CHECKABLE', action: 'ACTION'},
+  },
   schema: spec(
     z
       .object({
@@ -473,7 +744,35 @@ export const ButtonApi = {
 
 export const TextFieldApi = {
   name: 'TextField',
-  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC', placeholder: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        checks: {type: 'CHECKABLE'},
+        component: {type: 'STATIC'},
+        label: {type: 'DYNAMIC'},
+        value: {type: 'DYNAMIC'},
+        placeholder: {type: 'DYNAMIC'},
+        variant: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {
+      checks: 'CHECKABLE',
+      label: 'DYNAMIC',
+      value: 'DYNAMIC',
+      placeholder: 'DYNAMIC',
+    },
+  },
   schema: spec(
     z
       .object({
@@ -509,7 +808,28 @@ export const TextFieldApi = {
 
 export const CheckBoxApi = {
   name: 'CheckBox',
-  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        checks: {type: 'CHECKABLE'},
+        component: {type: 'STATIC'},
+        label: {type: 'DYNAMIC'},
+        value: {type: 'DYNAMIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {checks: 'CHECKABLE', label: 'DYNAMIC', value: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -537,7 +857,35 @@ export const CheckBoxApi = {
 
 export const ChoicePickerApi = {
   name: 'ChoicePicker',
-  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        checks: {type: 'CHECKABLE'},
+        component: {type: 'STATIC'},
+        label: {type: 'DYNAMIC'},
+        variant: {type: 'STATIC'},
+        options: {
+          type: 'ARRAY',
+          element: {type: 'OBJECT', shape: {label: {type: 'DYNAMIC'}, value: {type: 'STATIC'}}},
+        },
+        value: {type: 'DYNAMIC'},
+        displayStyle: {type: 'STATIC'},
+        filterable: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {checks: 'CHECKABLE', label: 'DYNAMIC', value: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -594,7 +942,31 @@ export const ChoicePickerApi = {
 
 export const SliderApi = {
   name: 'Slider',
-  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC'}},
+  schemaMetadata: {
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        checks: {type: 'CHECKABLE'},
+        component: {type: 'STATIC'},
+        label: {type: 'DYNAMIC'},
+        min: {type: 'STATIC'},
+        max: {type: 'STATIC'},
+        value: {type: 'DYNAMIC'},
+        steps: {type: 'STATIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {checks: 'CHECKABLE', label: 'DYNAMIC', value: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({
@@ -634,7 +1006,36 @@ export const SliderApi = {
 export const DateTimeInputApi = {
   name: 'DateTimeInput',
   schemaMetadata: {
-    dynamicFields: {value: 'DYNAMIC', min: 'DYNAMIC', max: 'DYNAMIC', label: 'DYNAMIC'},
+    behavior: {
+      type: 'OBJECT',
+      shape: {
+        checks: {type: 'CHECKABLE'},
+        component: {type: 'STATIC'},
+        value: {type: 'DYNAMIC'},
+        enableDate: {type: 'STATIC'},
+        enableTime: {type: 'STATIC'},
+        min: {type: 'DYNAMIC'},
+        max: {type: 'DYNAMIC'},
+        label: {type: 'DYNAMIC'},
+        weight: {type: 'STATIC'},
+        accessibility: {
+          type: 'OBJECT',
+          shape: {
+            label: {type: 'DYNAMIC'},
+            description: {type: 'DYNAMIC'},
+            live: {type: 'STATIC'},
+            hidden: {type: 'DYNAMIC'},
+          },
+        },
+      },
+    },
+    dynamicFields: {
+      checks: 'CHECKABLE',
+      value: 'DYNAMIC',
+      min: 'DYNAMIC',
+      max: 'DYNAMIC',
+      label: 'DYNAMIC',
+    },
   },
   schema: spec(
     z

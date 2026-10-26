@@ -593,22 +593,67 @@ function schemaRefName(schema) {
   return '';
 }
 
-function componentRuntimeMetadata(properties) {
+function behaviorForSchema(schema, catalogDefs, commonDefs, seen = new Set()) {
+  const ref = schemaRefName(schema);
+  if (ref === 'Action') return {type: 'ACTION'};
+  if (ref === 'ChildList' || ref === 'TemplateChildList') return {type: 'STRUCTURAL'};
+  if (ref === 'Checkable' || ref === 'CheckRule') return {type: 'CHECKABLE'};
+  if (ref === 'DataBinding' || ref === 'FunctionCall' || ref.startsWith('Dynamic')) {
+    return {type: 'DYNAMIC'};
+  }
+
+  if (ref && !seen.has(ref)) {
+    const definition = catalogDefs[ref] ?? commonDefs[ref];
+    if (definition) {
+      const nextSeen = new Set(seen);
+      nextSeen.add(ref);
+      return behaviorForSchema(definition, catalogDefs, commonDefs, nextSeen);
+    }
+  }
+
+  const branches = schema?.oneOf ?? schema?.anyOf ?? schema?.allOf;
+  if (Array.isArray(branches)) {
+    const behaviors = branches.map(branch =>
+      behaviorForSchema(branch, catalogDefs, commonDefs, seen),
+    );
+    for (const type of ['ACTION', 'DYNAMIC', 'STRUCTURAL', 'CHECKABLE']) {
+      const match = behaviors.find(behavior => behavior.type === type);
+      if (match) return match;
+    }
+    const object = behaviors.find(behavior => behavior.type === 'OBJECT');
+    if (object) return object;
+  }
+
+  if (schema?.type === 'array') {
+    const element = behaviorForSchema(schema.items ?? {}, catalogDefs, commonDefs, seen);
+    if (element.type === 'CHECKABLE') return element;
+    return {type: 'ARRAY', element};
+  }
+
+  if (schema?.type === 'object' || schema?.properties) {
+    return {
+      type: 'OBJECT',
+      shape: Object.fromEntries(
+        Object.entries(schema.properties ?? {}).map(([key, value]) => [
+          key,
+          behaviorForSchema(value, catalogDefs, commonDefs, seen),
+        ]),
+      ),
+    };
+  }
+
+  return {type: 'STATIC'};
+}
+
+function componentRuntimeMetadata(properties, catalogDefs, commonDefs) {
   const childRefs = [];
   const childLists = [];
   const nestedChildRefs = {};
-  const dynamicFields = {};
 
   for (const [name, schema] of Object.entries(properties)) {
     const ref = schemaRefName(schema);
     if (['Child', 'ComponentId', 'ChildComponentId'].includes(ref)) childRefs.push(name);
     if (['ChildList', 'TemplateChildList'].includes(ref)) childLists.push(name);
-    if (ref === 'Action') dynamicFields[name] = 'ACTION';
-    else if (ref === 'ChildList' || ref === 'TemplateChildList') dynamicFields[name] = 'STRUCTURAL';
-    else if (ref === 'Checkable' || ref === 'CheckRule') dynamicFields[name] = 'CHECKABLE';
-    else if (ref === 'DataBinding' || ref === 'FunctionCall' || ref.startsWith('Dynamic')) {
-      dynamicFields[name] = 'DYNAMIC';
-    }
 
     const items = schema?.items;
     const itemProperties = items?.properties;
@@ -625,12 +670,33 @@ function componentRuntimeMetadata(properties) {
     }
   }
 
-  const metadata = {};
-  if (childRefs.length) metadata.childRefs = childRefs;
-  if (childLists.length) metadata.childLists = [...new Set(childLists)];
-  if (Object.keys(nestedChildRefs).length) metadata.nestedChildRefs = nestedChildRefs;
-  if (Object.keys(dynamicFields).length) metadata.dynamicFields = dynamicFields;
-  return metadata;
+  const shape = Object.fromEntries(
+    Object.entries(properties).map(([name, schema]) => [
+      name,
+      behaviorForSchema(schema, catalogDefs, commonDefs),
+    ]),
+  );
+  if (!shape.accessibility && commonDefs.AccessibilityAttributes) {
+    shape.accessibility = behaviorForSchema(
+      commonDefs.AccessibilityAttributes,
+      catalogDefs,
+      commonDefs,
+    );
+  }
+  const behavior = {type: 'OBJECT', shape};
+  const dynamicFields = Object.fromEntries(
+    Object.entries(behavior.shape)
+      .filter(([, field]) => ['DYNAMIC', 'ACTION', 'STRUCTURAL', 'CHECKABLE'].includes(field.type))
+      .map(([name, field]) => [name, field.type]),
+  );
+
+  return {
+    behavior,
+    ...(childRefs.length ? {childRefs} : {}),
+    ...(childLists.length ? {childLists: [...new Set(childLists)]} : {}),
+    ...(Object.keys(nestedChildRefs).length ? {nestedChildRefs} : {}),
+    ...(Object.keys(dynamicFields).length ? {dynamicFields} : {}),
+  };
 }
 
 /**
@@ -685,7 +751,7 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
 
     bodyCode += `export const ${apiName} = {\n`;
     bodyCode += `  name: '${compName}',\n`;
-    const metadata = componentRuntimeMetadata(properties);
+    const metadata = componentRuntimeMetadata(properties, catalogDefs, commonDefs);
     if (Object.keys(metadata).length > 0) {
       bodyCode += `  schemaMetadata: ${literal(metadata)},\n`;
     }
