@@ -25,7 +25,9 @@ import {
 } from './zod-generator-core.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = join(__dirname, '..');
+const rootDir = process.env.A2UI_SCHEMA_TARGET
+  ? resolve(process.env.A2UI_SCHEMA_TARGET)
+  : join(__dirname, '..');
 const specDir = join(rootDir, '..', '..', '..', 'specification', 'v1_0', 'json');
 const destDir = join(rootDir, 'src', 'schema');
 

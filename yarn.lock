@@ -638,7 +638,6 @@ __metadata:
     gts: "npm:^7.0.0"
     js-yaml: "npm:^4.3.0"
     jsdom: "npm:^29.1.1"
-    json-schema-to-zod: "npm:^2.8.1"
     lit: "npm:^3.3.3"
     redos-detector: "npm:^6.1.4"
     rxjs: "npm:^7.8.2"

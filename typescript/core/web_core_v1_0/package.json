@@ -115,18 +115,18 @@
   },
   "wireit": {
     "generate-zod-schemas": {
-      "command": "node scripts/generate-standard-defs.mjs && node scripts/generate-zod-schemas.mjs && node scripts/generate-superset-common-types.mjs && prettier --write \"src/**/*.ts\"",
+      "command": "node scripts/generate-standard-defs.mjs && A2UI_SCHEMA_TARGET=. node ../../schema-zod/scripts/generate-zod-schemas.mjs && node scripts/generate-superset-common-types.mjs && prettier --write \"src/**/*.ts\"",
       "files": [
         "../../../specification/v1_0/json/*.json",
         "scripts/generate-standard-defs.mjs",
-        "scripts/generate-zod-schemas.mjs",
         "scripts/generate-superset-common-types.mjs",
         "scripts/generate-catalog-schemas.mjs",
-        "scripts/zod-generator-core.mjs",
+        "../../schema-zod/scripts/generate-zod-schemas.mjs",
+        "../../schema-zod/scripts/generate-schemas.mjs",
+        "../../schema-zod/scripts/zod-generator-core.mjs",
         "src/types/helpers.ts",
         "src/types/child-ref-helpers.ts",
-        "src/schema/helpers.ts",
-        "scripts/generate-schemas.mjs"
+        "src/schema/helpers.ts"
       ],
       "output": [
         "src/standard_defs.ts",
@@ -220,7 +220,6 @@
     "gts": "^7.0.0",
     "js-yaml": "^4.3.0",
     "jsdom": "^29.1.1",
-    "json-schema-to-zod": "^2.8.1",
     "rxjs": "^7.8.2",
     "typescript": "5.9.3",
     "wireit": "^0.15.0-pre.2",
