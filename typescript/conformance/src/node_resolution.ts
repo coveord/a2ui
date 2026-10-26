@@ -17,14 +17,23 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
+
 import yaml from 'js-yaml';
-import {Catalog, ComponentApi, createFunctionImplementation} from '../../src/catalog/types.js';
-import {ComponentNode, isComponentNode} from '../../src/resolution/component-node.js';
-import {NodeResolver} from '../../src/resolution/node-resolver.js';
-import {ResolvedBinding, isWritable} from '../../src/resolution/resolved-binding.js';
-import {effect, getValue, peekValue} from '../../src/reactivity/signals.js';
-import {ComponentModel} from '../../src/state/component-model.js';
-import {SurfaceModel} from '../../src/state/surface-model.js';
+import {
+  Catalog,
+  ComponentModel,
+  createFunctionImplementation,
+  effect,
+  getValue,
+  isComponentNode,
+  isWritable,
+  NodeResolver,
+  peekValue,
+  ResolvedBinding,
+  SurfaceModel,
+  type ComponentApi,
+  type ComponentNode,
+} from '@a2ui/web_core/v1_0';
 
 type Component = Record<string, unknown> & {id: string; component: string};
 interface Fixture {

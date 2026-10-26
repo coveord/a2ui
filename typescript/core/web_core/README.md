@@ -120,10 +120,11 @@ Run unit tests:
 yarn test
 ```
 
-Run conformance test suite:
+The shared conformance suites under `conformance/` run against this package from the
+[`@a2ui/conformance`](../../conformance/README.md) workspace:
 
 ```bash
-node tests/conformance/conformance_test.mjs
+yarn workspace @a2ui/conformance test
 ```
 
 Run the timing cases of `conformance/core/message_processor_scaling.yaml`, which check that processing a surface sent in many small messages takes time in proportion to its size. Times depend on the machine and its load, so `yarn test` leaves these cases out:

@@ -141,7 +141,6 @@
     "build": "wireit",
     "build:tsc": "wireit",
     "test": "wireit",
-    "test:conformance": "wireit",
     "test:timing": "wireit",
     "test:coverage": "c8 node --test \"dist/**/*.test.js\"",
     "generate-zod-schemas": "wireit",
@@ -240,21 +239,8 @@
     "test": {
       "command": "node --test \"dist/**/*.test.js\" \"tests/timing/*.test.mjs\"",
       "dependencies": [
-        "build",
-        "test:conformance"
+        "build"
       ]
-    },
-    "test:conformance": {
-      "command": "node tests/conformance/conformance_test.mjs",
-      "dependencies": [
-        "build",
-        "../../catalogs/basic:build"
-      ],
-      "files": [
-        "tests/conformance/**",
-        "../../../conformance/**"
-      ],
-      "output": []
     },
     "test:timing": {
       "command": "node --expose-gc --test --test-concurrency=1 \"tests/timing/**/*_test.mjs\"",

@@ -1,0 +1,82 @@
+{
+  "name": "@a2ui/conformance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Runs the shared A2UI conformance suites against the TypeScript SDK",
+  "type": "module",
+  "scripts": {
+    "build": "wireit",
+    "test": "wireit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "wireit",
+    "format:check": "wireit",
+    "clean": "wireit"
+  },
+  "wireit": {
+    "build": {
+      "command": "tsc -b --pretty",
+      "dependencies": [
+        "../catalogs/basic:build",
+        "../core/web_core:build"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/",
+        "!dist/**/*.tsbuildinfo"
+      ],
+      "clean": "if-file-deleted"
+    },
+    "test": {
+      "command": "node tests/conformance_test.mjs",
+      "dependencies": [
+        "build"
+      ],
+      "files": [
+        "tests/**",
+        "../../conformance/**"
+      ],
+      "output": []
+    },
+    "clean": {
+      "command": "rm -rf dist tsconfig.tsbuildinfo .wireit"
+    },
+    "format": {
+      "command": "prettier --write .",
+      "files": [
+        "src/**/*.ts",
+        "tests/**/*.mjs",
+        "package.json",
+        "tsconfig.json"
+      ]
+    },
+    "format:check": {
+      "command": "prettier --check .",
+      "files": [
+        "src/**/*.ts",
+        "tests/**/*.mjs",
+        "package.json",
+        "tsconfig.json"
+      ]
+    }
+  },
+  "author": "Google",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@a2ui/catalog-basic": "workspace:*",
+    "@a2ui/web_core": "workspace:*",
+    "js-yaml": "^4.3.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.9.3",
+    "eslint": "^10.4.1",
+    "prettier": "^3.8.4",
+    "typescript": "5.9.3",
+    "wireit": "^0.15.0-pre.2"
+  }
+}

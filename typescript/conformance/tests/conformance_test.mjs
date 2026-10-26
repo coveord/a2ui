@@ -16,34 +16,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert';
+
 import yaml from 'js-yaml';
-import {MessageProcessor, STRICT_VALIDATION} from '../../dist/src/processing/message-processor.js';
-import {Catalog, createFunctionImplementation} from '../../dist/src/catalog/types.js';
-import {PayloadValidator} from '../../dist/src/validation/index.js';
-import {DataModel} from '../../dist/src/state/data-model.js';
-import {SurfaceModel} from '../../dist/src/state/surface-model.js';
-import {SUPPORTED_PROTOCOL_VERSIONS} from '../../dist/src/processing/adapters/base.js';
-import {toCanonicalVersion} from '../../dist/src/common/semver.js';
 import {
+  basicCatalog as V1_0_SDK_BASIC_CATALOG,
+  BASIC_COMPONENTS as V1_0_BASIC_COMPONENTS,
+  BASIC_FUNCTIONS as V1_0_BASIC_FUNCTIONS,
+} from '@a2ui/catalog-basic/v1';
+import {toCanonicalVersion} from '@a2ui/web_core/semver';
+import {
+  basicCatalog as V0_8_SDK_BASIC_CATALOG,
   BASIC_COMPONENTS as V0_8_BASIC_COMPONENTS,
   ThemeSchema as V0_8_ThemeSchema,
-} from '../../dist/src/v0_8/basic_catalog/index.js';
+} from '@a2ui/web_core/v0_8/basic_catalog';
 import {
+  basicCatalog as V0_9_SDK_BASIC_CATALOG,
   BASIC_COMPONENTS as V0_9_BASIC_COMPONENTS,
   BASIC_FUNCTIONS as V0_9_BASIC_FUNCTIONS,
   ThemeSchema as V0_9_ThemeSchema,
-} from '../../dist/src/v0_9/basic_catalog/index.js';
-// The v1 basic catalog lives in @a2ui/catalog-basic, which depends on this
-// package, so it is loaded from that package's build rather than declared as a
-// dependency. The `test:conformance` script builds it first.
-import {
-  BASIC_COMPONENTS as V1_0_BASIC_COMPONENTS,
-  BASIC_FUNCTIONS as V1_0_BASIC_FUNCTIONS,
-  basicCatalog as V1_0_SDK_BASIC_CATALOG,
-} from '../../../../catalogs/basic/dist/v1/index.js';
-import {basicCatalog as V0_9_SDK_BASIC_CATALOG} from '../../dist/src/v0_9/basic_catalog/catalog.js';
-import {basicCatalog as V0_8_SDK_BASIC_CATALOG} from '../../dist/src/v0_8/basic_catalog/catalog.js';
-import {ExpressionParser} from '../../dist/src/expressions/expression_parser.js';
+} from '@a2ui/web_core/v0_9/basic_catalog';
 import {
   A2uiCatalogError,
   A2uiDataError,
@@ -53,12 +44,25 @@ import {
   A2uiRecursionError,
   A2uiStateError,
   A2uiValidationError,
-} from '../../dist/src/errors.js';
-import {DataContext} from '../../dist/src/resolution/data-context.js';
-import {NodeResolver} from '../../dist/src/resolution/node-resolver.js';
-import {ResolvedBinding} from '../../dist/src/resolution/resolved-binding.js';
-import {getValue, peekValue, effect, isSignal} from '../../dist/src/reactivity/signals.js';
-import {runNodeResolutionCase} from '../../dist/tests/conformance/node-resolution.js';
+  Catalog,
+  createFunctionImplementation,
+  DataContext,
+  DataModel,
+  effect,
+  ExpressionParser,
+  getValue,
+  isSignal,
+  MessageProcessor,
+  NodeResolver,
+  PayloadValidator,
+  peekValue,
+  ResolvedBinding,
+  STRICT_VALIDATION,
+  SUPPORTED_PROTOCOL_VERSIONS,
+  SurfaceModel,
+} from '@a2ui/web_core/v1_0';
+
+import {runNodeResolutionCase} from '../dist/node_resolution.js';
 
 // Dedicated basic catalog component definitions per specification version
 const v0_8Components = V0_8_BASIC_COMPONENTS;
@@ -119,7 +123,7 @@ const __dirname = path.dirname(__filename);
 
 // Root conformance folder: <repo_root>/conformance
 const CONFORMANCE_ROOT =
-  process.env.CONFORMANCE_ROOT || path.resolve(__dirname, '../../../../../conformance');
+  process.env.CONFORMANCE_ROOT || path.resolve(__dirname, '../../../conformance');
 const CORE_DIR = path.join(CONFORMANCE_ROOT, 'core');
 const AGENT_DIR = path.join(CONFORMANCE_ROOT, 'agent');
 
@@ -1814,7 +1818,7 @@ function getCatalogsForTestCase(testCase) {
 
   if (testCase.catalogPaths) {
     for (const p of testCase.catalogPaths) {
-      const fullPath = path.resolve(__dirname, '../../../../../', p);
+      const fullPath = path.resolve(__dirname, '../../../', p);
       if (!fs.existsSync(fullPath)) {
         throw new Error(`catalogPaths entry '${p}' does not exist (resolved to ${fullPath})`);
       }
