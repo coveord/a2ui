@@ -26,6 +26,12 @@ export {
   registerCatalogSchemaAdapter,
   type CatalogSchemaAdapter,
 } from './schema_adapter.js';
+export {
+  type ChildRefAnalysis,
+  type ChildRefAnalysisOptions,
+  type ComponentChildRefs,
+  type ComponentRefMap,
+} from './component_references.js';
 export {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 export {
   getSchemaAnnotation,

@@ -17,7 +17,7 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated from specification/v1_0 via scripts/generate-standard-defs.mjs
 
-import type {ChildRefAnalysisOptions} from './catalog/reference-map.js';
+import type {ChildRefAnalysisOptions} from './catalog/component_references.js';
 
 /** Child reference analysis configuration for A2UI v1.0 schemas. */
 export const V10_CHILD_REF_OPTIONS: ChildRefAnalysisOptions = {

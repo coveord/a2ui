@@ -15,53 +15,20 @@
  */
 
 import {childRefKindOf} from '../types/child-ref-helpers.js';
+import type {
+  ChildRefAnalysis,
+  ChildRefAnalysisOptions,
+  ComponentChildRefs,
+  ComponentRefMap,
+} from './component_references.js';
 import type {Catalog, ComponentApi} from './types.js';
 
-/**
- * Child reference properties for a single component type.
- */
-export interface ComponentChildRefs {
-  /** Property names holding single child component references. */
-  readonly singleRefs: ReadonlySet<string>;
-  /** Property names holding child list references or dynamic templates. */
-  readonly listRefs: ReadonlySet<string>;
-  /**
-   * Mapping of list property names to item sub-keys that hold child references.
-   *
-   * Used for list properties whose items are structured objects rather than
-   * plain string component IDs. Keys are property names that also appear in
-   * {@link listRefs}. A property is absent when its items are plain references
-   * rather than objects, or when the schema declared no child-bearing sub-key.
-   * Consumers treat an absent entry as "inspect every sub-key", preserving
-   * fallback behavior.
-   */
-  readonly nestedRefs?: Readonly<Record<string, ReadonlySet<string>>>;
-}
-
-/** Map of component type names to child reference properties. */
-export type ComponentRefMap = Record<string, ComponentChildRefs>;
-
-/**
- * Result of checking whether a schema represents a component child reference or child list.
- */
-export interface ChildRefAnalysis {
-  /** Whether the schema represents a single child ComponentId reference. */
-  isChild: boolean;
-  /** Whether the schema represents a list of child references or a dynamic child template (ChildList). */
-  isChildList: boolean;
-}
-
-/**
- * Options for configuring child reference analysis.
- */
-export interface ChildRefAnalysisOptions {
-  /** Set of definition names recognized as single child references. */
-  childRefNames: ReadonlySet<string>;
-  /** Set of definition names recognized as child list references. */
-  childListRefNames: ReadonlySet<string>;
-  /** Optional set of string property names recognized as single child references (e.g. in v0.8 schemas without $ref). */
-  childPropertyNames?: ReadonlySet<string>;
-}
+export type {
+  ChildRefAnalysis,
+  ChildRefAnalysisOptions,
+  ComponentChildRefs,
+  ComponentRefMap,
+} from './component_references.js';
 
 /**
  * Extracts the target definition name from a JSON Schema `$ref` pointer or URI.

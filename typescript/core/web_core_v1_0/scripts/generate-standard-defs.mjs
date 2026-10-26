@@ -54,7 +54,7 @@ const header = `/*
 `;
 
 const output = `${header}
-import type {ChildRefAnalysisOptions} from './catalog/reference-map.js';
+import type {ChildRefAnalysisOptions} from './catalog/component_references.js';
 
 /** Child reference analysis configuration for A2UI v1.0 schemas. */
 export const V10_CHILD_REF_OPTIONS: ChildRefAnalysisOptions = {
