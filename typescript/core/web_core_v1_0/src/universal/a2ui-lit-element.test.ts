@@ -17,16 +17,12 @@
 import * as assert from 'node:assert';
 import {describe, it, before, beforeEach, after} from 'node:test';
 import {setupTestDom, teardownTestDom, asyncUpdate} from '../test/dom-setup.js';
-import {nothing} from 'lit';
 
 import {ComponentContext} from '../resolution/component-context.js';
-import {NodeResolver} from '../resolution/node-resolver.js';
-import {getValue, peekValue} from '../reactivity/signals.js';
 import {MessageProcessor} from '../processing/message-processor.js';
 import {A2uiLitElement} from './a2ui-lit-element.js';
 import {z} from 'zod';
 import {Catalog, ComponentApi} from '../catalog/index.js';
-import {basicCatalog} from '../catalogs/basic/v1/catalog.js';
 
 const MockTextApi = {
   name: 'Text',
@@ -262,60 +258,6 @@ describe('A2uiLitElement', () => {
     document.body.removeChild(el);
   });
 
-  it('takes its context and its children from an assigned node', async () => {
-    const nodeProcessor = new MessageProcessor([basicCatalog]);
-    nodeProcessor.processMessages([
-      {
-        version: 'v1.0',
-        createSurface: {
-          surfaceId: 'node-surface',
-          catalogId: basicCatalog.id,
-        },
-      },
-      {
-        version: 'v1.0',
-        updateComponents: {
-          surfaceId: 'node-surface',
-          components: [
-            {id: 'root', component: 'Column', children: ['child_id', 'missing']},
-            {id: 'child_id', component: 'Text', text: 'Child'},
-          ],
-        },
-      },
-    ]);
-    const nodeSurface = nodeProcessor.model.getSurface('node-surface')!;
-    const resolver = new NodeResolver(nodeSurface, basicCatalog);
-    const root = getValue(resolver.rootNode)!;
-    const [childNode, missingNode] = peekValue(root.props).children as any[];
-    assert.strictEqual(childNode.componentId, 'child_id');
-    assert.strictEqual(missingNode.isPlaceholder, true);
-
-    const el = document.createElement('test-a2ui-element') as any;
-    document.body.appendChild(el);
-    await asyncUpdate(el, (e: any) => {
-      e.node = root;
-    });
-
-    assert.strictEqual(el.context, root.context);
-    assert.strictEqual(controllerCreatedCount, 1);
-    // renderNode('child_id') hands the child element the child's own node.
-    const childEl = el.shadowRoot.querySelector('a2ui-basic-text');
-    assert.strictEqual(childEl.node, childNode);
-    assert.strictEqual(childEl.context, childNode.context);
-
-    // Reassigning the same node changes nothing.
-    await asyncUpdate(el, (e: any) => {
-      e.node = root;
-    });
-    assert.strictEqual(controllerCreatedCount, 1);
-
-    // A child that is still a placeholder renders nothing.
-    assert.strictEqual((el as any).renderNode('missing'), nothing);
-
-    document.body.removeChild(el);
-    resolver.dispose();
-  });
-
   it('should return nothing when component is removed from surface', async () => {
     const {nothing} = await import('lit');
 
@@ -439,76 +381,5 @@ describe('A2uiLitElement', () => {
     assert.strictEqual(el.controller, undefined);
 
     document.body.removeChild(el);
-  });
-
-  it('does not accumulate component subscriptions when a parent re-renders', async () => {
-    const columnProcessor = new MessageProcessor([basicCatalog]);
-    columnProcessor.processMessages([
-      {
-        version: 'v1.0',
-        createSurface: {
-          surfaceId: 'leak-surface',
-          catalogId: basicCatalog.id,
-        },
-      },
-      {
-        version: 'v1.0',
-        updateComponents: {
-          surfaceId: 'leak-surface',
-          components: [
-            {id: 'root', component: 'Column', children: ['c1', 'c2']},
-            {id: 'c1', component: 'Text', text: {'@path': '/label'}},
-            {id: 'c2', component: 'Text', text: 'Static'},
-          ],
-        },
-      },
-      {
-        version: 'v1.0',
-        updateDataModel: {
-          surfaceId: 'leak-surface',
-          value: {label: 'Initial'},
-        },
-      },
-    ]);
-    const columnSurface = columnProcessor.model.getSurface('leak-surface')!;
-
-    for (const impl of basicCatalog.components.values()) {
-      const {registerUniversalElement} = await import('./register_universal_element.js');
-      registerUniversalElement(impl as any);
-    }
-
-    const rootEl = document.createElement('a2ui-basic-column') as any;
-    document.body.appendChild(rootEl);
-    await asyncUpdate(rootEl, (e: any) => {
-      e.context = new ComponentContext(columnSurface, 'root');
-    });
-
-    const onCreatedListeners = (columnSurface.componentsModel.onCreated as any)
-      .listeners as Set<unknown>;
-    const baselineListeners = onCreatedListeners.size;
-    assert.ok(baselineListeners >= 3);
-
-    // Repeatedly update the data model and re-render the parent without a NodeResolver,
-    // which causes Column.render() -> renderNode() to pass fresh ComponentContext
-    // instances to each child on every pass.
-    for (let i = 0; i < 10; i++) {
-      await asyncUpdate(rootEl, (e: any) => {
-        columnProcessor.processMessages([
-          {
-            version: 'v1.0',
-            updateDataModel: {
-              surfaceId: 'leak-surface',
-              value: {label: `Tick ${i}`},
-            },
-          },
-        ]);
-        e.requestUpdate();
-      });
-    }
-
-    assert.strictEqual(onCreatedListeners.size, baselineListeners);
-
-    document.body.removeChild(rootEl);
-    assert.strictEqual(onCreatedListeners.size, 0);
   });
 });

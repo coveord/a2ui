@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type * as v1 from '../../../catalogs/basic/v1/components/basic_components.js';
+import type * as v1 from '../components/basic_components.js';
 
 export type AudioPlayerSupportedApis = typeof v1.AudioPlayerApi;
 export type ButtonSupportedApis = typeof v1.ButtonApi;

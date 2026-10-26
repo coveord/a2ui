@@ -14,17 +14,11 @@
  * limitations under the License.
  */
 
-import {
-  RequiredApi,
-  RegexApi,
-  LengthApi,
-  NumericApi,
-  EmailApi,
-} from '../catalogs/basic/v1/functions/basic_functions_api.js';
+import {RequiredApi, RegexApi, LengthApi, NumericApi, EmailApi} from './basic_functions_api.js';
 
-import type {ValidationResultInput} from '../schema/catalog-definition.js';
+import type {ValidationResultInput} from '@a2ui/web_core_v1_0';
 
-declare module '../catalog/types.js' {
+declare module '@a2ui/web_core_v1_0' {
   interface A2uiReturnTypeMap {
     validationResult: ValidationResultInput;
   }

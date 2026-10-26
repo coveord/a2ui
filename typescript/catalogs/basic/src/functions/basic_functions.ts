@@ -18,9 +18,9 @@
  * Function implementations for the v1.0 basic catalog.
  */
 
-import {FunctionImplementation} from '../../../../catalog/types.js';
-import {V10_VALIDATION_FUNCTION_IMPLEMENTATIONS} from '../../../../functions/validation_functions.js';
-import {IndexImplementation} from '../../../../functions/system_functions.js';
+import {FunctionImplementation} from '@a2ui/web_core_v1_0';
+import {V10_VALIDATION_FUNCTION_IMPLEMENTATIONS} from './validation_functions.js';
+import {IndexImplementation} from '@a2ui/web_core_v1_0';
 import {
   AndApi,
   OrApi,
@@ -43,7 +43,7 @@ import {
   createPluralizeImplementation as createCommonPluralize,
   createOpenUrlImplementation,
   isTruthyOrValid,
-} from '../../../../common/basic_functions.js';
+} from '@a2ui/web_core_v1_0';
 
 // Logical. The v1.0 validators return a ValidationResult, so the logical
 // functions read an operand's `valid` member rather than treating every

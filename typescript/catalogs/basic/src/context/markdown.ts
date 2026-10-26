@@ -16,13 +16,13 @@
 
 import {createContext} from '@lit/context';
 
-import type {MarkdownRenderer} from '../../../common/markdown.js';
+import type {MarkdownRenderer} from '@a2ui/web_core_v1_0';
 
 export type {
   MarkdownRenderer,
   MarkdownRendererOptions,
   MarkdownRendererTagClassMap,
-} from '../../../common/markdown.js';
+} from '@a2ui/web_core_v1_0';
 
 /**
  * The markdown renderer context.

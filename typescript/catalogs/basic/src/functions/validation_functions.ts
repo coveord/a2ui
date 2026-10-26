@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {createFunctionImplementation} from '../catalog/types.js';
+import {createFunctionImplementation} from '@a2ui/web_core_v1_0';
 import {
   RequiredV1Point0Api,
   RegexV1Point0Api,
@@ -28,7 +28,7 @@ import {
   validateLength,
   validateNumeric,
   validateEmail,
-} from '../common/basic_functions.js';
+} from '@a2ui/web_core_v1_0';
 
 /**
  * Validates that a value is present and non-empty for v1.0 catalogs.

@@ -32,18 +32,33 @@ export * from './rpc/index.js';
 export * from './schema/index.js';
 export * from './standard_defs.js';
 export * from './functions/system_functions.js';
-export * from './functions/validation_functions_api.js';
-export * from './functions/validation_functions.js';
+export {
+  createAndImplementation,
+  createFormatCurrencyImplementation,
+  createFormatDateImplementation,
+  createFormatNumberImplementation,
+  createFormatStringImplementation,
+  createNotImplementation,
+  createOpenUrlImplementation,
+  createOrImplementation,
+  createPluralizeImplementation,
+  isTruthyOrValid,
+  validateEmail,
+  validateLength,
+  validateNumeric,
+  validateRegex,
+  validateRequired,
+} from './common/basic_functions.js';
 export * from './errors.js';
 export * from './common/events.js';
 export * from './common/markdown.js';
 export * from './common/semver.js';
 export * from './common/uax31.js';
-export * from './catalogs/basic/v1/index.js';
 export {
   A2uiController,
   A2uiLitElement,
   isWebComponentImplementation,
+  toWebComponentImplementation,
   registerUniversalElement,
   renderA2uiNode,
   type A2uiChildRef,

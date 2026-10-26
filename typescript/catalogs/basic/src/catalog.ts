@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import {Catalog} from '../../../catalog/types.js';
-import {BasicCatalogThemeSchema} from '../../../universal/basic_catalog/theme.js';
-import type {WebComponentImplementation} from '../../../universal/index.js';
+import {Catalog} from '@a2ui/web_core_v1_0';
+import {BasicCatalogThemeSchema} from './theme.js';
+import type {WebComponentImplementation} from '@a2ui/web_core_v1_0';
 import {BASIC_CATALOG_DOCUMENT_OPTIONS} from './components/basic_components.js';
 import {
   A2uiAudioPlayer,

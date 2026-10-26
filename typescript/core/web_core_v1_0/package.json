@@ -86,10 +86,6 @@
       "types": "./dist/src/index.d.ts",
       "default": "./dist/src/index.js"
     },
-    "./catalogs/basic/v1": {
-      "types": "./dist/src/catalogs/basic/v1/index.d.ts",
-      "default": "./dist/src/catalogs/basic/v1/index.js"
-    },
     "./universal": {
       "types": "./dist/src/universal/index.d.ts",
       "default": "./dist/src/universal/index.js"
@@ -119,10 +115,9 @@
   },
   "wireit": {
     "generate-zod-schemas": {
-      "command": "node scripts/generate-standard-defs.mjs && node scripts/generate-zod-schemas.mjs && node scripts/generate-superset-common-types.mjs && node src/catalogs/basic/v1/scripts/generate-catalog.mjs && prettier --write \"src/**/*.ts\"",
+      "command": "node scripts/generate-standard-defs.mjs && node scripts/generate-zod-schemas.mjs && node scripts/generate-superset-common-types.mjs && prettier --write \"src/**/*.ts\"",
       "files": [
         "../../../specification/v1_0/json/*.json",
-        "../../../catalogs/basic/v1/**/*.json",
         "scripts/generate-standard-defs.mjs",
         "scripts/generate-zod-schemas.mjs",
         "scripts/generate-superset-common-types.mjs",
@@ -131,8 +126,7 @@
         "src/types/helpers.ts",
         "src/types/child-ref-helpers.ts",
         "src/schema/helpers.ts",
-        "scripts/generate-schemas.mjs",
-        "src/catalogs/basic/v1/scripts/generate-catalog.mjs"
+        "scripts/generate-schemas.mjs"
       ],
       "output": [
         "src/standard_defs.ts",
@@ -142,21 +136,17 @@
         "src/schema/renderer-to-agent.ts",
         "src/schema/renderer-capabilities.ts",
         "src/schema/catalog-definition.ts",
-        "src/schema/index.ts",
-        "src/catalogs/basic/v1/components/basic_components.ts",
-        "src/catalogs/basic/v1/functions/basic_functions_api.ts"
+        "src/schema/index.ts"
       ]
     },
     "copy-spec": {
       "command": "node scripts/copy-spec.js",
       "files": [
         "../../../specification/v1_0/json/*.json",
-        "../../../catalogs/basic/**/*.json",
         "scripts/copy-spec.js"
       ],
       "output": [
-        "src/schemas/*.json",
-        "src/schemas/catalogs/**/*.json"
+        "src/schemas/*.json"
       ]
     },
     "build": {

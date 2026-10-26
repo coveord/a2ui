@@ -18,7 +18,7 @@ import {html, nothing, css, PropertyValues} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {BasicCatalogA2uiLitElement} from './basic-catalog-a2ui-lit-element.js';
 import type {RowSupportedApis} from './supported_apis.js';
-import type {ResolvedChildList} from '../../index.js';
+import type {ResolvedChildList} from '@a2ui/web_core_v1_0';
 
 const JUSTIFY_MAP: Record<string, string> = {
   start: 'flex-start',

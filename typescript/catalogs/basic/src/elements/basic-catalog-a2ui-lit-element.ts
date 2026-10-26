@@ -16,10 +16,10 @@
 
 import {html, nothing} from 'lit';
 import type {z} from 'zod';
-import {ComponentApi, type InferredComponentApiSchemaType} from '../../../catalog/types.js';
-import type {ResolveA2uiProps} from '../../../resolution/generic-binder.js';
-import type {AccessibilityAttributesSchema} from '../../../types/common-types.js';
-import {A2uiLitElement} from '../../index.js';
+import {ComponentApi, type InferredComponentApiSchemaType} from '@a2ui/web_core_v1_0';
+import type {ResolveA2uiProps} from '@a2ui/web_core_v1_0';
+import type {AccessibilityAttributesSchema} from '@a2ui/web_core_v1_0';
+import {A2uiLitElement} from '@a2ui/web_core_v1_0';
 import {injectBasicCatalogStyles, computeColorVariant} from '../styles/default.js';
 import {isValidCssColor} from '../theme.js';
 

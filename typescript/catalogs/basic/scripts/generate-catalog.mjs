@@ -16,11 +16,11 @@
 
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {generateCatalogApi} from '../../../../../scripts/generate-catalog-schemas.mjs';
+import {generateCatalogApi} from './generate-catalog-schemas.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const v1CatalogDir = join(__dirname, '..');
-const rootDir = resolve(__dirname, '../../../../../../../..');
+const catalogSourceDir = join(__dirname, '..', 'src');
+const rootDir = resolve(__dirname, '../../../..');
 
 console.log('Generating Basic Catalog v1 APIs...');
 
@@ -28,11 +28,11 @@ generateCatalogApi({
   version: 'v1_0',
   catalogPath: join(rootDir, 'catalogs', 'basic', 'v1', 'catalog.json'),
   commonTypesPath: join(rootDir, 'specification', 'v1_0', 'json', 'common_types.json'),
-  componentsOutPath: join(v1CatalogDir, 'components', 'basic_components.ts'),
-  functionsOutPath: join(v1CatalogDir, 'functions', 'basic_functions_api.ts'),
-  commonTypesImportPath: '../../../../schema/common-types.js',
-  typesImportPath: '../../../../catalog/types.js',
-  specImportPath: '../../../../catalog/spec_annotations.js',
+  componentsOutPath: join(catalogSourceDir, 'components', 'basic_components.ts'),
+  functionsOutPath: join(catalogSourceDir, 'functions', 'basic_functions_api.ts'),
+  commonTypesImportPath: '@a2ui/web_core_v1_0',
+  typesImportPath: '@a2ui/web_core_v1_0',
+  specImportPath: '@a2ui/web_core_v1_0',
 });
 
 console.log('Successfully generated Basic Catalog v1 APIs.');

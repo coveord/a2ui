@@ -19,7 +19,7 @@ import {repeat} from 'lit/directives/repeat.js';
 import {styleMap} from 'lit/directives/style-map.js';
 import {BasicCatalogA2uiLitElement} from './basic-catalog-a2ui-lit-element.js';
 import type {ListSupportedApis} from './supported_apis.js';
-import type {ResolvedChildList} from '../../index.js';
+import type {ResolvedChildList} from '@a2ui/web_core_v1_0';
 
 const ALIGN_MAP: Record<string, string> = {
   start: 'flex-start',

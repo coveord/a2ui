@@ -22,9 +22,7 @@ import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 import {getComponentReferences} from './integrity-checker.js';
 import {A2uiIntegrityError, A2uiRecursionError} from '../errors.js';
-import {buildComponentRefMap, ComponentRefMap} from '../catalog/reference-map.js';
-import {BASIC_COMPONENTS} from '../catalogs/basic/v1/components/basic_components.js';
-import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
+import {ComponentRefMap} from '../catalog/reference-map.js';
 
 describe('Integrity Verification', () => {
   describe('getComponentReferences', () => {
@@ -86,25 +84,6 @@ describe('Integrity Verification', () => {
         ['tab1', 'tabs[0].child'],
         ['tab2', 'tabs[1].child'],
       ]);
-    });
-
-    it('treats only the declared sub-key of the shipped Tabs schema as a reference', () => {
-      const refMap = buildComponentRefMap(BASIC_COMPONENTS, V10_CHILD_REF_OPTIONS);
-
-      assert.deepEqual(refMap['Tabs'].nestedRefs, {tabs: new Set(['child'])});
-
-      const comp = {
-        id: 'c1',
-        component: {
-          Tabs: {
-            tabs: [{title: 'Overview', child: 'c2'}],
-          },
-        },
-      };
-
-      const refIds = Array.from(getComponentReferences(comp, refMap)).map(([id]) => id);
-
-      assert.deepEqual(refIds, ['c2']);
     });
 
     it('falls back to a full sweep when the schema declared no nested keys', () => {

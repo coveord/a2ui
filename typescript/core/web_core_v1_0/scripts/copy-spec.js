@@ -14,24 +14,19 @@
  * limitations under the License.
  */
 
-import {cpSync, mkdirSync, readdirSync, statSync} from 'node:fs';
+import {cpSync, mkdirSync, readdirSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 const repoRoot = join(rootDir, '..', '..', '..');
+const source = join(repoRoot, 'specification', 'v1_0', 'json');
 const destination = join(rootDir, 'src', 'schemas');
-const protocolJson = join(repoRoot, 'specification', 'v1_0', 'json');
-const basicCatalog = join(repoRoot, 'catalogs', 'basic', 'v1');
 
 mkdirSync(destination, {recursive: true});
-for (const file of readdirSync(protocolJson)) {
+for (const file of readdirSync(source)) {
   if (file.endsWith('.json')) {
-    cpSync(join(protocolJson, file), join(destination, file));
+    cpSync(join(source, file), join(destination, file));
   }
 }
-cpSync(basicCatalog, join(destination, 'catalogs', 'basic'), {
-  recursive: true,
-  filter: source => statSync(source).isDirectory() || source.endsWith('.json'),
-});

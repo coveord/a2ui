@@ -56,23 +56,13 @@ export {
   BasicCatalogThemeSchema as ThemeSchema,
   type BasicCatalogTheme,
   isValidCssColor,
-} from '../../../universal/basic_catalog/theme.js';
-export {
-  injectBasicCatalogStyles,
-  computeColorVariant,
-} from '../../../universal/basic_catalog/styles/default.js';
-export type {
-  ColorVariantLightDarkOptions,
-  ColorVariantHoverOptions,
-} from '../../../universal/basic_catalog/styles/default.js';
-export {Context} from '../../../universal/basic_catalog/context/context.js';
+} from './theme.js';
+export {injectBasicCatalogStyles, computeColorVariant} from './styles/default.js';
+export type {ColorVariantLightDarkOptions, ColorVariantHoverOptions} from './styles/default.js';
+export {Context} from './context/context.js';
 export type {
   MarkdownRenderer,
   MarkdownRendererOptions,
   MarkdownRendererTagClassMap,
-} from '../../../universal/basic_catalog/context/markdown.js';
-export {
-  markdown,
-  setMarkdownRenderer,
-  getMarkdownRenderer,
-} from '../../../universal/basic_catalog/directives/directives.js';
+} from './context/markdown.js';
+export {markdown, setMarkdownRenderer, getMarkdownRenderer} from './directives/directives.js';
