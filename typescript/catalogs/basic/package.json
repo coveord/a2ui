@@ -1,0 +1,45 @@
+{
+  "name": "@a2ui/catalog-basic",
+  "version": "0.1.0",
+  "description": "A2UI Basic Catalog for protocol v1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b --pretty",
+    "generate": "node scripts/generate-catalog.mjs && prettier --write src/components/basic_components.ts src/functions/basic_functions_api.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "tsc -b --pretty && node --test \"dist/**/*.test.js\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@a2ui/web_core_v1_0": "workspace:*",
+    "@lit/context": "^1.1.6",
+    "lit": "^3.3.3",
+    "validate-color": "^2.2.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^25.9.3",
+    "eslint": "^10.4.1",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.8.4",
+    "typescript": "5.9.3"
+  },
+  "private": true
+}
