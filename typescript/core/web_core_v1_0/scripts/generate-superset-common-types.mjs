@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
+import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -450,9 +450,9 @@ export function generateSupersetCommonTypes(options = {}) {
   const specDirectory = options.specDir || defaultSpecDir;
   const destinationFile = options.destFile || defaultDestFile;
 
-  const versionDirs = readdirSync(specDirectory)
-    .filter(d => d !== 'v0_8' && existsSync(join(specDirectory, d, 'json', 'common_types.json')))
-    .sort();
+  const versionDirs = ['v1_0'].filter(d =>
+    existsSync(join(specDirectory, d, 'json', 'common_types.json')),
+  );
 
   console.log(`Discovered specification versions: ${versionDirs.join(', ')}`);
 

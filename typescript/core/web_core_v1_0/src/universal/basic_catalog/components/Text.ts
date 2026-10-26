@@ -110,21 +110,6 @@ export class A2uiBasicTextElement extends BasicCatalogA2uiLitElement<TextSupport
     if (NON_MARKDOWN_VARIANTS.has(variant)) {
       let content = html`${text}`;
       switch (variant) {
-        case 'h1':
-          content = html`<h1>${text}</h1>`;
-          break;
-        case 'h2':
-          content = html`<h2>${text}</h2>`;
-          break;
-        case 'h3':
-          content = html`<h3>${text}</h3>`;
-          break;
-        case 'h4':
-          content = html`<h4>${text}</h4>`;
-          break;
-        case 'h5':
-          content = html`<h5>${text}</h5>`;
-          break;
         case 'caption':
           content = html`<em>${text}</em>`;
           break;

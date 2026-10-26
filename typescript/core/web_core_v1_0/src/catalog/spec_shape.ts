@@ -32,8 +32,6 @@ import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, normalizeVersionString, toCanonicalVersion} from '../common/semver.js';
-import {V08_STANDARD_DEFS} from '../v0_8/standard_defs.js';
-import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../standard_defs.js';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {getSpecAnnotation, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
@@ -44,9 +42,6 @@ type JsonObject = Record<string, unknown>;
 export const DEFAULT_COMMON_TYPES_URI = 'common_types.json';
 
 const STANDARD_DEFS_BY_VERSION: Readonly<Record<string, Record<string, unknown>>> = {
-  '0.8': V08_STANDARD_DEFS,
-  '0.9': V09_STANDARD_DEFS,
-  '0.9.1': V09_STANDARD_DEFS,
   '1.0': V10_STANDARD_DEFS,
 };
 
@@ -61,9 +56,8 @@ export function standardDefsForVersion(version: string | undefined): Record<stri
   if (version) {
     const key = toCanonicalVersion(version) ?? normalizeVersionString(version);
     if (key in STANDARD_DEFS_BY_VERSION) return STANDARD_DEFS_BY_VERSION[key];
-    if (isAtLeastVersion(version, '1.0')) return V10_STANDARD_DEFS;
   }
-  return V09_STANDARD_DEFS;
+  return V10_STANDARD_DEFS;
 }
 
 function copyJson<V>(value: V): V {

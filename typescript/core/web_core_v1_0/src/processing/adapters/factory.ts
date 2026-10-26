@@ -22,20 +22,13 @@ import {
   VersionAdapterResolver,
   registerKnownActionsProvider,
 } from './base.js';
-import {V0Point8Adapter} from './v0_8.js';
-import {V0Point9Adapter} from './v0_9.js';
 import {V1Point0Adapter} from './v1_0.js';
 
 /**
  * Resolves version adapters for protocol specification versions.
  */
 export class VersionAdapterFactory implements VersionAdapterResolver {
-  private readonly adapters = new Map<string, VersionAdapter>([
-    ['0.8', new V0Point8Adapter()],
-    ['0.9', new V0Point9Adapter()],
-    ['0.9.1', new V0Point9Adapter()],
-    ['1.0', new V1Point0Adapter()],
-  ]);
+  private readonly adapters = new Map<string, VersionAdapter>([['1.0', new V1Point0Adapter()]]);
 
   /**
    * Returns the aggregated set of all action keys supported by all registered adapters.
@@ -108,14 +101,6 @@ export class VersionAdapterFactory implements VersionAdapterResolver {
           );
         }
         return this.getAdapter(ver);
-      }
-      if (
-        'beginRendering' in item ||
-        'surfaceUpdate' in item ||
-        'dataModelUpdate' in item ||
-        'deleteSurface' in item
-      ) {
-        return this.getAdapter('v0.8');
       }
     }
     throw new A2uiValidationError(

@@ -49,7 +49,7 @@ export interface ParsedCatalogSchema extends CatalogDocumentOptions {
  * Catalog schemas only began carrying `protocolVersion` at v1.0, so a schema
  * that omits it predates that field.
  */
-export const DEFAULT_PROTOCOL_VERSION = '0.9';
+export const DEFAULT_PROTOCOL_VERSION = '1.0';
 
 /**
  * A peer catalog that a cross-catalog `$ref` can resolve against: a catalog,

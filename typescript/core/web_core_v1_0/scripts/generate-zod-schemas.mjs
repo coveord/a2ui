@@ -14,41 +14,13 @@
  * limitations under the License.
  */
 
-import {readdirSync, existsSync} from 'node:fs';
-import {join, dirname} from 'node:path';
+import {dirname, join} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
-/**
- * @fileoverview Master runner for Zod schema generation across all supported protocol versions.
- *
- * Discovers version-specific generators under `src/<version>/scripts/` and
- * runs the flattened v1.0 generator from `scripts/generate-schemas.mjs`.
- */
-
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const srcDir = join(__dirname, '..', 'src');
+const generatorPath = join(__dirname, 'generate-schemas.mjs');
+const generator = await import(pathToFileURL(generatorPath).href);
 
-const generatorPaths = [
-  ...readdirSync(srcDir, {withFileTypes: true})
-    .filter(dirent => dirent.isDirectory())
-    .map(dirent => join(srcDir, dirent.name, 'scripts', 'generate-schemas.mjs'))
-    .filter(existsSync)
-    .sort(),
-  join(__dirname, 'generate-schemas.mjs'),
-];
-
-console.log(`Running schema generators: ${generatorPaths.join(', ')}`);
-
-for (const scriptPath of generatorPaths) {
-  const moduleUrl = pathToFileURL(scriptPath).href;
-  const mod = await import(moduleUrl);
-
-  // Invoke exported generator function
-  const generatorFn =
-    mod.generateSchemas || mod.default || Object.values(mod).find(fn => typeof fn === 'function');
-  if (generatorFn) {
-    await generatorFn();
-  }
-}
-
-console.log('Successfully finished generating Zod schemas.');
+console.log(`Running schema generator: ${generatorPath}`);
+await generator.generateSchemas();
+console.log('Successfully generated v1.0 Zod schemas.');

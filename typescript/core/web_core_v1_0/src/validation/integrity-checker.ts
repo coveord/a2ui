@@ -39,8 +39,6 @@ import {
   isChildOrChildListSchema,
   isChildSchema,
 } from '../catalog/reference-map.js';
-import {V08_CHILD_REF_OPTIONS} from '../v0_8/standard_defs.js';
-import {V09_CHILD_REF_OPTIONS} from '../v0_9/standard_defs.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 
 import {isValidUax31Identifier, assertUax31Identifier} from '../common/uax31.js';
@@ -54,8 +52,6 @@ export {
   isChildOrChildListSchema,
   isChildSchema,
   isValidUax31Identifier,
-  V08_CHILD_REF_OPTIONS,
-  V09_CHILD_REF_OPTIONS,
   V10_CHILD_REF_OPTIONS,
 };
 

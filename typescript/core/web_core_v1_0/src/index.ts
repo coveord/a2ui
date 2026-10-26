@@ -52,7 +52,7 @@ export {
   type WebComponentImplementation,
 } from './universal/index.js';
 export * from './spec_versions.js';
-export {isSafeRegex, type SafeRegexOptions} from './v0_9/basic_catalog/functions/safe_regex.js';
+export {isSafeRegex, type SafeRegexOptions} from './common/safe_regex.js';
 
 import A2uiMessageSchemaRaw from './schemas/agent_to_renderer.json' with {type: 'json'};
 

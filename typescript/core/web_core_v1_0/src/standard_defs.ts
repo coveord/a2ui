@@ -15,21 +15,17 @@
  */
 
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated from specification/ via scripts/generate-standard-defs.mjs
+// Generated from specification/v1_0 via scripts/generate-standard-defs.mjs
 
 import type {ChildRefAnalysisOptions} from './catalog/reference-map.js';
 
-/**
- * Child reference analysis configuration for A2UI v1.0 schemas.
- */
+/** Child reference analysis configuration for A2UI v1.0 schemas. */
 export const V10_CHILD_REF_OPTIONS: ChildRefAnalysisOptions = {
   childRefNames: new Set(['ComponentId', 'Child', 'ChildComponentId']),
   childListRefNames: new Set(['ChildList', 'TemplateChildList', 'ChildrenItem', 'TemplateItem']),
 };
 
-/**
- * Standard $defs dictionary for A2UI v1.0 catalog JSON schemas.
- */
+/** Standard $defs dictionary for A2UI v1.0 catalog JSON schemas. */
 export const V10_STANDARD_DEFS: Record<string, unknown> = {
   'ComponentId': {
     'type': 'string',

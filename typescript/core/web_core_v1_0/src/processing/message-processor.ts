@@ -32,7 +32,7 @@ import {
   validateComponentGraph,
 } from '../state/validation-helpers.js';
 import {defaultVersionAdapterFactory} from './adapters/factory.js';
-import {compareSemVer, isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
+import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {
   InternalOperation,
   InternalCreateSurfaceOp,
@@ -48,11 +48,6 @@ import {
   VersionAdapterResolver,
 } from './adapters/base.js';
 import {RendererCapabilities} from '../schema/index.js';
-import type {ServerToClientMessage as V08ServerToClientMessage} from '../v0_8/types/types.js';
-import type {
-  A2uiMessage as V09A2uiMessage,
-  A2uiMessageListWrapper as V09A2uiMessageListWrapper,
-} from '../v0_9/schema/server-to-client.js';
 import type {
   AgentToRendererMessage as V10AgentToRendererMessage,
   CallRendererFunctionMessage,
@@ -77,11 +72,7 @@ import {
 /**
  * Union of individual message types supported by the MessageProcessor across protocol versions.
  */
-export type ProcessableMessage =
-  | V08ServerToClientMessage
-  | V09A2uiMessage
-  | V10AgentToRendererMessage
-  | InternalOperation;
+export type ProcessableMessage = V10AgentToRendererMessage | InternalOperation;
 
 /**
  * Valid payload format for `MessageProcessor.processMessages`, which can be a single message,
@@ -90,7 +81,6 @@ export type ProcessableMessage =
 export type ProcessableMessagePayload =
   | ProcessableMessage
   | readonly ProcessableMessage[]
-  | V09A2uiMessageListWrapper
   | {readonly messages: readonly ProcessableMessage[]};
 
 export type {
@@ -118,20 +108,13 @@ export interface CapabilitiesOptions {
   versions: ProtocolVersion[];
   /** Whether full definitions of all catalogs will be included inline. */
   includeInlineCatalogs?: boolean;
-  /**
-   * Base schema `$ref` to wrap component definitions in v0.8, v0.9 and v0.9.1
-   * inline catalogs. Defaults to 'common_types.json#/$defs/ComponentCommon'.
-   * From v1.0, inline catalogs are each catalog's `toJson()` document and this
-   * option does not apply.
-   */
-  componentEnvelopeRef?: string;
 }
 
 /**
  * Options for configuring a MessageProcessor instance.
  */
 export interface MessageProcessorOptions {
-  /** Default protocol version to use for capability generation and data model reporting. Defaults to 'v0.9'. */
+  /** Default protocol version to use for capability generation and data model reporting. Defaults to 'v1.0'. */
   version?: ProtocolVersion;
   /** Custom version adapter resolver or registry. Defaults to VersionAdapterFactory. */
   adapterRegistry?: VersionAdapterResolver;
@@ -253,15 +236,7 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
       };
 
       const inlineCatalogs = options?.includeInlineCatalogs
-        ? this.catalogs.map(c => {
-            if (compareSemVer(ver, '1.0') >= 0) {
-              return this.generateInlineCatalog(c);
-            }
-            return this.generateLegacyInlineCatalog(
-              c,
-              options?.componentEnvelopeRef ?? 'common_types.json#/$defs/ComponentCommon',
-            );
-          })
+        ? this.catalogs.map(c => this.generateInlineCatalog(c))
         : undefined;
 
       if (inlineCatalogs) {

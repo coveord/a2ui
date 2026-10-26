@@ -23,17 +23,12 @@ import {SemVer, normalizeVersionString, toSemVer, toCanonicalVersion} from '../.
 /**
  * Union of supported A2UI protocol version strings.
  */
-export type ProtocolVersion = 'v0.8' | 'v0.9' | 'v0.9.1' | 'v1.0' | (string & {});
+export type ProtocolVersion = 'v1.0' | (string & {});
 
 /**
  * Canonical protocol versions supported by the A2UI runtime.
  */
-export const SUPPORTED_PROTOCOL_VERSIONS: ReadonlySet<string> = new Set([
-  '0.8',
-  '0.9',
-  '0.9.1',
-  '1.0',
-]);
+export const SUPPORTED_PROTOCOL_VERSIONS: ReadonlySet<string> = new Set(['1.0']);
 
 /**
  * Default explicit catalog-to-message protocol compatibility mapping.
@@ -42,9 +37,6 @@ export const SUPPORTED_PROTOCOL_VERSIONS: ReadonlySet<string> = new Set([
  * protocol specification versions that it can accommodate.
  */
 export const DEFAULT_CATALOG_COMPATIBILITY: Readonly<Record<string, ReadonlySet<string>>> = {
-  '0.8': new Set(['0.8']),
-  '0.9': new Set(['0.9', '0.9.1']),
-  '0.9.1': new Set(['0.9.1', '0.9']),
   '1.0': new Set(['1.0']),
 };
 
