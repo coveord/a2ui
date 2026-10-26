@@ -19,5 +19,6 @@
 
 export * from './types.js';
 export * from './function_invoker.js';
+export * from './standard_schema.js';
 export {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 export {spec, specDef, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
