@@ -21,9 +21,23 @@
  * the reverse. Later extraction steps add catalog parsing and serialization
  * operations to this contract as their Zod implementations move here.
  */
+import type {CatalogApi} from './types.js';
+
+/** Input accepted by a catalog schema adapter's parser. */
+export interface CatalogParseRequest {
+  /** Raw catalog document or inline catalog payload. */
+  readonly json: Record<string, unknown>;
+  /** Protocol version that overrides the document's declared version. */
+  readonly protocolVersion?: string;
+  /** Catalog ID that overrides the document's declared ID. */
+  readonly catalogId?: string;
+}
+
 export interface CatalogSchemaAdapter {
   /** Stable package identifier used in diagnostics. */
   readonly name: string;
+  /** Parses a catalog document into core catalog models when supported. */
+  readonly parseCatalog?: (request: CatalogParseRequest) => CatalogApi;
 }
 
 let registeredAdapter: CatalogSchemaAdapter | undefined;

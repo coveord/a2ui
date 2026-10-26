@@ -43,6 +43,7 @@ import {
 import {IndexImplementation} from '../functions/system_functions.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 import type {ComponentSchemaMetadata} from './schema_metadata.js';
+import {getCatalogSchemaAdapter} from './schema_adapter.js';
 
 export type {ComponentChildRefs};
 export {inlinePeerAndLocalRefs};
@@ -808,6 +809,10 @@ export class Catalog<
     protocolVersion?: string,
     catalogId?: string,
   ): CatalogApi {
+    const adapter = getCatalogSchemaAdapter();
+    if (adapter?.parseCatalog) {
+      return adapter.parseCatalog({json, protocolVersion, catalogId});
+    }
     const {
       id,
       protocolVersion: resolvedVersion,
