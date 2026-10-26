@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {basicCatalog as codeDefinedBasicCatalogV10} from '@a2ui/web_core/catalogs/basic/v1';
+import {basicCatalog as codeDefinedBasicCatalogV10} from '@a2ui/catalog-basic/v1';
 import {describe, expect, it} from 'vitest';
 
 import {A2uiCatalogError} from '../../../../src/errors.js';

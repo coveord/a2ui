@@ -36,6 +36,7 @@
       "command": "yarn generate-examples && tsc && vite build",
       "dependencies": [
         "generate:examples",
+        "../../../catalogs/basic:build",
         "../../../core/web_core:build",
         "../../markdown-it:build",
         "../:build"
@@ -64,6 +65,7 @@
     }
   },
   "dependencies": {
+    "@a2ui/catalog-basic": "workspace:*",
     "@a2ui/lit": "workspace:*",
     "@a2ui/markdown-it": "workspace:*",
     "@a2ui/web_core": "workspace:*",

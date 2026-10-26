@@ -75,7 +75,8 @@
     "test": {
       "command": "vitest run",
       "dependencies": [
-        "build"
+        "build",
+        "../../catalogs/basic:build"
       ]
     },
     "test:timing": {
@@ -117,6 +118,7 @@
   "author": "Google",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@a2ui/catalog-basic": "workspace:*",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.9.3",
     "antlr-ng": "1.0.10",

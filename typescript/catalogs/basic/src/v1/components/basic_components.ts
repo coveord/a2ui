@@ -18,8 +18,8 @@
 // Generated from specification/ catalogs via scripts/generate-catalog-schemas.mjs
 import {z} from 'zod';
 
-import {spec} from '../../../../catalog/spec_annotations.js';
-import {CatalogDocumentOptions, ComponentApi} from '../../../../catalog/types.js';
+import {spec} from '@a2ui/web_core/v1_0';
+import {CatalogDocumentOptions, ComponentApi} from '@a2ui/web_core/v1_0';
 import {
   ActionSchema,
   CheckRuleSchema,
@@ -30,7 +30,7 @@ import {
   DynamicNumberSchema,
   DynamicStringListSchema,
   DynamicStringSchema,
-} from '../../../../v1_0/schema/common-types.js';
+} from '@a2ui/web_core/v1_0';
 
 export const TextApi = {
   name: 'Text',

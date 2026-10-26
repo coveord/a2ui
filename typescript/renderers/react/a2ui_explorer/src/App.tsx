@@ -17,7 +17,7 @@
 import {useState, useEffect, useCallback, useRef} from 'react';
 import {MessageProcessor, type A2uiClientAction} from '@a2ui/web_core/v0_9';
 import {A2uiSurface, MarkdownContext, type ReactCatalogComponent} from '@a2ui/react';
-import {basicCatalog as basicCatalogV10} from '@a2ui/web_core/catalogs/basic/v1';
+import {basicCatalog as basicCatalogV10} from '@a2ui/catalog-basic/v1';
 import {demoCatalog} from './demo-catalog';
 import {getDemoItems, type DemoItem} from './examples';
 import {renderMarkdown} from '@a2ui/markdown-it';

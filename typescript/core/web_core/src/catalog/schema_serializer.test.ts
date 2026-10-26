@@ -21,8 +21,6 @@ import {describe, it} from 'node:test';
 
 import {z} from 'zod';
 
-import {basicCatalog as v10BasicCatalog} from '../catalogs/basic/v1/catalog.js';
-import {A2uiText as V10Text} from '../catalogs/basic/v1/components/index.js';
 import {basicCatalog as v08BasicCatalog} from '../v0_8/basic_catalog/catalog.js';
 import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {A2uiText as V09Text} from '../v0_9/basic_catalog/components/index.js';
@@ -199,7 +197,6 @@ describe('Catalog.toJson', () => {
   for (const [label, builtin, catalogPath] of [
     ['v0.8', v08BasicCatalog, 'specification/v0_8/json/standard_catalog_definition.json'],
     ['v0.9', v09BasicCatalog, 'specification/v0_9/catalogs/basic/catalog.json'],
-    ['v1.0', v10BasicCatalog, 'catalogs/basic/v1/catalog.json'],
   ] as const) {
     it(`returns the published document for the built-in ${label} basic catalog`, () => {
       assert.deepStrictEqual(builtin.toJson(), readRepoJson(catalogPath));
@@ -218,52 +215,6 @@ describe('Catalog.toJson', () => {
     const overridden = Catalog.fromJson(declared, '1.0', 'https://example.com/other');
     assert.strictEqual(overridden.id, 'https://example.com/other');
     assert.strictEqual(overridden.toJson().catalogId, 'https://example.com/other');
-  });
-
-  it('computes the definitions of the basic models in another code-defined catalog', () => {
-    const published = readRepoJson('catalogs/basic/v1/catalog.json');
-    const out = new Catalog(
-      'https://example.com/reused',
-      '1.0',
-      [...v10BasicCatalog.components.values()],
-      [...v10BasicCatalog.functions.values()],
-    ).toJson();
-    assert.deepStrictEqual(out.components, published.components);
-    assert.deepStrictEqual(out.functions, published.functions);
-    assert.deepStrictEqual(out.$defs, published.$defs);
-  });
-
-  it('serializes a code-defined v1.0 catalog unbundled, with both unions', () => {
-    const codeDefined = new Catalog(
-      v10BasicCatalog.id,
-      '1.0',
-      [...v10BasicCatalog.components.values()].map(plain),
-      [...v10BasicCatalog.functions.values()].map(plain),
-    );
-    const out = codeDefined.toJson();
-    assert.strictEqual(out.catalogId, v10BasicCatalog.id);
-    assert.strictEqual(out.protocolVersion, '1.0');
-    assert.strictEqual(out.theme, undefined);
-    assert.deepStrictEqual(Object.keys(out.$defs as object).sort(), [
-      'anyComponent',
-      'anyFunction',
-    ]);
-    const functions = out.functions as Record<string, any>;
-    assert.ok(!('@index' in functions), 'system functions are not part of the document');
-    assert.deepStrictEqual(functions.formatNumber.properties['@call'], {const: 'formatNumber'});
-    assert.strictEqual(functions.formatNumber.returnType, 'string');
-    for (const ref of collectRefs(out)) {
-      assert.ok(
-        ref.startsWith('common_types.json#/$defs/') ||
-          ref.startsWith('#/components/') ||
-          ref.startsWith('#/functions/'),
-        `unexpected reference '${ref}'`,
-      );
-    }
-    const text = (out.components as Record<string, any>).Text;
-    assert.deepStrictEqual(text.properties.component, {const: 'Text'});
-    assert.ok(text.required.includes('component'));
-    assert.ok(!('id' in text.properties));
   });
 
   it('serializes code-defined functions in the call shape of the protocol version', () => {
@@ -780,10 +731,7 @@ describe('Catalog.fromJson', () => {
 describe('composite catalogs', () => {
   const Custom: ComponentApi = {name: 'Custom', schema: z.object({label: z.string()}).strict()};
 
-  for (const [version, basic] of [
-    ['0.9', v09BasicCatalog],
-    ['1.0', v10BasicCatalog],
-  ] as const) {
+  for (const [version, basic] of [['0.9', v09BasicCatalog]] as const) {
     for (const withUri of [false, true]) {
       it(`resolves every reference of reused v${version} basic entries${withUri ? ' given their common types URI' : ''}`, () => {
         const composite = new Catalog(
@@ -808,7 +756,7 @@ describe('composite catalogs', () => {
         const published = basic.toJson();
         const text = (doc.components as Record<string, any>).Text;
         const publishedText = (published.components as Record<string, unknown>).Text;
-        if (withUri || version === '1.0') {
+        if (withUri) {
           assert.deepStrictEqual(text, publishedText);
         } else {
           assert.strictEqual(text.allOf[0].$ref, 'common_types.json#/$defs/ComponentCommon');
@@ -854,21 +802,16 @@ describe('composite catalogs', () => {
 
 describe('entry definitions', () => {
   it('keeps no JSON definition on the built-in entries, which are generated models', () => {
-    for (const [builtin, text] of [
-      [v09BasicCatalog, V09Text],
-      [v10BasicCatalog, V10Text],
-    ] as const) {
-      const entry = builtin.components.get('Text')!;
-      assert.ok(!(entry instanceof JsonComponentApi));
-      assert.ok(!('definition' in entry) && !('jsonSchema' in entry));
-      assert.strictEqual(entry.schema, text.schema);
-      assert.strictEqual(entry.tagName, text.tagName);
-    }
+    const entry = v09BasicCatalog.components.get('Text')!;
+    assert.ok(!(entry instanceof JsonComponentApi));
+    assert.ok(!('definition' in entry) && !('jsonSchema' in entry));
+    assert.strictEqual(entry.schema, V09Text.schema);
+    assert.strictEqual(entry.tagName, V09Text.tagName);
   });
 
   it('serializes an entry copied with a new schema from that schema', () => {
     const changed = {
-      ...v10BasicCatalog.components.get('Text')!,
+      ...v09BasicCatalog.components.get('Text')!,
       schema: z.object({text: z.string(), extra: z.number()}),
     };
     const loadedText = Catalog.fromJson(
@@ -1229,7 +1172,6 @@ describe('built-in basic catalogs', () => {
   for (const [label, builtin] of [
     ['v0.8', v08BasicCatalog],
     ['v0.9', v09BasicCatalog],
-    ['v1.0', v10BasicCatalog],
   ] as const) {
     it(`keeps the ${label} Zod schemas in line with the published document`, () => {
       // Copies of the entries without their annotations are generated from Zod.

@@ -19,7 +19,18 @@ import * as assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import {effect, Signal, getValue} from '../../../../reactivity/signals.js';
+import {
+  A2uiExpressionError,
+  A2uiValidationError,
+  Catalog,
+  ComponentApi,
+  DataContext,
+  DataModel,
+  effect,
+  getValue,
+  Signal,
+} from '@a2ui/web_core/v1_0';
+
 import {
   BASIC_FUNCTIONS,
   FormatCurrencyImplementation,
@@ -30,10 +41,6 @@ import {
   createFormatCurrencyImplementation,
 } from './basic_functions.js';
 import {BASIC_FUNCTION_APIS} from './basic_functions_api.js';
-import {DataModel} from '../../../../state/data-model.js';
-import {DataContext} from '../../../../resolution/data-context.js';
-import {A2uiExpressionError, A2uiValidationError} from '../../../../errors.js';
-import {Catalog, ComponentApi} from '../../../../catalog/types.js';
 
 const testCatalog = new Catalog<ComponentApi>('test', '1.0', [], BASIC_FUNCTIONS);
 

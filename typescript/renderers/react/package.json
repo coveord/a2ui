@@ -103,6 +103,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@a2ui/catalog-basic": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -160,7 +161,8 @@
     "test:unit": {
       "command": "vitest run",
       "dependencies": [
-        "build"
+        "build",
+        "../../catalogs/basic:build"
       ],
       "files": [
         "src/**/*",

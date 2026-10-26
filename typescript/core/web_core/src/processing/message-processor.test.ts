@@ -25,8 +25,7 @@ import {
 import {Catalog, ComponentApi, createFunctionImplementation} from '../catalog/types.js';
 import {CardApi, RowApi, TabsApi} from '../v0_9/basic_catalog/components/basic_components.js';
 import {BasicCatalogThemeSchema} from '../universal/basic_catalog/theme.js';
-import {BASIC_COMPONENTS} from '../catalogs/basic/v1/components/basic_components.js';
-import {BASIC_FUNCTIONS} from '../catalogs/basic/v1/functions/basic_functions.js';
+import {loadBasicCatalogV1} from '../test/basic_catalog_v1.js';
 import {A2uiCatalogError, A2uiIntegrityError, A2uiValidationError} from '../errors.js';
 import {DataContext} from '../resolution/data-context.js';
 import {peekValue} from '../reactivity/signals.js';
@@ -167,25 +166,6 @@ describe('MessageProcessor', () => {
 
       const tabItems = components.Tabs.allOf[1].properties.tabs.items;
       assert.strictEqual(tabItems.properties.child.$ref, '#/$defs/ComponentId');
-    });
-
-    it('sends each catalog toJson() document as a v1.0 inline catalog', () => {
-      const cat = new Catalog('https://example.com/cat', '1.0', BASIC_COMPONENTS, BASIC_FUNCTIONS, {
-        themeSchema: BasicCatalogThemeSchema,
-      });
-      const proc = new MessageProcessor([cat]);
-      const caps = proc.getRendererCapabilities({versions: ['v1.0'], includeInlineCatalogs: true});
-      const inlineCat = (caps['v1.0'] as any).inlineCatalogs?.[0] as Record<string, any>;
-
-      assertConformsToV10CatalogDefinition(inlineCat);
-      assert.deepStrictEqual(Object.keys(inlineCat.$defs).sort(), ['anyComponent', 'anyFunction']);
-      assert.strictEqual(inlineCat.protocolVersion, '1.0');
-      assert.strictEqual(inlineCat.theme, undefined);
-      assert.strictEqual(
-        inlineCat.components.Text.properties.text.$ref,
-        'common_types.json#/$defs/DynamicString',
-      );
-      assert.deepStrictEqual(inlineCat, cat.toJson());
     });
 
     it('sends a loaded v1.0 catalog as the document it was loaded from', () => {
@@ -587,7 +567,9 @@ describe('MessageProcessor', () => {
   });
 
   describe('MessageProcessor Full Pipeline & Validation Integration', () => {
-    const basicCatalog = new Catalog('https://a2ui.org/catalog', '1.0', BASIC_COMPONENTS);
+    const basicCatalog = new Catalog('https://a2ui.org/catalog', '1.0', [
+      ...loadBasicCatalogV1().components.values(),
+    ]);
 
     it('leaves componentsModel untouched when updateComponents fails topology validation', () => {
       const proc = new MessageProcessor([basicCatalog], undefined, {

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+import {basicCatalog} from '@a2ui/catalog-basic/v1';
 import {
-  basicCatalog,
   Catalog,
   ComponentContext,
   MessageProcessor,

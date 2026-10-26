@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Depend on `@a2ui/catalog-basic`, which now provides the v1 basic catalog that `BasicCatalog` wraps, instead of `@a2ui/web_core/catalogs/basic/v1`.
+
 ## 0.13.0
 
 - Bump dependencies for compatibility with `@a2ui/web_core: ^0.14.0`.

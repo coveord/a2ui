@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {toWebComponentImplementation} from '../../../../universal/to_web_component_implementation.js';
+import {toWebComponentImplementation} from '@a2ui/web_core/v1_0';
 import {
   A2uiAudioPlayerElement,
   A2uiBasicButtonElement,
@@ -34,7 +34,7 @@ import {
   A2uiSliderElement,
   A2uiTabsElement,
   A2uiVideoElement,
-} from '../../../../universal/basic_catalog/components/index.js';
+} from '@a2ui/web_core/basic_catalog_shared';
 import {
   AudioPlayerApi,
   ButtonApi,

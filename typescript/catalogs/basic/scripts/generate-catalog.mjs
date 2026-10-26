@@ -16,11 +16,13 @@
 
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {generateCatalogApi} from '../../../../../scripts/generate-catalog-schemas.mjs';
+// The generator is shared with the v0.9 basic catalog, which still lives in
+// `@a2ui/web_core`, so it stays there.
+import {generateCatalogApi} from '../../../core/web_core/scripts/generate-catalog-schemas.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const v1CatalogDir = join(__dirname, '..');
-const rootDir = resolve(__dirname, '../../../../../../../..');
+const v1CatalogDir = join(__dirname, '..', 'src', 'v1');
+const rootDir = resolve(__dirname, '../../../..');
 
 console.log('Generating Basic Catalog v1 APIs...');
 
@@ -30,9 +32,9 @@ generateCatalogApi({
   commonTypesPath: join(rootDir, 'specification', 'v1_0', 'json', 'common_types.json'),
   componentsOutPath: join(v1CatalogDir, 'components', 'basic_components.ts'),
   functionsOutPath: join(v1CatalogDir, 'functions', 'basic_functions_api.ts'),
-  commonTypesImportPath: '../../../../v1_0/schema/common-types.js',
-  typesImportPath: '../../../../catalog/types.js',
-  specImportPath: '../../../../catalog/spec_annotations.js',
+  commonTypesImportPath: '@a2ui/web_core/v1_0',
+  typesImportPath: '@a2ui/web_core/v1_0',
+  specImportPath: '@a2ui/web_core/v1_0',
 });
 
 console.log('Successfully generated Basic Catalog v1 APIs.');

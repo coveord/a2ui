@@ -18,7 +18,7 @@
 // Generated from specification/ catalogs via scripts/generate-catalog-schemas.mjs
 import {z} from 'zod';
 
-import {spec} from '../../../../catalog/spec_annotations.js';
+import {spec} from '@a2ui/web_core/v1_0';
 import {
   DataBindingSchema,
   DynamicBooleanSchema,
@@ -26,7 +26,7 @@ import {
   DynamicStringSchema,
   DynamicValueSchema,
   FunctionCallSchema,
-} from '../../../../v1_0/schema/common-types.js';
+} from '@a2ui/web_core/v1_0';
 
 /**
  * Checks that the value is not null, undefined, or empty.

@@ -532,6 +532,34 @@ describe('generate-catalog-schemas.mjs', () => {
     assert.deepStrictEqual(extracted.argsRequired, ['date']);
   });
 
+  it('extractFunctionDefinition preserves first argsSchema in allOf while scanning requiresUserActivation', () => {
+    const extracted = extractFunctionDefinition('testFn', {
+      allOf: [
+        {
+          properties: {
+            args: {
+              type: 'object',
+              properties: {firstArg: {type: 'string'}},
+              required: ['firstArg'],
+            },
+          },
+        },
+        {
+          properties: {
+            args: {
+              type: 'object',
+              properties: {secondArg: {type: 'number'}},
+            },
+            requiresUserActivation: {const: true},
+          },
+        },
+      ],
+    });
+
+    assert.deepStrictEqual(Object.keys(extracted.argsProps), ['firstArg']);
+    assert.strictEqual(extracted.requiresUserActivation, true);
+  });
+
   it('generates complete components and functions TypeScript code', () => {
     const catalogJson = {
       components: {

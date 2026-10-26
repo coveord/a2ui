@@ -14,7 +14,45 @@
  * limitations under the License.
  */
 
-export * from './components/index.js';
+export {
+  A2uiAudioPlayer,
+  A2uiButton,
+  A2uiCard,
+  A2uiCheckBox,
+  A2uiChoicePicker,
+  A2uiColumn,
+  A2uiDateTimeInput,
+  A2uiDivider,
+  A2uiIcon,
+  A2uiImage,
+  A2uiList,
+  A2uiModal,
+  A2uiRow,
+  A2uiSlider,
+  A2uiTabs,
+  A2uiText,
+  A2uiTextField,
+  A2uiVideo,
+  AudioPlayerApi,
+  BASIC_COMPONENTS,
+  ButtonApi,
+  CardApi,
+  CheckBoxApi,
+  ChoicePickerApi,
+  ColumnApi,
+  DateTimeInputApi,
+  DividerApi,
+  IconApi,
+  ImageApi,
+  ListApi,
+  ModalApi,
+  RowApi,
+  SliderApi,
+  TabsApi,
+  TextApi,
+  TextFieldApi,
+  VideoApi,
+} from './components/index.js';
 export {
   BASIC_FUNCTIONS,
   createBasicCatalogFunctions,
@@ -54,25 +92,19 @@ export {basicCatalog} from './catalog.js';
 export {
   BasicCatalogThemeSchema,
   BasicCatalogThemeSchema as ThemeSchema,
-  type BasicCatalogTheme,
-  isValidCssColor,
-} from '../../../universal/basic_catalog/theme.js';
-export {
-  injectBasicCatalogStyles,
+  Context,
   computeColorVariant,
-} from '../../../universal/basic_catalog/styles/default.js';
-export type {
-  ColorVariantLightDarkOptions,
-  ColorVariantHoverOptions,
-} from '../../../universal/basic_catalog/styles/default.js';
-export {Context} from '../../../universal/basic_catalog/context/context.js';
+  getMarkdownRenderer,
+  injectBasicCatalogStyles,
+  isValidCssColor,
+  markdown,
+  setMarkdownRenderer,
+  type BasicCatalogTheme,
+  type ColorVariantHoverOptions,
+  type ColorVariantLightDarkOptions,
+} from '@a2ui/web_core/basic_catalog_shared';
 export type {
   MarkdownRenderer,
   MarkdownRendererOptions,
   MarkdownRendererTagClassMap,
-} from '../../../universal/basic_catalog/context/markdown.js';
-export {
-  markdown,
-  setMarkdownRenderer,
-  getMarkdownRenderer,
-} from '../../../universal/basic_catalog/directives/directives.js';
+} from '@a2ui/web_core';

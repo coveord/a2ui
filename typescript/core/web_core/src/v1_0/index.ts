@@ -17,8 +17,6 @@
 export * from './schema/index.js';
 export * from './standard_defs.js';
 export * from './functions/system_functions.js';
-export * from './functions/validation_functions_api.js';
-export * from './functions/validation_functions.js';
 export * from '../catalog/index.js';
 export * from '../state/index.js';
 export * from '../processing/index.js';
@@ -30,9 +28,10 @@ export * from '../rpc/index.js';
 export * from '../validation/index.js';
 export * from '../errors.js';
 export * from '../common/events.js';
-export * from '../catalogs/basic/v1/index.js';
 export * from '../universal/index.js';
 export * from '../spec_versions.js';
+
+import './return_type_map.js';
 
 import A2uiMessageSchemaRaw from './schemas/agent_to_renderer.json' with {type: 'json'};
 

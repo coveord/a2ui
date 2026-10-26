@@ -91,6 +91,7 @@
     "build:tsc": {
       "command": "tsc -b --pretty",
       "dependencies": [
+        "../../../typescript/catalogs/basic:build",
         "../../../typescript/core/web_core:build",
         "copy-catalog",
         "copy-shared"
@@ -207,6 +208,7 @@
     "lit": "^3.3.3"
   },
   "devDependencies": {
+    "@a2ui/catalog-basic": "workspace:*",
     "@a2ui/web_core": "workspace:*",
     "@types/jasmine": "^6.0.0",
     "@types/node": "^25.9.3",

@@ -26,7 +26,10 @@ import {MessageProcessor} from '../processing/message-processor.js';
 import {A2uiLitElement} from './a2ui-lit-element.js';
 import {z} from 'zod';
 import {Catalog, ComponentApi} from '../catalog/index.js';
-import {basicCatalog} from '../catalogs/basic/v1/catalog.js';
+import {A2uiBasicColumnElement, A2uiBasicTextElement} from './basic_catalog/components/index.js';
+import {loadBasicCatalogV1} from '../test/basic_catalog_v1.js';
+import {toWebComponentImplementation} from './to_web_component_implementation.js';
+import type {WebComponentImplementation} from './web_component_implementation.js';
 
 const MockTextApi = {
   name: 'Text',
@@ -35,6 +38,13 @@ const MockTextApi = {
   }),
 };
 const testCatalog = new Catalog<ComponentApi>('test-catalog', '1.0', [MockTextApi]);
+
+// The v1 basic catalog's Column and Text, rendered with the shared elements.
+const basicDocument = loadBasicCatalogV1();
+const basicCatalog = new Catalog<WebComponentImplementation>(basicDocument.id, '1.0', [
+  toWebComponentImplementation(A2uiBasicColumnElement, basicDocument.components.get('Column')!),
+  toWebComponentImplementation(A2uiBasicTextElement, basicDocument.components.get('Text')!),
+]);
 
 /**
  * These tests ensure that:

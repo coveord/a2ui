@@ -17,7 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it, before, after, afterEach} from 'node:test';
 import {z} from 'zod';
-import {setupTestDom, teardownTestDom, asyncUpdate} from '../../../test/dom-setup.js';
+import {setupTestDom, teardownTestDom, asyncUpdate} from '../test/dom-setup.js';
 import {
   ComponentContext,
   DataContext,
@@ -27,13 +27,11 @@ import {
   A2uiExpressionError,
   PayloadValidator,
   getValue,
-} from '../../../v1_0/index.js';
-import {
   type A2uiWebComponentElement,
   registerUniversalElement,
   A2uiLitElement,
   type WebComponentImplementation,
-} from '../../../universal/index.js';
+} from '@a2ui/web_core/v1_0';
 import {html, nothing} from 'lit';
 import {SliderApi} from './index.js';
 
@@ -707,45 +705,6 @@ describe('v1.0 Basic Catalog & Universal Custom Elements', () => {
 
     const inputEl = sliderEl.querySelector('input[type="range"]') as HTMLInputElement;
     assert.strictEqual(inputEl.hasAttribute('step'), false);
-  });
-
-  it('extractFunctionDefinition preserves first argsSchema in allOf while scanning requiresUserActivation', async () => {
-    const modulePath = '../../../../../scripts/generate-catalog-schemas.mjs';
-    const {extractFunctionDefinition} = (await import(modulePath)) as {
-      extractFunctionDefinition: (
-        funcName: string,
-        funcDef: Record<string, unknown>,
-      ) => {
-        argsProps: Record<string, unknown>;
-        requiresUserActivation: boolean;
-      };
-    };
-
-    const extracted = extractFunctionDefinition('testFn', {
-      allOf: [
-        {
-          properties: {
-            args: {
-              type: 'object',
-              properties: {firstArg: {type: 'string'}},
-              required: ['firstArg'],
-            },
-          },
-        },
-        {
-          properties: {
-            args: {
-              type: 'object',
-              properties: {secondArg: {type: 'number'}},
-            },
-            requiresUserActivation: {const: true},
-          },
-        },
-      ],
-    });
-
-    assert.deepStrictEqual(Object.keys(extracted.argsProps), ['firstArg']);
-    assert.strictEqual(extracted.requiresUserActivation, true);
   });
 
   it('handles undefined navigator.userActivation without throwing TypeError', () => {

@@ -33,11 +33,14 @@ import {
   BASIC_FUNCTIONS as V0_9_BASIC_FUNCTIONS,
   ThemeSchema as V0_9_ThemeSchema,
 } from '../../dist/src/v0_9/basic_catalog/index.js';
+// The v1 basic catalog lives in @a2ui/catalog-basic, which depends on this
+// package, so it is loaded from that package's build rather than declared as a
+// dependency. The `test:conformance` script builds it first.
 import {
   BASIC_COMPONENTS as V1_0_BASIC_COMPONENTS,
   BASIC_FUNCTIONS as V1_0_BASIC_FUNCTIONS,
-} from '../../dist/src/catalogs/basic/v1/index.js';
-import {basicCatalog as V1_0_SDK_BASIC_CATALOG} from '../../dist/src/catalogs/basic/v1/catalog.js';
+  basicCatalog as V1_0_SDK_BASIC_CATALOG,
+} from '../../../../catalogs/basic/dist/v1/index.js';
 import {basicCatalog as V0_9_SDK_BASIC_CATALOG} from '../../dist/src/v0_9/basic_catalog/catalog.js';
 import {basicCatalog as V0_8_SDK_BASIC_CATALOG} from '../../dist/src/v0_8/basic_catalog/catalog.js';
 import {ExpressionParser} from '../../dist/src/expressions/expression_parser.js';

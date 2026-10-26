@@ -14,30 +14,23 @@
  * limitations under the License.
  */
 
-import {createFunctionImplementation} from '../../catalog/types.js';
-import {
-  RequiredV1Point0Api,
-  RegexV1Point0Api,
-  LengthV1Point0Api,
-  NumericV1Point0Api,
-  EmailV1Point0Api,
-} from './validation_functions_api.js';
+import {createFunctionImplementation} from '@a2ui/web_core/v1_0';
+import {RequiredApi, RegexApi, LengthApi, NumericApi, EmailApi} from './basic_functions_api.js';
 import {
   validateRequired,
   validateRegex,
   validateLength,
   validateNumeric,
   validateEmail,
-} from '../../common/basic_functions.js';
+} from '@a2ui/web_core/basic_catalog_shared';
 
 /**
  * Validates that a value is present and non-empty for v1.0 catalogs.
  *
  * Returns a validation result object with an error message if invalid.
  */
-export const RequiredV1Point0Implementation = createFunctionImplementation(
-  RequiredV1Point0Api,
-  args => validateRequired(args.value),
+export const RequiredV1Point0Implementation = createFunctionImplementation(RequiredApi, args =>
+  validateRequired(args.value),
 );
 
 /**
@@ -45,29 +38,28 @@ export const RequiredV1Point0Implementation = createFunctionImplementation(
  *
  * @throws {A2uiExpressionError} If the pattern is invalid.
  */
-export const RegexV1Point0Implementation = createFunctionImplementation(RegexV1Point0Api, args =>
+export const RegexV1Point0Implementation = createFunctionImplementation(RegexApi, args =>
   validateRegex(args.value, args.pattern),
 );
 
 /**
  * Validates that string or array length falls within an optional range for v1.0 catalogs.
  */
-export const LengthV1Point0Implementation = createFunctionImplementation(LengthV1Point0Api, args =>
+export const LengthV1Point0Implementation = createFunctionImplementation(LengthApi, args =>
   validateLength(args.value, args.min, args.max),
 );
 
 /**
  * Validates that a numeric value falls within an optional range for v1.0 catalogs.
  */
-export const NumericV1Point0Implementation = createFunctionImplementation(
-  NumericV1Point0Api,
-  args => validateNumeric(args.value, args.min, args.max),
+export const NumericV1Point0Implementation = createFunctionImplementation(NumericApi, args =>
+  validateNumeric(args.value, args.min, args.max),
 );
 
 /**
  * Validates that a string matches basic email address syntax for v1.0 catalogs.
  */
-export const EmailV1Point0Implementation = createFunctionImplementation(EmailV1Point0Api, args =>
+export const EmailV1Point0Implementation = createFunctionImplementation(EmailApi, args =>
   validateEmail(args.value),
 );
 

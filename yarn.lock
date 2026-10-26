@@ -58,6 +58,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@a2ui/agent@workspace:typescript/agents/a2ui_agent"
   dependencies:
+    "@a2ui/catalog-basic": "workspace:*"
     "@a2ui/web_core": "workspace:*"
     "@types/js-yaml": "npm:^4.0.9"
     "@types/node": "npm:^25.9.3"
@@ -116,6 +117,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@a2ui/angular@workspace:typescript/renderers/angular"
   dependencies:
+    "@a2ui/catalog-basic": "workspace:*"
     "@a2ui/markdown-it": "workspace:*"
     "@a2ui/web_core": "workspace:*"
     "@angular/build": "npm:^21.2.5"
@@ -160,10 +162,28 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@a2ui/catalog-basic@workspace:*, @a2ui/catalog-basic@workspace:typescript/catalogs/basic":
+  version: 0.0.0-use.local
+  resolution: "@a2ui/catalog-basic@workspace:typescript/catalogs/basic"
+  dependencies:
+    "@a2ui/web_core": "workspace:*"
+    "@types/jsdom": "npm:^28.0.3"
+    "@types/node": "npm:^25.9.3"
+    eslint: "npm:^10.4.1"
+    jsdom: "npm:^29.1.1"
+    lit: "npm:^3.3.3"
+    prettier: "npm:^3.8.4"
+    typescript: "npm:5.9.3"
+    wireit: "npm:^0.15.0-pre.2"
+    zod: "npm:^3.25.76"
+  languageName: unknown
+  linkType: soft
+
 "@a2ui/catalog-mcp@workspace:typescript/catalogs/mcp":
   version: 0.0.0-use.local
   resolution: "@a2ui/catalog-mcp@workspace:typescript/catalogs/mcp"
   dependencies:
+    "@a2ui/catalog-basic": "workspace:*"
     "@a2ui/web_core": "workspace:*"
     "@modelcontextprotocol/ext-apps": "npm:^1.7.4"
     "@modelcontextprotocol/sdk": "npm:^1.29.0"
@@ -253,6 +273,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@a2ui/lit-explorer@workspace:typescript/renderers/lit/a2ui_explorer"
   dependencies:
+    "@a2ui/catalog-basic": "workspace:*"
     "@a2ui/lit": "workspace:*"
     "@a2ui/markdown-it": "workspace:*"
     "@a2ui/web_core": "workspace:*"
@@ -298,6 +319,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@a2ui/lit@workspace:typescript/renderers/lit"
   dependencies:
+    "@a2ui/catalog-basic": "workspace:*"
     "@a2ui/web_core": "workspace:*"
     "@lit-labs/signals": "npm:^0.3.0"
     "@lit/context": "npm:^1.1.6"
@@ -347,6 +369,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@a2ui/react-explorer@workspace:typescript/renderers/react/a2ui_explorer"
   dependencies:
+    "@a2ui/catalog-basic": "workspace:*"
     "@a2ui/markdown-it": "workspace:*"
     "@a2ui/react": "workspace:*"
     "@a2ui/web_core": "workspace:*"
@@ -398,6 +421,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@a2ui/react@workspace:typescript/renderers/react"
   dependencies:
+    "@a2ui/catalog-basic": "workspace:*"
     "@a2ui/markdown-it": "workspace:*"
     "@a2ui/web_core": "workspace:*"
     "@eslint/js": "npm:^10.0.1"

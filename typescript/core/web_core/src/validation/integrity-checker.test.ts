@@ -23,7 +23,7 @@ import assert from 'node:assert/strict';
 import {getComponentReferences} from './integrity-checker.js';
 import {A2uiIntegrityError, A2uiRecursionError} from '../errors.js';
 import {buildComponentRefMap, ComponentRefMap} from '../catalog/reference-map.js';
-import {BASIC_COMPONENTS} from '../catalogs/basic/v1/components/basic_components.js';
+import {loadBasicCatalogV1} from '../test/basic_catalog_v1.js';
 import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
 
 describe('Integrity Verification', () => {
@@ -89,7 +89,10 @@ describe('Integrity Verification', () => {
     });
 
     it('treats only the declared sub-key of the shipped Tabs schema as a reference', () => {
-      const refMap = buildComponentRefMap(BASIC_COMPONENTS, V10_CHILD_REF_OPTIONS);
+      const refMap = buildComponentRefMap(
+        [...loadBasicCatalogV1().components.values()],
+        V10_CHILD_REF_OPTIONS,
+      );
 
       assert.deepEqual(refMap['Tabs'].nestedRefs, {tabs: new Set(['child'])});
 

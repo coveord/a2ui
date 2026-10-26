@@ -21,6 +21,7 @@
     "_build-deps": {
       "dependencies": [
         "../:build",
+        "../../../catalogs/basic:build",
         "../../markdown-it:build",
         "generate-examples"
       ]
@@ -89,6 +90,7 @@
     }
   },
   "dependencies": {
+    "@a2ui/catalog-basic": "workspace:*",
     "@a2ui/markdown-it": "workspace:*",
     "@a2ui/react": "workspace:*",
     "@a2ui/web_core": "workspace:*",

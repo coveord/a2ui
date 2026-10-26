@@ -1,0 +1,128 @@
+{
+  "name": "@a2ui/catalog-basic",
+  "version": "0.1.0",
+  "description": "A2UI Basic Catalog: the standard components and functions, rendered with universal custom elements",
+  "homepage": "https://a2ui.org/",
+  "repository": {
+    "directory": "typescript/catalogs/basic",
+    "type": "git",
+    "url": "git+https://github.com/a2ui-project/a2ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/a2ui-project/a2ui/issues"
+  },
+  "keywords": [
+    "a2ui",
+    "basic",
+    "catalog",
+    "ai",
+    "agent",
+    "ui"
+  ],
+  "exports": {
+    "./v1": {
+      "types": "./dist/v1/index.d.ts",
+      "default": "./dist/v1/index.js"
+    }
+  },
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "prepublishOnly": "node -e \"if(!process.cwd().endsWith('dist')) { console.error('Error: This package must be published from the dist/ directory. Run `yarn build` then `cd dist && yarn npm publish`'); process.exit(1); }\"",
+    "publish:package": "yarn build && node ../../scripts/prepare-publish.mjs && cd dist && touch yarn.lock && yarn install && yarn npm publish --access public",
+    "prepack": "yarn build",
+    "prepare": "yarn build",
+    "build": "wireit",
+    "build:tsc": "wireit",
+    "generate-catalog": "wireit",
+    "test": "wireit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "wireit",
+    "format:check": "wireit",
+    "clean": "wireit"
+  },
+  "wireit": {
+    "generate-catalog": {
+      "command": "node scripts/generate-catalog.mjs && prettier --write \"src/v1/components/basic_components.ts\" \"src/v1/functions/basic_functions_api.ts\"",
+      "files": [
+        "../../../catalogs/basic/v1/catalog.json",
+        "../../../specification/v1_0/json/common_types.json",
+        "../../core/web_core/scripts/generate-catalog-schemas.mjs",
+        "scripts/generate-catalog.mjs"
+      ],
+      "output": [
+        "src/v1/components/basic_components.ts",
+        "src/v1/functions/basic_functions_api.ts"
+      ]
+    },
+    "build": {
+      "dependencies": [
+        "build:tsc"
+      ]
+    },
+    "build:tsc": {
+      "command": "tsc -b --pretty",
+      "dependencies": [
+        "generate-catalog",
+        "../../core/web_core:build"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig.json"
+      ],
+      "output": [
+        "dist/",
+        "!dist/**/*.tsbuildinfo"
+      ],
+      "clean": "if-file-deleted"
+    },
+    "test": {
+      "command": "node --test \"dist/**/*.test.js\"",
+      "dependencies": [
+        "build"
+      ]
+    },
+    "clean": {
+      "command": "rm -rf dist tsconfig.tsbuildinfo .wireit"
+    },
+    "format": {
+      "command": "prettier --write .",
+      "files": [
+        "src/**/*.ts",
+        "scripts/**/*.mjs",
+        "package.json",
+        "tsconfig.json"
+      ]
+    },
+    "format:check": {
+      "command": "prettier --check .",
+      "files": [
+        "src/**/*.ts",
+        "scripts/**/*.mjs",
+        "package.json",
+        "tsconfig.json"
+      ]
+    }
+  },
+  "author": "Google",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^25.9.3",
+    "eslint": "^10.4.1",
+    "jsdom": "^29.1.1",
+    "lit": "^3.3.3",
+    "prettier": "^3.8.4",
+    "typescript": "5.9.3",
+    "wireit": "^0.15.0-pre.2"
+  },
+  "dependencies": {
+    "@a2ui/web_core": "workspace:*",
+    "zod": "^3.25.76"
+  }
+}

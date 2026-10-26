@@ -21,7 +21,7 @@ import {z} from 'zod';
 import {html, nothing} from 'lit';
 import {Catalog, MessageProcessor} from '@a2ui/web_core';
 import {A2uiLitElement, registerUniversalElement} from '@a2ui/web_core/universal';
-import {basicCatalog as v1BasicCatalog} from '@a2ui/web_core/catalogs/basic/v1';
+import {basicCatalog as v1BasicCatalog} from '@a2ui/catalog-basic/v1';
 import type {A2uiSurface} from '../index.js';
 import type {LitComponentApi} from '../types.js';
 
