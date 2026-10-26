@@ -24,12 +24,11 @@ export type SchemaBehavior =
   | {readonly type: 'OBJECT'; readonly shape: Readonly<Record<string, SchemaBehavior>>}
   | {readonly type: 'ARRAY'; readonly element: SchemaBehavior};
 
-/** Child-component reference fields declared by a component. */
-export interface ComponentChildReferenceMetadata {
-  readonly single?: readonly string[];
-  readonly lists?: readonly string[];
-  readonly nested?: Readonly<Record<string, readonly string[]>>;
-}
+/** Runtime behavior that can be assigned to a top-level component property. */
+export type DynamicFieldKind = Extract<
+  SchemaBehavior,
+  {readonly type: 'DYNAMIC' | 'ACTION' | 'STRUCTURAL' | 'CHECKABLE'}
+>['type'];
 
 /**
  * Catalog-provided schema information required by the core at runtime.
@@ -38,6 +37,10 @@ export interface ComponentChildReferenceMetadata {
  * the data without depending on a schema library's private representation.
  */
 export interface ComponentSchemaMetadata {
+  readonly childRefs?: readonly string[];
+  readonly childLists?: readonly string[];
+  readonly nestedChildRefs?: Readonly<Record<string, readonly string[]>>;
+  readonly dynamicFields?: Readonly<Record<string, DynamicFieldKind>>;
+  /** Complete behavior tree for catalogs that need nested metadata. */
   readonly behavior?: SchemaBehavior;
-  readonly childReferences?: ComponentChildReferenceMetadata;
 }

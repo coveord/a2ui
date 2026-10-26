@@ -34,6 +34,7 @@ import {
 
 export const TextApi = {
   name: 'Text',
+  schemaMetadata: {dynamicFields: {text: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -59,6 +60,7 @@ export const TextApi = {
 
 export const ImageApi = {
   name: 'Image',
+  schemaMetadata: {dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -94,6 +96,7 @@ export const ImageApi = {
 
 export const IconApi = {
   name: 'Icon',
+  schemaMetadata: {dynamicFields: {name: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -183,6 +186,7 @@ export const IconApi = {
 
 export const VideoApi = {
   name: 'Video',
+  schemaMetadata: {dynamicFields: {url: 'DYNAMIC', posterUrl: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -206,6 +210,7 @@ export const VideoApi = {
 
 export const AudioPlayerApi = {
   name: 'AudioPlayer',
+  schemaMetadata: {dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -229,6 +234,7 @@ export const AudioPlayerApi = {
 
 export const RowApi = {
   name: 'Row',
+  schemaMetadata: {childLists: ['children'], dynamicFields: {children: 'STRUCTURAL'}},
   schema: spec(
     z
       .object({
@@ -266,6 +272,7 @@ export const RowApi = {
 
 export const ColumnApi = {
   name: 'Column',
+  schemaMetadata: {childLists: ['children'], dynamicFields: {children: 'STRUCTURAL'}},
   schema: spec(
     z
       .object({
@@ -303,6 +310,7 @@ export const ColumnApi = {
 
 export const ListApi = {
   name: 'List',
+  schemaMetadata: {childLists: ['children'], dynamicFields: {children: 'STRUCTURAL'}},
   schema: spec(
     z
       .object({
@@ -333,6 +341,7 @@ export const ListApi = {
 
 export const CardApi = {
   name: 'Card',
+  schemaMetadata: {childRefs: ['child']},
   schema: spec(
     z
       .object({
@@ -353,6 +362,7 @@ export const CardApi = {
 
 export const TabsApi = {
   name: 'Tabs',
+  schemaMetadata: {childLists: ['tabs'], nestedChildRefs: {tabs: ['child']}},
   schema: spec(
     z
       .object({
@@ -384,6 +394,7 @@ export const TabsApi = {
 
 export const ModalApi = {
   name: 'Modal',
+  schemaMetadata: {childRefs: ['trigger', 'content']},
   schema: spec(
     z
       .object({
@@ -429,6 +440,7 @@ export const DividerApi = {
 
 export const ButtonApi = {
   name: 'Button',
+  schemaMetadata: {childRefs: ['child'], dynamicFields: {action: 'ACTION'}},
   schema: spec(
     z
       .object({
@@ -461,6 +473,7 @@ export const ButtonApi = {
 
 export const TextFieldApi = {
   name: 'TextField',
+  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC', placeholder: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -496,6 +509,7 @@ export const TextFieldApi = {
 
 export const CheckBoxApi = {
   name: 'CheckBox',
+  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -523,6 +537,7 @@ export const CheckBoxApi = {
 
 export const ChoicePickerApi = {
   name: 'ChoicePicker',
+  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -579,6 +594,7 @@ export const ChoicePickerApi = {
 
 export const SliderApi = {
   name: 'Slider',
+  schemaMetadata: {dynamicFields: {label: 'DYNAMIC', value: 'DYNAMIC'}},
   schema: spec(
     z
       .object({
@@ -617,6 +633,9 @@ export const SliderApi = {
 
 export const DateTimeInputApi = {
   name: 'DateTimeInput',
+  schemaMetadata: {
+    dynamicFields: {value: 'DYNAMIC', min: 'DYNAMIC', max: 'DYNAMIC', label: 'DYNAMIC'},
+  },
   schema: spec(
     z
       .object({

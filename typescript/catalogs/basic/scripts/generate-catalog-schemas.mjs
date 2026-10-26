@@ -581,6 +581,58 @@ function generateDefModel(name, schema, ctx) {
   return `export const ${defModelName(name)} = specDef('${name}', ${code}${extra});\n\n`;
 }
 
+function schemaRefName(schema) {
+  if (!schema || typeof schema !== 'object') return '';
+  if (typeof schema.$ref === 'string') return extractRefName(schema.$ref);
+  for (const key of ['allOf', 'anyOf', 'oneOf']) {
+    for (const member of schema[key] || []) {
+      const name = schemaRefName(member);
+      if (name) return name;
+    }
+  }
+  return '';
+}
+
+function componentRuntimeMetadata(properties) {
+  const childRefs = [];
+  const childLists = [];
+  const nestedChildRefs = {};
+  const dynamicFields = {};
+
+  for (const [name, schema] of Object.entries(properties)) {
+    const ref = schemaRefName(schema);
+    if (['Child', 'ComponentId', 'ChildComponentId'].includes(ref)) childRefs.push(name);
+    if (['ChildList', 'TemplateChildList'].includes(ref)) childLists.push(name);
+    if (ref === 'Action') dynamicFields[name] = 'ACTION';
+    else if (ref === 'ChildList' || ref === 'TemplateChildList') dynamicFields[name] = 'STRUCTURAL';
+    else if (ref === 'Checkable' || ref === 'CheckRule') dynamicFields[name] = 'CHECKABLE';
+    else if (ref === 'DataBinding' || ref === 'FunctionCall' || ref.startsWith('Dynamic')) {
+      dynamicFields[name] = 'DYNAMIC';
+    }
+
+    const items = schema?.items;
+    const itemProperties = items?.properties;
+    if (itemProperties && typeof itemProperties === 'object') {
+      const nested = Object.entries(itemProperties)
+        .filter(([, itemSchema]) =>
+          ['Child', 'ComponentId', 'ChildComponentId'].includes(schemaRefName(itemSchema)),
+        )
+        .map(([key]) => key);
+      if (nested.length > 0) {
+        childLists.push(name);
+        nestedChildRefs[name] = nested;
+      }
+    }
+  }
+
+  const metadata = {};
+  if (childRefs.length) metadata.childRefs = childRefs;
+  if (childLists.length) metadata.childLists = [...new Set(childLists)];
+  if (Object.keys(nestedChildRefs).length) metadata.nestedChildRefs = nestedChildRefs;
+  if (Object.keys(dynamicFields).length) metadata.dynamicFields = dynamicFields;
+  return metadata;
+}
+
 /**
  * Generates TypeScript component APIs from a catalog schema.
  */
@@ -633,6 +685,10 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
 
     bodyCode += `export const ${apiName} = {\n`;
     bodyCode += `  name: '${compName}',\n`;
+    const metadata = componentRuntimeMetadata(properties);
+    if (Object.keys(metadata).length > 0) {
+      bodyCode += `  schemaMetadata: ${literal(metadata)},\n`;
+    }
     bodyCode += `  schema: ${reproduce ? 'spec(' : ''}z\n`;
     bodyCode += `    .object({\n`;
     if (reproduce) {

@@ -603,6 +603,21 @@ export function buildComponentRefMap(
         : Array.from((catalogOrComponents as Map<string, ComponentApi>).values());
 
   for (const compApi of componentApis) {
+    const metadata = compApi.schemaMetadata;
+    if (metadata) {
+      refMap[compApi.name] = {
+        singleRefs: new Set(metadata.childRefs ?? []),
+        listRefs: new Set(metadata.childLists ?? []),
+        nestedRefs: Object.fromEntries(
+          Object.entries(metadata.nestedChildRefs ?? {}).map(([key, values]) => [
+            key,
+            new Set(values),
+          ]),
+        ),
+      };
+      continue;
+    }
+
     const acc: ChildRefAccumulator = {
       singleRefs: new Set<string>(),
       listRefs: new Set<string>(),

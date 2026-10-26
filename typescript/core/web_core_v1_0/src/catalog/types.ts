@@ -42,6 +42,7 @@ import {
 } from './reference-map.js';
 import {IndexImplementation} from '../functions/system_functions.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
+import type {ComponentSchemaMetadata} from './schema_metadata.js';
 
 export type {ComponentChildRefs};
 export {inlinePeerAndLocalRefs};
@@ -187,6 +188,9 @@ export interface ComponentApi<Schema extends z.ZodTypeAny = z.ZodTypeAny> {
    * and must omit envelope fields like 'component' or 'id'.
    */
   readonly schema: Schema;
+
+  /** Schema-library-neutral runtime metadata emitted by the catalog. */
+  readonly schemaMetadata?: ComponentSchemaMetadata;
 
   /** Optional allowed parent component types (e.g. ['Column', 'Surface']). */
   readonly allowedParents?: string[];

@@ -28,6 +28,7 @@ import type {Action as V1Action} from '../schema/common-types.js';
 import {extractRefDefName} from '../catalog/reference-map.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
+import type {ComponentSchemaMetadata} from '../catalog/schema_metadata.js';
 
 // --- Schema Scraping ---
 
@@ -61,6 +62,24 @@ export type BehaviorNode =
   | {type: 'ARRAY'; element: BehaviorNode};
 
 const behaviorCache = new WeakMap<z.ZodTypeAny, BehaviorNode>();
+
+function behaviorFromMetadata(
+  schema: z.ZodTypeAny,
+  metadata?: ComponentSchemaMetadata,
+): BehaviorNode {
+  const behavior = metadata?.behavior ?? scrapeSchemaBehavior(schema);
+  if (!metadata?.dynamicFields || behavior.type !== 'OBJECT') return behavior;
+
+  return {
+    ...behavior,
+    shape: {
+      ...behavior.shape,
+      ...Object.fromEntries(
+        Object.entries(metadata.dynamicFields).map(([key, type]) => [key, {type}]),
+      ),
+    },
+  } as BehaviorNode;
+}
 
 /**
  * Traverses a Zod schema tree to build a `BehaviorNode` map.
@@ -455,9 +474,9 @@ export class GenericBinder<T> {
    * @param context Component context providing state and event dispatching.
    * @param schema Zod schema defining the component properties.
    */
-  constructor(context: ComponentContext, schema: z.ZodTypeAny) {
+  constructor(context: ComponentContext, schema: z.ZodTypeAny, metadata?: ComponentSchemaMetadata) {
     this.context = context;
-    this.behaviorTree = scrapeSchemaBehavior(schema);
+    this.behaviorTree = behaviorFromMetadata(schema, metadata);
 
     if (this.behaviorTree.type !== 'OBJECT') {
       this.behaviorTree = {type: 'OBJECT', shape: {}};

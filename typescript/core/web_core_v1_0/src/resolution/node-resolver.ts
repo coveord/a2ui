@@ -347,7 +347,7 @@ export class NodeResolver<
       dataPath,
       parent?.context?.dataContext,
     );
-    const binder = new GenericBinder<NodeProps>(context, api.schema);
+    const binder = new GenericBinder<NodeProps>(context, api.schema, api.schemaMetadata);
     const record = this.registerNode(
       new MutableComponentNode(
         instanceIdFor(componentId, dataPath, occurrence),

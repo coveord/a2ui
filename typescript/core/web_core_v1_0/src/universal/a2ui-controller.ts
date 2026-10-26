@@ -55,7 +55,7 @@ export class A2uiController<
     private host: A2uiLitElement<any, any>,
     api: Api,
   ) {
-    this.binder = new GenericBinder(this.host.context, api.schema);
+    this.binder = new GenericBinder(this.host.context, api.schema, api.schemaMetadata);
     this._props = this.binder.snapshot as Props;
     this.host.addController(this);
     if (this.host.isConnected) {
