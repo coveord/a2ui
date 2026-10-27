@@ -21,7 +21,7 @@ import {setupTestDom, teardownTestDom, asyncUpdate} from '../test/dom-setup.js';
 import {ComponentContext} from '../resolution/component-context.js';
 import {MessageProcessor} from '../processing/message-processor.js';
 import {A2uiLitElement} from './a2ui-lit-element.js';
-import {z} from 'zod';
+import {z} from '@a2ui/schema-zod';
 import {Catalog, ComponentApi} from '../catalog/index.js';
 
 const MockTextApi = {

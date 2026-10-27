@@ -23,7 +23,7 @@ import {
   createFunctionImplementation,
 } from './types.js';
 import {A2uiExpressionError} from '../errors.js';
-import {z} from 'zod';
+import {z} from '@a2ui/schema-zod';
 
 describe('Catalog Types', () => {
   it('creates a catalog with functions', () => {

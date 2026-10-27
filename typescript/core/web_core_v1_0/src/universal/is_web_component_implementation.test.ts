@@ -17,7 +17,7 @@
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
 import {isWebComponentImplementation} from './is_web_component_implementation.js';
-import {z} from 'zod';
+import {z} from '@a2ui/schema-zod';
 
 describe('isWebComponentImplementation', () => {
   class MockElement {}

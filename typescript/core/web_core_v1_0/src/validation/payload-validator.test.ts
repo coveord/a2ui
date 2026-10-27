@@ -16,7 +16,7 @@
 
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
-import {z} from 'zod';
+import {z} from '@a2ui/schema-zod';
 import {Catalog} from '../catalog/types.js';
 import {nestedCallRunsInCatalog, PayloadValidator} from './payload-validator.js';
 import {STRICT_VALIDATION} from './integrity-checker.js';

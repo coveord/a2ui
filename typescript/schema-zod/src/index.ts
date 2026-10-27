@@ -28,6 +28,7 @@ export {
   type SpecAnnotation,
   type SpecMixin,
 } from './spec_annotations.js';
+export {z} from 'zod';
 export {formatZodIssue} from './format-zod-issue.js';
 export {type ValidationResultInput} from './schema/catalog-definition.js';
 export {

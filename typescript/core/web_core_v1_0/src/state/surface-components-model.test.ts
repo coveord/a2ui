@@ -16,7 +16,7 @@
 
 import * as assert from 'node:assert';
 import {describe, it, beforeEach} from 'node:test';
-import {z} from 'zod';
+import {z} from '@a2ui/schema-zod';
 import {Catalog} from '../catalog/types.js';
 import {SurfaceComponentsModel} from './surface-components-model.js';
 import {ComponentModel} from './component-model.js';

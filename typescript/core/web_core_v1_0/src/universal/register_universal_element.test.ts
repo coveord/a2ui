@@ -16,7 +16,7 @@
 
 import {describe, it, after, beforeEach, afterEach} from 'node:test';
 import * as assert from 'node:assert';
-import {z} from 'zod';
+import {z} from '@a2ui/schema-zod';
 import {setupTestDom, teardownTestDom} from '../test/dom-setup.js';
 import {registerUniversalElement} from './register_universal_element.js';
 import type {WebComponentImplementation} from './web_component_implementation.js';

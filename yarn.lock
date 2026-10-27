@@ -646,8 +646,6 @@ __metadata:
     validate-color: "npm:^2.2.4"
     wireit: "npm:^0.15.0-pre.2"
     yaml: "npm:^2.8.1"
-    zod: "npm:^3.25.76"
-    zod-to-json-schema: "npm:^3.25.2"
   languageName: unknown
   linkType: soft
 

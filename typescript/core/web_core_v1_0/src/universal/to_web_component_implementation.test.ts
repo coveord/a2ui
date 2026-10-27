@@ -16,7 +16,7 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from 'zod';
+import {z} from '@a2ui/schema-zod';
 
 import {toWebComponentImplementation} from './to_web_component_implementation.js';
 
