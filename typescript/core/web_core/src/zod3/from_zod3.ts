@@ -17,7 +17,7 @@
 import type {StandardJSONSchemaV1} from '@standard-schema/spec';
 import type {z} from 'zod/v3';
 
-import type {A2uiStandardSchema} from '../catalog/a2ui_schema.js';
+import {ZOD3_SOURCE, type A2uiStandardSchema} from '../catalog/a2ui_schema.js';
 import {zodToUnbundledJson} from '../catalog/schema_serializer.js';
 import {A2uiCatalogError} from '../errors.js';
 
@@ -30,6 +30,11 @@ const SUPPORTED_TARGETS: ReadonlySet<string> = new Set(['draft-2020-12']);
  * `Catalog.toJson()` writes an entry defined in code. A child reference whose
  * description was replaced is still written as a reference to its common
  * type.
+ *
+ * In a catalog, the result is read as the Zod 3 schema it wraps, so an entry
+ * written with it serializes, validates and binds exactly as one written with
+ * the bare schema, `spec()` annotations included. Use it to move entries off
+ * the Zod 3 member of `EntrySchema` one at a time.
  *
  * Checks that JSON Schema cannot express, such as a `refine`, are not in the
  * JSON Schema, but still run in `validate`.
@@ -55,5 +60,6 @@ export function fromZod3<S extends z.ZodTypeAny>(schema: S): A2uiStandardSchema<
       validate: value => schema['~standard'].validate(value),
       jsonSchema: {input: toJson, output: toJson},
     },
+    [ZOD3_SOURCE]: schema,
   } as A2uiStandardSchema<z.output<S>>;
 }

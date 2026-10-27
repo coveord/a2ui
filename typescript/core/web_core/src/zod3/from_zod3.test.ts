@@ -21,8 +21,8 @@ import {z} from 'zod/v3';
 
 import {normalizeSchema} from '../catalog/a2ui_schema.js';
 import {componentSchemaOf} from '../catalog/entry_schema.js';
-import {createComponentApi} from '../catalog/schema_entries.js';
 import {Catalog} from '../catalog/types.js';
+import {basicCatalog as v10BasicCatalog} from '../catalogs/basic/v1/catalog.js';
 import {A2uiCatalogError} from '../errors.js';
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
 import {ComponentIdSchema, DynamicStringSchema} from '../types/common-types.js';
@@ -61,11 +61,7 @@ describe('fromZod3', () => {
   });
 
   it('makes a component that binds as the Zod component does', () => {
-    const card = createComponentApi({
-      name: 'Card',
-      schema: fromZod3(CardSchema),
-      protocolVersion: '0.9',
-    });
+    const card = {name: 'Card', schema: fromZod3(CardSchema)};
     const catalog = new Catalog('card-catalog', '0.9', [card]);
     assert.deepStrictEqual(
       scrapeSchemaBehavior(componentSchemaOf(catalog, card)),
@@ -75,11 +71,7 @@ describe('fromZod3', () => {
   });
 
   it('makes a component whose refinements still run', () => {
-    const card = createComponentApi({
-      name: 'Card',
-      schema: fromZod3(CardSchema),
-      protocolVersion: '0.9',
-    });
+    const card = {name: 'Card', schema: fromZod3(CardSchema)};
     const validator = new PayloadValidator(new Catalog('card-catalog', '0.9', [card]), {
       allowUnknownElements: false,
     });
@@ -95,6 +87,40 @@ describe('fromZod3', () => {
         }),
       /elevation must not be negative/,
     );
+  });
+
+  it('makes a catalog of spec()-annotated schemas write and validate as the bare one', () => {
+    const wrap = <E extends {schema: unknown}>(entry: E): E => ({
+      ...entry,
+      schema: fromZod3(entry.schema as never),
+    });
+    const source = v10BasicCatalog;
+    const wrapped = new Catalog(
+      source.id,
+      source.protocolVersion,
+      [...source.components.values()].map(wrap),
+      [...source.functions.values()].map(wrap),
+      {
+        themeSchema: fromZod3(source.themeSchema as never),
+        instructions: source.instructions,
+        schemaUri: source.schemaUri,
+        schemaId: source.schemaId,
+        title: source.title,
+        description: source.description,
+        declaredProtocolVersion: source.declaredProtocolVersion,
+        declaresCatalogId: source.declaresCatalogId,
+        declaresComponents: source.declaresComponents,
+        functionsLayout: source.functionsLayout,
+        unions: source.unions,
+        defs: source.defs,
+        extensionFields: source.extensionFields,
+        commonTypesUri: source.commonTypesUri,
+        themeLocation: source.themeLocation,
+        defModels: source.defModels,
+      },
+    );
+    assert.deepStrictEqual(wrapped.toJson(), source.toJson());
+    assert.deepStrictEqual(wrapped.validationSchema, source.validationSchema);
   });
 
   it('rejects a JSON Schema target other than draft 2020-12', () => {

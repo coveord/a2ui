@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import {componentSchemaOf, functionSchemaOf, safeParseEntry} from '../catalog/entry_schema.js';
+import {
+  componentSchemaOf,
+  functionSchemaOf,
+  safeParseEntry,
+  themeSchemaOf,
+} from '../catalog/entry_schema.js';
 import {CatalogInterface} from '../catalog/types.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {isValidUax31Identifier} from '../common/uax31.js';
@@ -442,9 +447,10 @@ export class PayloadValidator {
    */
   validateTheme(theme: unknown): unknown {
     const themeSchema = this.catalog.themeSchema;
-    if (!themeSchema) return theme;
+    const documentSchema = themeSchemaOf(this.catalog);
+    if (!themeSchema || !documentSchema) return theme;
 
-    const result = themeSchema.safeParse(theme);
+    const result = safeParseEntry(documentSchema, themeSchema, theme);
     if (!result.success) {
       const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
       throw new A2uiValidationError(

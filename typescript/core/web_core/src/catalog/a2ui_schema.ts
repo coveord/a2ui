@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import type {StandardJSONSchemaV1, StandardSchemaV1} from '@standard-schema/spec';
+import type {StandardJSONSchemaV1, StandardSchemaV1, StandardTypedV1} from '@standard-schema/spec';
+import type {z} from 'zod/v3';
 
 import {A2uiCatalogError} from '../errors.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
@@ -38,6 +39,57 @@ export type A2uiStandardSchema<Output = unknown> = StandardSchemaV1<unknown, Out
  * @template Output The type of a value the schema accepts.
  */
 export type A2uiSchema<Output = unknown> = A2uiStandardSchema<Output> | JsonSchemaObject;
+
+/**
+ * The schema of a catalog entry or theme: an `A2uiSchema`, or a schema written
+ * with the Zod 3 API of `zod/v3`.
+ *
+ * A2UI reads a Zod 3 schema as it always has, including its `spec()`
+ * annotations. Accepting Zod 3 here is transitional: `fromZod3` presents one
+ * as an `A2uiSchema`, which is the form to move to.
+ *
+ * @template Output The type of a value the schema accepts.
+ */
+export type EntrySchema<Output = unknown> =
+  | A2uiSchema<Output>
+  | z.ZodType<Output, z.ZodTypeDef, unknown>;
+
+/**
+ * The type of a value an `EntrySchema` accepts, as it outputs it: inferred
+ * through Standard Schema for a library or Zod 3 schema, which gives what
+ * `z.infer` gives, and `Record<string, unknown>` for a JSON Schema object.
+ * A schema typed only as `EntrySchema` infers `any`, as `z.infer` does for
+ * `z.ZodTypeAny`.
+ */
+export type InferEntrySchema<S> = S extends StandardTypedV1
+  ? unknown extends StandardTypedV1.InferOutput<S>
+    ? any // eslint-disable-line @typescript-eslint/no-explicit-any
+    : StandardTypedV1.InferOutput<S>
+  : Record<string, unknown>;
+
+/**
+ * The key under which `fromZod3` keeps the Zod 3 schema it presents, so that
+ * A2UI reads the schema itself rather than its JSON Schema.
+ */
+export const ZOD3_SOURCE: unique symbol = Symbol.for('a2ui.zod3Source');
+
+/** Whether `value` is a schema written with the Zod 3 API. */
+function isZod3Schema(value: unknown): value is z.ZodTypeAny {
+  const def = isObject(value) ? value['_def'] : undefined;
+  return isObject(def) && typeof def['typeName'] === 'string';
+}
+
+/**
+ * Returns the Zod 3 schema an entry's schema is, or presents through
+ * `fromZod3`, or `undefined` for any other schema, such as a Zod 4 one.
+ *
+ * @param schema An entry's or theme's schema.
+ */
+export function zod3SchemaOf(schema: unknown): z.ZodTypeAny | undefined {
+  if (isZod3Schema(schema)) return schema;
+  const source = isObject(schema) ? (schema as Record<symbol, unknown>)[ZOD3_SOURCE] : undefined;
+  return isZod3Schema(source) ? source : undefined;
+}
 
 /** The JSON Schema version catalog documents are written in. */
 const TARGET = 'draft-2020-12';

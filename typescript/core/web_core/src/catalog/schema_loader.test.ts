@@ -21,6 +21,7 @@ import {resolve} from 'node:path';
 import {z} from 'zod/v3';
 import {Catalog} from './types.js';
 import {analyzeChildRefSchema} from './reference-map.js';
+import {zodSchemaFor} from './entry_schema.js';
 import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
 import {STRICT_VALIDATION} from '../validation/integrity-checker.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
@@ -343,7 +344,7 @@ describe('Catalog.fromJson & schema_loader', () => {
 
     const catalog = Catalog.fromJson(catalogJson, '0.9');
     assert.ok(catalog.themeSchema);
-    const result = catalog.themeSchema.safeParse({
+    const result = zodSchemaFor(catalog.themeSchema).safeParse({
       id: 'theme-1',
       component: 'DarkTheme',
       primaryColor: '#000',

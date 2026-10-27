@@ -21,6 +21,7 @@ import {describe, it} from 'node:test';
 import * as url from 'node:url';
 
 import {A2uiCatalogError} from '../errors.js';
+import {zodSchemaFor} from './entry_schema.js';
 import {MessageProcessor} from '../processing/message-processor.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {Catalog, CatalogApi, ComponentApi, linkCatalogs} from './types.js';
@@ -74,7 +75,7 @@ function component(
 }
 
 function accepts(catalog: CatalogApi, name: string, value: Record<string, unknown>): boolean {
-  return catalog.components.get(name)!.schema.safeParse(value).success;
+  return zodSchemaFor(catalog.components.get(name)!.schema).safeParse(value).success;
 }
 
 /** Types schema-only catalogs as the catalogs a `MessageProcessor` takes. */

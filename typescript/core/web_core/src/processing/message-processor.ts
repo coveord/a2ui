@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-import {zodToJsonSchema} from 'zod-to-json-schema';
 import {SurfaceModel, ActionListener} from '../state/surface-model.js';
 import {Catalog, ComponentApi, linkCatalogs} from '../catalog/types.js';
 import {exclusiveUnionOverride} from '../catalog/exclusive_union.js';
-import {cleanSchemaNode} from '../catalog/schema_generator.js';
+import {cleanSchemaNode, rawSchemaJson} from '../catalog/schema_generator.js';
 import {SurfaceGroupModel} from '../state/surface-group-model.js';
 import {ComponentModel} from '../state/component-model.js';
 import {SurfaceComponentsModel} from '../state/surface-components-model.js';
@@ -319,12 +318,8 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
     for (const [name, comp] of catalog.components.entries()) {
       let props: Record<string, unknown> = {};
       let reqList: string[] = [];
-      if (comp.schema && typeof comp.schema === 'object' && 'safeParse' in comp.schema) {
-        const rawZod = zodToJsonSchema(comp.schema, {
-          target: 'jsonSchema2019-09',
-          $refStrategy: 'none',
-          override: exclusiveUnionOverride,
-        }) as Record<string, unknown>;
+      if (comp.schema && typeof comp.schema === 'object') {
+        const rawZod = rawSchemaJson(comp.schema, exclusiveUnionOverride);
         cleanSchemaNode(rawZod, undefined, {stripAdditionalProperties: true});
         props = (rawZod.properties as Record<string, unknown>) || {};
         reqList = Array.isArray(rawZod.required)
@@ -349,12 +344,8 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
     const functions: Array<Record<string, unknown>> = [];
     for (const fn of catalog.functions.values()) {
       let paramSchema: Record<string, unknown> = {type: 'object', properties: {}};
-      if (fn.schema && typeof fn.schema === 'object' && 'safeParse' in fn.schema) {
-        const rawZod = zodToJsonSchema(fn.schema, {
-          target: 'jsonSchema2019-09',
-          $refStrategy: 'none',
-          override: exclusiveUnionOverride,
-        }) as Record<string, unknown>;
+      if (fn.schema && typeof fn.schema === 'object') {
+        const rawZod = rawSchemaJson(fn.schema, exclusiveUnionOverride);
         cleanSchemaNode(rawZod, undefined, {stripAdditionalProperties: true});
         paramSchema = rawZod;
       }
@@ -368,11 +359,7 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
 
     let theme: Record<string, unknown> | undefined;
     if (catalog.themeSchema) {
-      const rawTheme = zodToJsonSchema(catalog.themeSchema, {
-        target: 'jsonSchema2019-09',
-        $refStrategy: 'none',
-        override: exclusiveUnionOverride,
-      }) as Record<string, unknown>;
+      const rawTheme = rawSchemaJson(catalog.themeSchema, exclusiveUnionOverride);
       cleanSchemaNode(rawTheme, undefined, {stripAdditionalProperties: true});
       theme = (rawTheme.properties as Record<string, unknown>) || undefined;
     }
