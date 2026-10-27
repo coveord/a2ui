@@ -23,7 +23,7 @@
 
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {
   Catalog,
   CatalogApi,

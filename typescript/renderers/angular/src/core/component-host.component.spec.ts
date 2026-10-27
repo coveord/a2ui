@@ -32,7 +32,7 @@ import {AngularCatalog, createComponentImplementation} from '../catalog/types';
 import {UniversalOnlyComponent} from '../catalog/universal_only.component';
 import {initializeAngularReactivity} from './reactivity';
 import {ComponentBinder} from './component-binder.service';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 @Component({
   selector: 'test-child',

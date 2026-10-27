@@ -20,7 +20,7 @@ import {
   WebComponentImplementation,
   isWebComponentImplementation,
 } from '@a2ui/web_core/v0_9/universal';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {CatalogComponentInstance} from '../core/catalog_component_instance';
 import {toWebComponent} from './to_web_component';
 import {UniversalOnlyComponent} from './universal_only.component';

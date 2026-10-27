@@ -21,7 +21,7 @@ import {
   ComponentHostComponent,
   createComponentImplementation,
 } from '@a2ui/angular/v0_9';
-import z from 'zod';
+import z from 'zod/v3';
 import {ComponentApi, DynamicStringSchema, ChildListSchema} from '@a2ui/web_core/v0_9';
 
 const customGridApi = {

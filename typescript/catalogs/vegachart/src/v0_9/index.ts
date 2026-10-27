@@ -20,7 +20,7 @@
  * Matches `catalogs/vegachart/v0_9/catalog.json`.
  */
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 import {
   Catalog,

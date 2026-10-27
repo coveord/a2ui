@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod';
+import type {z} from 'zod/v3';
 
 /**
  * A JSON Schema object, as written in a catalog document.

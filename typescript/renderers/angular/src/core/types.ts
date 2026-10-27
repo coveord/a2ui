@@ -15,7 +15,7 @@
  */
 
 import {Signal} from '@angular/core';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {ComponentApi, DataBindingSchema, FunctionCallSchema} from '@a2ui/web_core/v0_9';
 import {Child} from './component-binder.service';
 

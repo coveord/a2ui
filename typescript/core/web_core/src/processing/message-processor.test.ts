@@ -30,7 +30,7 @@ import {BASIC_FUNCTIONS} from '../catalogs/basic/v1/functions/basic_functions.js
 import {A2uiCatalogError, A2uiIntegrityError, A2uiValidationError} from '../errors.js';
 import {DataContext} from '../resolution/data-context.js';
 import {peekValue} from '../reactivity/signals.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 /**
  * Turns validation on while relaxing every topology rule, so a test exercises

@@ -314,7 +314,7 @@ import {
   type CatalogDefinitions,
   type CatalogRenderers,
 } from '@copilotkit/a2ui-renderer';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 // catalog definitions — describe the building block components to the agent
 export const catalogDefinitions = {
@@ -383,7 +383,7 @@ gets injected into the agent's prompt so the LLM knows when to reach for
 each component; the schema validates the props the agent sends.
 
 ```ts title="lib/a2ui/definitions.ts"
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 export const myDefinitions = {
   StatusBadge: {

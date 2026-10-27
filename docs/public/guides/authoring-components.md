@@ -119,7 +119,7 @@ First, define the component API in TypeScript. This should match the JSON Schema
 ```typescript
 // api.ts
 import {ComponentApi} from '@a2ui/web_core/v0_9';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 export const ChartApi = {
   name: 'Chart',

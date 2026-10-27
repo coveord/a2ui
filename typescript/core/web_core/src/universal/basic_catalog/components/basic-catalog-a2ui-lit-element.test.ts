@@ -17,7 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it, before, beforeEach, after, afterEach} from 'node:test';
 import {setupTestDom, teardownTestDom, asyncUpdate} from '../../../test/dom-setup.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {
   ComponentContext,
   MessageProcessor,

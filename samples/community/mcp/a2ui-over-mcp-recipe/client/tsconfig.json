@@ -35,7 +35,8 @@
       ],
       "jmespath": ["../../../node_modules/@types/jmespath", "../../../node_modules/jmespath"],
       "re2js": ["../../../node_modules/re2js"],
-      "zod": ["../../../node_modules/zod"]
+      "zod": ["../../../node_modules/zod"],
+      "zod/v3": ["../../../node_modules/zod/v3"]
     }
   },
   "include": ["src/**/*.ts", "*.ts"]

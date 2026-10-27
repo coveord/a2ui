@@ -17,7 +17,7 @@
 import {setupTestDom, teardownTestDom, asyncUpdate} from './dom-setup.js';
 import assert from 'node:assert';
 import {describe, it, before, after, afterEach} from 'node:test';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {html, nothing} from 'lit';
 import {Catalog, MessageProcessor} from '@a2ui/web_core';
 import {A2uiLitElement, registerUniversalElement} from '@a2ui/web_core/universal';

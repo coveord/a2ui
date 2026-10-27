@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {ignoreOverride, parseDef, type OverrideCallback} from 'zod-to-json-schema';
 
 /**

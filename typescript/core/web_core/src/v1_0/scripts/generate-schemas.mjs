@@ -46,7 +46,7 @@ function generateCommonTypes() {
 
   let commonTs =
     getHeader(VERSION_TAG, SCRIPT_SOURCE) +
-    "import {z} from 'zod';\n" +
+    "import {z} from 'zod/v3';\n" +
     "import {isValidUax31Identifier} from '../../common/uax31.js';\n" +
     "import {markChildRef} from '../../types/child-ref-helpers.js';\n\n";
 
@@ -261,7 +261,7 @@ function generateCatalogDefinition({pureCommonNames, helperNames}) {
     .filter(schemaName => new RegExp('\\b' + schemaName + '\\b').test(bodyCode))
     .sort();
 
-  let catalogDefTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod';\n";
+  let catalogDefTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n";
   if (commonImports.length > 0) {
     catalogDefTs += `import {${commonImports.join(', ')}} from './common-types.js';\n`;
   }
@@ -306,7 +306,7 @@ function generateIncomingMessageSchemas({pureCommonNames, helperNames}) {
     .filter(schemaName => new RegExp('\\b' + schemaName + '\\b').test(bodyCode))
     .sort();
 
-  let a2rTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod';\n";
+  let a2rTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n";
   if (commonImports.length > 0) {
     a2rTs += `import {${commonImports.join(', ')}} from './common-types.js';\n`;
   }
@@ -357,7 +357,7 @@ function generateOutgoingMessageSchemas({pureCommonNames, helperNames}) {
     .filter(schemaName => new RegExp('\\b' + schemaName + '\\b').test(bodyCode))
     .sort();
 
-  let r2aTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod';\n";
+  let r2aTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n";
   if (commonImports.length > 0) {
     r2aTs += `import {${commonImports.join(', ')}} from './common-types.js';\n`;
   }
@@ -378,7 +378,7 @@ function generateCapabilitiesSchemas() {
   let v10Code = compileDefToZod(v10Props, 'V10RendererCapabilities');
   v10Code = v10Code.replace(/\.passthrough\(\)/g, '.strict()');
 
-  let rcTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod';\n\n";
+  let rcTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n\n";
   rcTs += `/** Zod schema validating the strict v1.0 protocol renderer capabilities payload. */\n`;
   rcTs += v10Code + '\n';
 

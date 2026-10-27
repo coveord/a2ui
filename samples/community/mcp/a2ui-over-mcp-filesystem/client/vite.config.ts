@@ -44,6 +44,7 @@ const a2uiMcpCatalogDependencies = [
   'jmespath',
   're2js',
   'zod',
+  'zod/v3',
 ].map(specifier => ({
   find: exactly(specifier),
   replacement: fileURLToPath(import.meta.resolve(specifier)),

@@ -82,7 +82,7 @@ The `Catalog` constructor takes a `CatalogOptions` object as its fifth argument,
 
 ```ts
 import {Catalog, spec, specDef} from '@a2ui/web_core/catalog';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 const Common = specDef('Common', z.object({weight: z.number().optional()}));
 const Badge = {

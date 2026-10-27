@@ -19,7 +19,7 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {describe, it} from 'node:test';
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 import {basicCatalog as v10BasicCatalog} from '../catalogs/basic/v1/catalog.js';
 import {A2uiText as V10Text} from '../catalogs/basic/v1/components/index.js';
