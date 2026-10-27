@@ -18,15 +18,13 @@ import {Catalog, FunctionImplementation} from '../catalog/types.js';
 import {DataContext} from '../resolution/data-context.js';
 import {isSignal, getValue} from '../reactivity/signals.js';
 import {SurfaceModel} from '../state/surface-model.js';
-import {FunctionCall} from '../schema/common-types.js';
-import {
-  CallRendererFunctionMessage,
+import type {
   AgentFunctionResponseMessage,
-} from '../schema/agent-to-renderer.js';
-import {
-  RendererFunctionResponseMessage,
   CallAgentFunctionMessage,
-} from '../schema/renderer-to-agent.js';
+  CallRendererFunctionMessage,
+  RendererFunctionResponseMessage,
+} from '../protocol_messages.js';
+import type {FunctionCall} from '../protocol_values.js';
 import {isCatalogVersionCompatible} from '../processing/adapters/base.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {A2uiRpcError, RpcErrorCode} from '../errors.js';

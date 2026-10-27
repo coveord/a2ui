@@ -45,13 +45,13 @@ import {
   ProtocolVersion,
   VersionAdapterResolver,
 } from './adapters/base.js';
-import {RendererCapabilities} from '../schema/index.js';
 import type {
   AgentToRendererMessage as V10AgentToRendererMessage,
   CallRendererFunctionMessage,
-} from '../schema/agent-to-renderer.js';
-import type {RendererFunctionResponseMessage} from '../schema/renderer-to-agent.js';
-import type {FunctionCall} from '../schema/common-types.js';
+  RendererCapabilities,
+  RendererFunctionResponseMessage,
+} from '../protocol_messages.js';
+import type {FunctionCall} from '../protocol_values.js';
 import {
   RpcHandler,
   CallOptions,
@@ -82,7 +82,6 @@ export type ProcessableMessagePayload =
   | {readonly messages: readonly ProcessableMessage[]};
 
 export type {
-  RendererCapabilities,
   RendererCapabilities as ClientCapabilities,
   ValidationConfig,
   OutboundMessageListener,
