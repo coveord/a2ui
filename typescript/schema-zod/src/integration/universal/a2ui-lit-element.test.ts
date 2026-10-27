@@ -16,13 +16,17 @@
 
 import * as assert from 'node:assert';
 import {describe, it, before, beforeEach, after} from 'node:test';
-import {setupTestDom, teardownTestDom, asyncUpdate} from '../test/dom-setup.js';
+import {setupTestDom, teardownTestDom, asyncUpdate} from '../../test/dom-setup.js';
 
-import {ComponentContext} from '../resolution/component-context.js';
-import {MessageProcessor} from '../processing/message-processor.js';
-import {A2uiLitElement} from './a2ui-lit-element.js';
-import {z} from '@a2ui/schema-zod';
-import {Catalog, ComponentApi} from '../catalog/index.js';
+import {
+  A2uiLitElement,
+  ComponentApi,
+  ComponentContext,
+  MessageProcessor,
+} from '@a2ui/web_core_v1_0';
+
+import {z} from '../../index.js';
+import {ZodCatalog} from '../../test/zod_catalog.js';
 
 const MockTextApi = {
   name: 'Text',
@@ -30,7 +34,7 @@ const MockTextApi = {
     text: z.string().default(''),
   }),
 };
-const testCatalog = new Catalog<ComponentApi>('test-catalog', '1.0', [MockTextApi]);
+const testCatalog = new ZodCatalog<ComponentApi>('test-catalog', '1.0', [MockTextApi]);
 
 /**
  * These tests ensure that:
@@ -327,7 +331,7 @@ describe('A2uiLitElement', () => {
     customElements.define('test-version-agnostic-element', VersionAgnosticElement);
 
     const apiUsedIn = async (api: ComponentApi, catalogId: string) => {
-      const catalog = new Catalog<ComponentApi>(catalogId, '1.0', [api]);
+      const catalog = new ZodCatalog<ComponentApi>(catalogId, '1.0', [api]);
       const catalogProcessor = new MessageProcessor([catalog]);
       catalogProcessor.processMessages([
         {version: 'v1.0', createSurface: {surfaceId: 's', catalogId}},

@@ -16,7 +16,7 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from '@a2ui/schema-zod';
+import {objectSchema} from '../test/test_schemas.js';
 
 import {toWebComponentImplementation} from './to_web_component_implementation.js';
 
@@ -27,7 +27,7 @@ describe('toWebComponentImplementation', () => {
   const element = MockElement as unknown as CustomElementConstructor & {readonly tagName: string};
 
   it('combines the api with the element and its static tag name', () => {
-    const api = {name: 'Mock', schema: z.object({text: z.string()})};
+    const api = {name: 'Mock', schema: objectSchema(['text'])};
 
     const impl = toWebComponentImplementation(element, api);
 
@@ -38,8 +38,8 @@ describe('toWebComponentImplementation', () => {
   });
 
   it('shares one element across apis of different versions', () => {
-    const oldApi = {name: 'Mock', schema: z.object({text: z.string()})};
-    const newApi = {name: 'Mock', schema: z.object({text: z.string(), note: z.string()})};
+    const oldApi = {name: 'Mock', schema: objectSchema(['text'])};
+    const newApi = {name: 'Mock', schema: objectSchema(['text', 'note'])};
 
     const oldImpl = toWebComponentImplementation(element, oldApi);
     const newImpl = toWebComponentImplementation(element, newApi);

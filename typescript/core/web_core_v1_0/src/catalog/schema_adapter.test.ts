@@ -17,18 +17,34 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {getCatalogSchemaAdapter, registerCatalogSchemaAdapter} from './schema_adapter.js';
+import {A2uiCatalogError} from '../errors.js';
+import {testSchemaAdapter} from '../test/test_schemas.js';
+import {requireSchemaAdapter} from './schema_adapter.js';
 
-describe('catalog schema adapter registration', () => {
-  it('keeps one deterministic adapter registration', () => {
-    const adapter = getCatalogSchemaAdapter();
-    assert.ok(adapter);
-    registerCatalogSchemaAdapter(adapter);
+describe('requireSchemaAdapter', () => {
+  it("returns the catalog's adapter when it implements the operation", () => {
+    const schemaAdapter = testSchemaAdapter({getSchemaBehavior: () => ({type: 'STATIC'})});
 
-    assert.strictEqual(getCatalogSchemaAdapter(), adapter);
+    assert.strictEqual(
+      requireSchemaAdapter({id: 'c', schemaAdapter}, 'getSchemaBehavior'),
+      schemaAdapter,
+    );
+  });
+
+  it('names the catalog and the operation when the catalog has no adapter', () => {
     assert.throws(
-      () => registerCatalogSchemaAdapter({name: 'another-schema-adapter'}),
-      new RegExp(`already registered: ${adapter.name}`),
+      () => requireSchemaAdapter({id: 'c'}, 'extractRefFields'),
+      (err: unknown) =>
+        err instanceof A2uiCatalogError &&
+        err.message.includes("Catalog 'c'") &&
+        err.message.includes("'extractRefFields'"),
+    );
+  });
+
+  it('rejects an adapter that lacks the operation', () => {
+    assert.throws(
+      () => requireSchemaAdapter({id: 'c', schemaAdapter: testSchemaAdapter()}, 'extractRefFields'),
+      A2uiCatalogError,
     );
   });
 });

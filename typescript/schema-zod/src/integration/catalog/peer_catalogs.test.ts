@@ -20,11 +20,18 @@ import * as path from 'node:path';
 import {describe, it} from 'node:test';
 import * as url from 'node:url';
 
-import {A2uiCatalogError} from '../errors.js';
-import {MessageProcessor} from '../processing/message-processor.js';
-import {PayloadValidator} from '../validation/payload-validator.js';
-import {Catalog, CatalogApi, ComponentApi, linkCatalogs} from './types.js';
-import {validateStandardSchema} from './standard_schema.js';
+import {
+  A2uiCatalogError,
+  Catalog,
+  CatalogApi,
+  ComponentApi,
+  linkCatalogs,
+  MessageProcessor,
+  PayloadValidator,
+  validateStandardSchema,
+} from '@a2ui/web_core_v1_0';
+
+import {parseZodCatalog} from '../../index.js';
 
 /** Walks up from this file until it finds `relPath`. */
 function findRepoFile(relPath: string): string {
@@ -41,7 +48,7 @@ function findRepoFile(relPath: string): string {
 
 function loadFixture(name: string): CatalogApi {
   const file = findRepoFile(path.join('conformance', 'test_data', 'catalogs', name));
-  return Catalog.fromJson(JSON.parse(fs.readFileSync(file, 'utf8')));
+  return parseZodCatalog(JSON.parse(fs.readFileSync(file, 'utf8')));
 }
 
 /** Builds a v1.0 catalog document with the given components and `$defs`. */
@@ -99,8 +106,8 @@ const REFERENCING = catalogDoc('https://example.com/referencing.json', {
 
 describe('withPeerCatalogs', () => {
   it('returns a linked copy and leaves the receiver unchanged', () => {
-    const peer = Catalog.fromJson(PEER);
-    const catalog = Catalog.fromJson(REFERENCING);
+    const peer = parseZodCatalog(PEER);
+    const catalog = parseZodCatalog(REFERENCING);
     const schemaBefore = catalog.validationSchema;
     const cachedBefore = cachedValidationSchema(catalog);
     const derivedBefore = catalog.components.get('Derived')!;
@@ -126,22 +133,22 @@ describe('withPeerCatalogs', () => {
 
   it('keeps the runtime class of a subclass', () => {
     class CustomCatalog extends Catalog<ComponentApi> {}
-    const base = Catalog.fromJson(REFERENCING);
+    const base = parseZodCatalog(REFERENCING);
     const custom = new CustomCatalog(
       base.id,
       base.protocolVersion,
       [...base.components.values()],
       [],
-      {schemaId: base.schemaId},
+      {schemaId: base.schemaId, schemaAdapter: base.schemaAdapter},
     );
-    const linked = custom.withPeerCatalogs([Catalog.fromJson(PEER)]);
+    const linked = custom.withPeerCatalogs([parseZodCatalog(PEER)]);
     assert.ok(linked instanceof CustomCatalog);
     assert.ok(accepts(linked as CatalogApi, 'Derived', {label: 'a'}));
   });
 
   it('returns the receiver when no peer is added', () => {
-    const peer = Catalog.fromJson(PEER);
-    const catalog = Catalog.fromJson(REFERENCING);
+    const peer = parseZodCatalog(PEER);
+    const catalog = parseZodCatalog(REFERENCING);
     assert.strictEqual(catalog.withPeerCatalogs([]), catalog);
     assert.strictEqual(catalog.withPeerCatalogs([catalog]), catalog);
     const linked = catalog.withPeerCatalogs([peer]);
@@ -149,16 +156,16 @@ describe('withPeerCatalogs', () => {
   });
 
   it('records linked peers as the catalogs they were linked from', () => {
-    const peer = Catalog.fromJson(PEER);
-    const linkedPeer = peer.withPeerCatalogs([Catalog.fromJson(REFERENCING)]);
-    const linked = Catalog.fromJson(REFERENCING).withPeerCatalogs([linkedPeer]);
+    const peer = parseZodCatalog(PEER);
+    const linkedPeer = peer.withPeerCatalogs([parseZodCatalog(REFERENCING)]);
+    const linked = parseZodCatalog(REFERENCING).withPeerCatalogs([linkedPeer]);
     assert.deepStrictEqual(linked.peerCatalogs, [peer]);
   });
 
   it('resolves through the source of a pruned peer', () => {
-    const peerSource = Catalog.fromJson(PEER);
+    const peerSource = parseZodCatalog(PEER);
     const pruned = peerSource.withEntries([], []);
-    const linked = Catalog.fromJson(REFERENCING).withPeerCatalogs([pruned]);
+    const linked = parseZodCatalog(REFERENCING).withPeerCatalogs([pruned]);
     assert.deepStrictEqual(linked.peerCatalogs, [peerSource, pruned]);
     assert.ok(accepts(linked, 'Derived', {label: 'a'}));
     assert.ok(!accepts(linked, 'Derived', {}));
@@ -176,7 +183,7 @@ describe('withPeerCatalogs', () => {
     const a = catalogDoc('https://example.com/a.json', {
       Top: component('Top', [{$ref: 'b.json#/components/Middle'}]),
     });
-    const linked = Catalog.fromJson(a).withPeerCatalogs([Catalog.fromJson(b), Catalog.fromJson(c)]);
+    const linked = parseZodCatalog(a).withPeerCatalogs([parseZodCatalog(b), parseZodCatalog(c)]);
     assert.ok(accepts(linked, 'Top', {leaf: 'x', middle: 'y'}));
     assert.ok(!accepts(linked, 'Top', {middle: 'y'}));
     const top = (linked.validationSchema['components'] as Record<string, any>)['Top'];
@@ -214,7 +221,7 @@ describe('withPeerCatalogs', () => {
         Kind: {type: 'string'},
       },
     );
-    const linked = Catalog.fromJson(referencing).withPeerCatalogs([Catalog.fromJson(peer)]);
+    const linked = parseZodCatalog(referencing).withPeerCatalogs([parseZodCatalog(peer)]);
     assert.ok(accepts(linked, 'Derived', {localOnly: 'a', peerOnly: 'b', ownKind: 'x', kind: 1}));
     assert.ok(!accepts(linked, 'Derived', {localOnly: 'a'}), 'peerOnly is required');
     assert.ok(!accepts(linked, 'Derived', {peerOnly: 'b', kind: 'not a number'}));
@@ -235,7 +242,7 @@ describe('peer matching', () => {
       {},
     );
     (doc['components'] as Record<string, unknown>)['Badge'] = badge('self');
-    return Catalog.fromJson(doc).withPeerCatalogs([alpha, beta, mcp].map(d => Catalog.fromJson(d)));
+    return parseZodCatalog(doc).withPeerCatalogs([alpha, beta, mcp].map(d => parseZodCatalog(d)));
   }
 
   it('prefers an exact or suffix match over a file name match', () => {
@@ -268,8 +275,8 @@ describe('peer matching', () => {
 
 describe('linkCatalogs', () => {
   it('returns linked copies and leaves the inputs unchanged', () => {
-    const peer = Catalog.fromJson(PEER);
-    const catalog = Catalog.fromJson(REFERENCING);
+    const peer = parseZodCatalog(PEER);
+    const catalog = parseZodCatalog(REFERENCING);
     const [linkedCatalog, linkedPeer] = linkCatalogs([catalog, peer]);
     assert.notStrictEqual(linkedCatalog, catalog);
     assert.deepStrictEqual(linkedCatalog.peerCatalogs, [peer]);
@@ -279,9 +286,9 @@ describe('linkCatalogs', () => {
   });
 
   it('puts extra peers first and does not link them', () => {
-    const extra = Catalog.fromJson(PEER);
-    const other = Catalog.fromJson(catalogDoc('https://example.com/other.json', {}));
-    const catalog = Catalog.fromJson(REFERENCING);
+    const extra = parseZodCatalog(PEER);
+    const other = parseZodCatalog(catalogDoc('https://example.com/other.json', {}));
+    const catalog = parseZodCatalog(REFERENCING);
     const [linked, otherLinked] = linkCatalogs([catalog, other], [extra]);
     assert.deepStrictEqual(linked.peerCatalogs, [extra, other]);
     assert.strictEqual(otherLinked, other);
@@ -289,7 +296,7 @@ describe('linkCatalogs', () => {
   });
 
   it('returns the catalogs unchanged when there are fewer than two', () => {
-    const catalog = Catalog.fromJson(REFERENCING);
+    const catalog = parseZodCatalog(REFERENCING);
     const result = linkCatalogs([catalog]);
     assert.strictEqual(result[0], catalog);
   });
@@ -343,7 +350,7 @@ describe('unresolvable cross-catalog references', () => {
   };
 
   it('fail loudly instead of accepting any value', () => {
-    const catalog = Catalog.fromJson(doc).withPeerCatalogs([Catalog.fromJson(PEER)]);
+    const catalog = parseZodCatalog(doc).withPeerCatalogs([parseZodCatalog(PEER)]);
     for (const name of ['Inherits', 'Property', 'MissingPointer']) {
       assert.throws(
         () => catalog.components.get(name)!.schema,

@@ -16,14 +16,14 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from '@a2ui/schema-zod';
-
 import {
   type StandardSchema,
   type StandardSchemaInput,
   type StandardSchemaOutput,
   validateStandardSchema,
-} from './standard_schema.js';
+} from '@a2ui/web_core_v1_0';
+
+import {z} from '../../index.js';
 
 type Equal<Left, Right> =
   (<Type>() => Type extends Left ? 1 : 2) extends <Type>() => Type extends Right ? 1 : 2

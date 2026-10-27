@@ -15,7 +15,8 @@
  */
 
 import {BaseVersionAdapter, ProtocolVersion} from './base.js';
-import {getCatalogSchemaAdapter} from '../../catalog/schema_adapter.js';
+import {A2uiCatalogError} from '../../errors.js';
+import type {CatalogSchemaAdapter} from '../../catalog/schema_adapter.js';
 import {
   InternalComponentPayload,
   InternalOperation,
@@ -28,10 +29,23 @@ import {
 export class V1Point0Adapter extends BaseVersionAdapter {
   readonly version: ProtocolVersion = 'v1.0';
 
+  /**
+   * @param schemaAdapter Adapter supplying the v1.0 message schema. Without
+   *   one, the adapter can resolve versions and action keys but cannot
+   *   validate messages.
+   */
+  constructor(private readonly schemaAdapter?: CatalogSchemaAdapter) {
+    super();
+  }
+
   protected get schema() {
-    const schema = getCatalogSchemaAdapter()?.getProtocolSchema?.(this.version);
+    const schema = this.schemaAdapter?.getProtocolSchema?.(this.version);
     if (!schema) {
-      throw new Error('Protocol validation requires an installed schema adapter.');
+      throw new A2uiCatalogError(
+        'Validating v1.0 messages needs a schema adapter that supplies the protocol schema. ' +
+          'Pass MessageProcessorOptions.schemaAdapter, or catalogs created with ' +
+          'CatalogOptions.schemaAdapter.',
+      );
     }
     return schema;
   }

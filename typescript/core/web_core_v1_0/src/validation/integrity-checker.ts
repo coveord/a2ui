@@ -33,55 +33,27 @@ import type {
   ChildRefAnalysisOptions,
   ComponentRefMap,
 } from '../catalog/component_references.js';
-import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
+import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 
 import {isValidUax31Identifier, assertUax31Identifier} from '../common/uax31.js';
 
-export function analyzeChildRefSchema(
-  schema: unknown,
-  options: ChildRefAnalysisOptions,
-): ChildRefAnalysis {
-  const analyze = getCatalogSchemaAdapter()?.analyzeChildRefSchema;
-  if (!analyze) {
-    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
-  }
-  return analyze(schema, options);
-}
-
+/**
+ * Builds a catalog's component reference map with the catalog's schema adapter.
+ *
+ * @param catalog The catalog to map.
+ * @param options Child reference conventions of the catalog's protocol version.
+ * @returns The catalog's component reference map.
+ * @throws {A2uiCatalogError} If the catalog has no adapter that builds reference maps.
+ */
 export function buildComponentRefMap(
   catalog: Catalog<ComponentApi>,
   options: ChildRefAnalysisOptions,
 ): ComponentRefMap {
-  const build = getCatalogSchemaAdapter()?.buildComponentRefMap;
-  if (!build) {
-    throw new A2uiValidationError('Reference mapping requires an installed schema adapter.');
-  }
-  return build(catalog, options);
-}
-
-export function isChildSchema(schema: unknown, options: ChildRefAnalysisOptions): boolean {
-  const check = getCatalogSchemaAdapter()?.isChildSchema;
-  if (!check)
-    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
-  return check(schema, options);
-}
-
-export function isChildListSchema(schema: unknown, options: ChildRefAnalysisOptions): boolean {
-  const check = getCatalogSchemaAdapter()?.isChildListSchema;
-  if (!check)
-    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
-  return check(schema, options);
-}
-
-export function isChildOrChildListSchema(
-  schema: unknown,
-  options: ChildRefAnalysisOptions,
-): boolean {
-  const check = getCatalogSchemaAdapter()?.isChildOrChildListSchema;
-  if (!check)
-    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
-  return check(schema, options);
+  return requireSchemaAdapter(catalog, 'buildComponentRefMap').buildComponentRefMap!(
+    catalog,
+    options,
+  );
 }
 
 export type {ChildRefAnalysis, ChildRefAnalysisOptions, ComponentRefMap};

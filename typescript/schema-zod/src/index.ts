@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-/** Stable identity used when this package registers its catalog schema adapter. */
 export {
   inlinePeerAndLocalRefs,
-  installZodCatalogSchemaAdapter,
+  parseZodCatalog,
   zodCatalogSchemaAdapter,
 } from './catalog_adapter.js';
 export {
@@ -49,4 +48,5 @@ export {
   type FunctionCall,
 } from './types/common-types.js';
 
+/** Name of the Zod catalog schema adapter, as reported in diagnostics. */
 export const ZOD_SCHEMA_ADAPTER_NAME = '@a2ui/schema-zod';

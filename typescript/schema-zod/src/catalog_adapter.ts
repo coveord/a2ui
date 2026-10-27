@@ -18,8 +18,8 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {
   Catalog,
-  registerCatalogSchemaAdapter,
   validateStandardSchema,
+  type CatalogApi,
   type CatalogSchemaAdapter,
 } from '@a2ui/web_core_v1_0';
 
@@ -46,7 +46,13 @@ import {getZodKnownSchemaKeys} from './resolution/known_schema_keys.js';
 import {extractRefFields} from './resolution/ref-fields.js';
 import {getZodSchemaBehavior} from './resolution/schema_behavior.js';
 
-/** Zod implementation of the optional catalog compiler adapter. */
+/**
+ * Zod implementation of the catalog schema adapter.
+ *
+ * Pass it to the catalogs whose schemas are Zod schemas, through
+ * `CatalogOptions.schemaAdapter`, and to `MessageProcessorOptions.schemaAdapter`
+ * when no catalog supplies it. Importing this package registers nothing.
+ */
 export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
   name: '@a2ui/schema-zod',
   parseCatalog: ({json, protocolVersion, catalogId}) => {
@@ -57,7 +63,10 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
       functions,
       ...options
     } = parseCatalogSchema(json, protocolVersion, catalogId);
-    return new Catalog(id, resolvedVersion, components, functions, options);
+    return new Catalog(id, resolvedVersion, components, functions, {
+      ...options,
+      schemaAdapter: zodCatalogSchemaAdapter,
+    });
   },
   serializeCatalog: catalog => serializeCatalogDocument(catalog as never),
   generateValidationSchema: catalog => generateValidationSchema(catalog as never),
@@ -92,14 +101,27 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
   cleanSchemaNode,
 };
 
-/** Installs the Zod catalog compiler for the current runtime. */
-export function installZodCatalogSchemaAdapter(): void {
-  registerCatalogSchemaAdapter(zodCatalogSchemaAdapter);
+/**
+ * Loads a catalog document whose definitions compile to Zod schemas.
+ *
+ * Shorthand for `Catalog.fromJson` with `zodCatalogSchemaAdapter`.
+ *
+ * @param json Raw catalog document or client capabilities inline catalog.
+ * @param protocolVersion Protocol version that overrides the one the document declares.
+ * @param catalogId Catalog ID that overrides the one the document declares.
+ * @returns A schema-only catalog that carries `zodCatalogSchemaAdapter`.
+ */
+export function parseZodCatalog(
+  json: Record<string, unknown>,
+  protocolVersion?: string,
+  catalogId?: string,
+): CatalogApi {
+  return Catalog.fromJson(json, {
+    schemaAdapter: zodCatalogSchemaAdapter,
+    protocolVersion,
+    catalogId,
+  });
 }
 
 /** Links JSON Schema references in catalog entries for Zod-backed catalogs. */
 export {inlinePeerAndLocalRefs};
-
-// Catalog packages import schema-zod for Zod models, so install its compiler
-// alongside those models without requiring a core-to-adapter dependency.
-installZodCatalogSchemaAdapter();

@@ -16,27 +16,24 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {
-  Catalog,
-  ComponentApi,
-  InferredComponentApiSchemaType,
-  createFunctionImplementation,
-} from './types.js';
-import {A2uiExpressionError} from '../errors.js';
-import {z} from '@a2ui/schema-zod';
+
+import {A2uiCatalogError, A2uiExpressionError} from '../errors.js';
+import {MessageProcessor} from '../processing/message-processor.js';
+import {objectSchema, testSchemaAdapter} from '../test/test_schemas.js';
+import {Catalog, ComponentApi, createFunctionImplementation, linkCatalogs} from './types.js';
 
 describe('Catalog Types', () => {
   it('creates a catalog with functions', () => {
     const mockComponent = {
       name: 'MockComp',
-      schema: z.object({}),
+      schema: objectSchema(),
     } satisfies ComponentApi;
 
     const mockFunc = createFunctionImplementation(
       {
         name: 'mockFunc',
         returnType: 'string',
-        schema: z.object({}),
+        schema: objectSchema(),
       },
       () => 'result',
     );
@@ -68,14 +65,12 @@ describe('Catalog Types', () => {
     );
   });
 
-  it('throws A2uiExpressionError when zod validation fails', () => {
+  it('throws A2uiExpressionError when argument validation fails', () => {
     const mockFunc = createFunctionImplementation(
       {
         name: 'test',
         returnType: 'string',
-        schema: z.object({
-          requiredField: z.string(),
-        }),
+        schema: objectSchema(['requiredField']),
       },
       () => 'result',
     );
@@ -94,78 +89,113 @@ describe('Catalog Types', () => {
       },
     );
   });
+});
 
-  it('safely computes componentRefMap with default fallback when refOptions is omitted', () => {
-    const mockComponent = {
-      name: 'Container',
-      schema: z.object({
-        child: z.string().describe('ComponentId'),
-      }),
-    } satisfies ComponentApi;
+describe('Catalog schema adapter', () => {
+  it('fails schema operations clearly when the catalog has no adapter', () => {
+    const catalog = new Catalog('no-adapter', '1.0');
 
-    const catalog = new Catalog('guid-1234', '1.0', [mockComponent]);
-    assert.doesNotThrow(() => {
-      const refMap = catalog.componentRefMap;
-      assert.ok(refMap.Container);
-      assert.deepStrictEqual(Array.from(refMap.Container.singleRefs), ['child']);
-      assert.deepStrictEqual(Array.from(refMap.Container.listRefs), []);
-    });
+    assert.throws(
+      () => catalog.toJson(),
+      (err: unknown) =>
+        err instanceof A2uiCatalogError &&
+        err.message.includes("Catalog 'no-adapter'") &&
+        err.message.includes("'serializeCatalog'") &&
+        err.message.includes('CatalogOptions.schemaAdapter'),
+    );
   });
 
-  it('serializes catalog to JSON schema via validationSchema', () => {
-    const mockComponent = {
-      name: 'CustomButton',
-      schema: z.object({
-        label: z.string().describe('REF:#/$defs/DynamicString'),
-      }),
-    } satisfies ComponentApi;
+  it('fails clearly when the adapter lacks the operation', () => {
+    const catalog = new Catalog('partial', '1.0', [], [], {schemaAdapter: testSchemaAdapter()});
 
-    const catalog = new Catalog('https://example.com/custom-cat.json', '1.0', [mockComponent]);
+    assert.throws(() => catalog.validationSchema, /'generateValidationSchema'/);
+  });
 
-    const schema = catalog.validationSchema;
-    const defs = schema['$defs'] as Record<string, any>;
-    assert.ok(defs);
-    assert.ok(defs.DynamicString);
+  it("uses the catalog's own adapter", () => {
+    const document = {catalogId: 'own'};
+    const catalog = new Catalog('own', '1.0', [], [], {
+      schemaAdapter: testSchemaAdapter({serializeCatalog: () => document}),
+    });
+
+    assert.deepStrictEqual(catalog.toJson(), document);
+  });
+
+  it('keeps the adapter on catalogs derived with withEntries', () => {
+    const schemaAdapter = testSchemaAdapter({retainedDefs: defs => defs});
+    const catalog = new Catalog('derived', '1.0', [], [], {schemaAdapter});
+
+    assert.strictEqual(catalog.withEntries([], []).schemaAdapter, schemaAdapter);
+  });
+
+  it('parses documents with the adapter passed to fromJson', () => {
+    const parsed = new Catalog('parsed', '1.0');
+    const schemaAdapter = testSchemaAdapter({
+      parseCatalog: ({catalogId}) => {
+        assert.strictEqual(catalogId, 'override');
+        return parsed;
+      },
+    });
+
+    assert.strictEqual(Catalog.fromJson({}, {schemaAdapter, catalogId: 'override'}), parsed);
+    assert.throws(
+      () => Catalog.fromJson({}, {schemaAdapter: testSchemaAdapter()}),
+      /cannot parse catalog documents/,
+    );
+  });
+
+  it('refuses to link catalogs that use different adapters', () => {
+    const a = new Catalog('a', '1.0', [], [], {schemaAdapter: testSchemaAdapter()});
+    const b = new Catalog('b', '1.0', [], [], {schemaAdapter: testSchemaAdapter()});
+
+    assert.throws(
+      () => linkCatalogs([a, b]),
+      (err: unknown) =>
+        err instanceof A2uiCatalogError && err.message.includes('must share one schema adapter'),
+    );
   });
 });
 
-describe('InferredComponentApiSchemaType', () => {
-  it('infers the correct schema type from a ComponentApi', () => {
-    const mockSchema = z.object({
-      field1: z.string(),
-      field2: z.number().optional(),
+describe('MessageProcessor protocol schema adapter', () => {
+  const message = {version: 'v1.0', deleteSurface: {surfaceId: 'missing'}};
+
+  it('fails clearly when neither the options nor the catalogs supply an adapter', () => {
+    const processor = new MessageProcessor([new Catalog('plain', '1.0')]);
+
+    assert.throws(
+      () => processor.processMessages([message]),
+      (err: unknown) =>
+        err instanceof A2uiCatalogError &&
+        err.message.includes('MessageProcessorOptions.schemaAdapter'),
+    );
+  });
+
+  it('validates messages with the adapter in its options', () => {
+    const versions: string[] = [];
+    const schemaAdapter = testSchemaAdapter({
+      getProtocolSchema: version => {
+        versions.push(version);
+        return objectSchema();
+      },
     });
+    const processor = new MessageProcessor([], undefined, {schemaAdapter});
 
-    const mockApi = {
-      name: 'MockComp',
-      schema: mockSchema,
-    } satisfies ComponentApi;
+    processor.processMessages([message]);
 
-    // Type-level equivalence assertion using z.infer
-    type ExpectedType = z.infer<typeof mockSchema>;
-    type InferredType = InferredComponentApiSchemaType<typeof mockApi>;
+    assert.deepStrictEqual(versions, ['v1.0']);
+  });
 
-    // Assert `InferredType` is not exactly `any`
-    type IsAny<T> = 0 extends 1 & T ? true : false;
-    // inferredIsAny only accepts "true" if `InferredType` is "any".
-    // This happens when `mockApi: ComponentApi`, but doesn't when
-    // `mockApi {} satisfies ComponentApi`!
-    const inferredIsAny: IsAny<InferredType> = false;
+  it("falls back to the catalogs' adapter", () => {
+    let calls = 0;
+    const schemaAdapter = testSchemaAdapter({
+      getProtocolSchema: () => {
+        calls++;
+        return objectSchema();
+      },
+    });
+    const processor = new MessageProcessor([new Catalog('own', '1.0', [], [], {schemaAdapter})]);
 
-    // When types are not "any", check that they're the same by checking if they
-    // extend each other.
-    type TypesAreEquivalent<Expected, Actual> = Actual extends Expected
-      ? Expected extends Actual
-        ? true
-        : false
-      : false;
+    processor.processMessages([message]);
 
-    // typesMatchExact only accepts "true" if `TypesAreEquivalent`
-    const typesMatchExact: TypesAreEquivalent<ExpectedType, InferredType> = true;
-
-    // Appease linter by using the variables
-    assert.ok(mockApi);
-    assert.strictEqual(inferredIsAny, false);
-    assert.strictEqual(typesMatchExact, true);
+    assert.strictEqual(calls, 1);
   });
 });

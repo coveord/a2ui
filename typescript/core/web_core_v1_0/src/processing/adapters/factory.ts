@@ -23,12 +23,24 @@ import {
   registerKnownActionsProvider,
 } from './base.js';
 import {V1Point0Adapter} from './v1_0.js';
+import type {CatalogSchemaAdapter} from '../../catalog/schema_adapter.js';
 
 /**
  * Resolves version adapters for protocol specification versions.
  */
 export class VersionAdapterFactory implements VersionAdapterResolver {
-  private readonly adapters = new Map<string, VersionAdapter>([['1.0', new V1Point0Adapter()]]);
+  private readonly adapters: Map<string, VersionAdapter>;
+
+  /**
+   * @param schemaAdapter Adapter supplying protocol message schemas to the
+   *   built-in version adapters.
+   * @param inherited Factory whose registered adapters for other versions
+   *   this factory starts with.
+   */
+  constructor(schemaAdapter?: CatalogSchemaAdapter, inherited?: VersionAdapterFactory) {
+    this.adapters = new Map(inherited?.adapters);
+    this.adapters.set('1.0', new V1Point0Adapter(schemaAdapter));
+  }
 
   /**
    * Returns the aggregated set of all action keys supported by all registered adapters.

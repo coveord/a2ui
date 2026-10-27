@@ -34,6 +34,7 @@ import {
   A2uiLitElement,
   type WebComponentImplementation,
 } from '@a2ui/web_core_v1_0';
+import {zodCatalogSchemaAdapter} from '@a2ui/schema-zod';
 import {html, nothing} from 'lit';
 import {SliderApi} from './index.js';
 
@@ -492,6 +493,7 @@ describe('v1.0 Basic Catalog & Universal Custom Elements', () => {
         '1.0',
         Array.from(basicCatalog.components.values()),
         [...(Array.from(basicCatalog.functions.values()) as any[]), mutateDataApi as any],
+        {schemaAdapter: zodCatalogSchemaAdapter},
       );
 
       const processor = new MessageProcessor([testCatalog as any]);
@@ -555,6 +557,7 @@ describe('v1.0 Basic Catalog & Universal Custom Elements', () => {
         },
       ],
       [],
+      {schemaAdapter: zodCatalogSchemaAdapter},
     );
 
     const processor = new MessageProcessor([customV1Catalog]);
@@ -617,6 +620,7 @@ describe('v1.0 Basic Catalog & Universal Custom Elements', () => {
       '1.0',
       [CustomBadgeImpl],
       [],
+      {schemaAdapter: zodCatalogSchemaAdapter},
     );
 
     const processor = new MessageProcessor([basicCatalog, secondaryCatalog]);

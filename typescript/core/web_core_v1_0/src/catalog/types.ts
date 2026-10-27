@@ -32,7 +32,7 @@ import {
   validateStandardSchema,
 } from './standard_schema.js';
 import type {ComponentSchemaMetadata} from './schema_metadata.js';
-import {getCatalogSchemaAdapter} from './schema_adapter.js';
+import {requireSchemaAdapter, type CatalogSchemaAdapter} from './schema_adapter.js';
 
 export type {ComponentChildRefs};
 
@@ -50,16 +50,6 @@ export interface A2uiReturnTypeMap {
   object: Record<string, unknown>;
   any: unknown;
   void: void;
-}
-
-function requireCatalogSchemaAdapter() {
-  const adapter = getCatalogSchemaAdapter();
-  if (!adapter) {
-    throw new A2uiCatalogError(
-      'Catalog schema operations require an installed schema adapter such as @a2ui/schema-zod.',
-    );
-  }
-  return adapter;
 }
 
 /**
@@ -329,6 +319,13 @@ export interface CatalogDocumentOptions {
 export interface CatalogOptions extends CatalogDocumentOptions {
   /** Schema for this catalog's theme parameters. */
   themeSchema?: StandardSchema<any, any>;
+  /**
+   * Adapter for the schema library this catalog's schemas are written with,
+   * such as `zodCatalogSchemaAdapter` from `@a2ui/schema-zod`. Serializing,
+   * validating against, linking and resolving the catalog's components
+   * require it.
+   */
+  schemaAdapter?: CatalogSchemaAdapter;
 }
 
 /**
@@ -351,6 +348,8 @@ export declare interface CatalogInterface<
   readonly functions: ReadonlyMap<string, F>;
   /** Schema for theme parameters used by this catalog. */
   readonly themeSchema?: StandardSchema<any, any>;
+  /** See {@link CatalogOptions.schemaAdapter}. */
+  readonly schemaAdapter?: CatalogSchemaAdapter;
   /** System instructions or usage guidelines for this catalog. */
   readonly instructions?: string;
   /** Invoker callback that delegates to this catalog's registered functions. */
@@ -457,6 +456,9 @@ export class Catalog<
    * Schema for theme parameters used by this catalog.
    */
   readonly themeSchema?: StandardSchema<any, any>;
+
+  /** See {@link CatalogOptions.schemaAdapter}. */
+  readonly schemaAdapter?: CatalogSchemaAdapter;
 
   /**
    * Optional system instructions or usage guidelines for this catalog.
@@ -574,13 +576,14 @@ export class Catalog<
       return this;
     }
 
+    const adapter = requireSchemaAdapter(this, 'linkEntry');
     const components = new Map<string, T>();
     for (const [name, component] of this.components) {
-      components.set(name, requireCatalogSchemaAdapter().linkEntry!(component, linked));
+      components.set(name, adapter.linkEntry!(component, linked));
     }
     const functions = new Map<string, F>();
     for (const [name, fn] of this.functions) {
-      functions.set(name, requireCatalogSchemaAdapter().linkEntry!(fn, linked));
+      functions.set(name, adapter.linkEntry!(fn, linked));
     }
     const copy = Object.create(Object.getPrototypeOf(this)) as this;
     Object.assign(copy, this, {
@@ -611,7 +614,8 @@ export class Catalog<
    */
   get validationSchema(): Record<string, unknown> {
     if (!this.cachedValidationSchema) {
-      this.cachedValidationSchema = requireCatalogSchemaAdapter().generateValidationSchema!(this);
+      this.cachedValidationSchema = requireSchemaAdapter(this, 'generateValidationSchema')
+        .generateValidationSchema!(this);
     }
     return deepCopyJson(this.cachedValidationSchema!);
   }
@@ -648,7 +652,7 @@ export class Catalog<
    */
   toJson(): Record<string, unknown> {
     if (!this.cachedDocument) {
-      this.cachedDocument = requireCatalogSchemaAdapter().serializeCatalog!(this);
+      this.cachedDocument = requireSchemaAdapter(this, 'serializeCatalog').serializeCatalog!(this);
     }
     return deepCopyJson(this.cachedDocument);
   }
@@ -687,6 +691,7 @@ export class Catalog<
       : undefined;
     const copy = new Catalog<T, F>(this.id, this.protocolVersion, components, functions, {
       themeSchema: this.themeSchema,
+      schemaAdapter: this.schemaAdapter,
       instructions: this.instructions,
       schemaUri: this.schemaUri,
       schemaId: this.schemaId,
@@ -697,7 +702,7 @@ export class Catalog<
       declaresComponents: this.declaresComponents,
       functionsLayout: this.functionsLayout,
       unions,
-      defs: requireCatalogSchemaAdapter().retainedDefs!(
+      defs: requireSchemaAdapter(this, 'retainedDefs').retainedDefs!(
         baseDefs,
         [...this.components.values(), ...this.functions.values()],
         [...components, ...functions],
@@ -718,9 +723,14 @@ export class Catalog<
    * Lazily computed component reference map for child reference extraction and topology validation.
    */
   get componentRefMap(): ComponentRefMap {
-    if (!this._componentRefMap) {
+    if (!this._componentRefMap && this.components.size === 0) {
+      // A catalog without components references nothing, so it needs no
+      // schema adapter to say so.
+      this._componentRefMap = {};
+    } else if (!this._componentRefMap) {
       const options = V10_CHILD_REF_OPTIONS;
-      this._componentRefMap = requireCatalogSchemaAdapter().buildComponentRefMap!(this, options);
+      this._componentRefMap = requireSchemaAdapter(this, 'buildComponentRefMap')
+        .buildComponentRefMap!(this, options);
     }
     return this._componentRefMap;
   }
@@ -769,6 +779,7 @@ export class Catalog<
       ? {themeSchema: themeSchemaOrOptions}
       : ((themeSchemaOrOptions ?? {}) as CatalogOptions);
     this.themeSchema = options.themeSchema;
+    this.schemaAdapter = options.schemaAdapter;
     this.instructions = options.instructions ?? instructions;
     this.schemaUri = options.schemaUri;
     this.schemaId = options.schemaId;
@@ -794,47 +805,43 @@ export class Catalog<
    * Constructs a schema-only Catalog from an authored A2UI catalog document.
    *
    * Each entry is a `JsonComponentApi` or `JsonFunctionApi` whose model is
-   * its definition as written, from which its Zod schema is derived on first
-   * use, and the catalog keeps the document-level fields, so `toJson` returns
-   * the document unchanged.
+   * its definition as written, from which the adapter derives its schema on
+   * first use, and the catalog keeps the document-level fields, so `toJson`
+   * returns the document unchanged. The result carries `schemaAdapter`.
    *
    * @param json Raw catalog document or client capabilities inline catalog.
-   * @param protocolVersion Protocol version of the catalog. When given, it
-   *   takes precedence over the `protocolVersion` the document declares: it
-   *   becomes the catalog's `protocolVersion` and selects the version's
-   *   loading rules, while `toJson` still writes the version the document
-   *   declares. When omitted, the document's version applies, and for a
-   *   document that declares none, such as those published before v1.0,
-   *   `DEFAULT_PROTOCOL_VERSION`.
-   * @param catalogId Catalog ID to use instead of the one the document
-   *   declares, or for a document that declares none, such as the v0.8 basic
-   *   catalog. It becomes the catalog's `id`, and replaces the document's own
-   *   `catalogId` in `toJson`; a document that declares none still has none
-   *   in `toJson`.
+   * @param options The adapter that compiles the document, and optional
+   *   overrides. `protocolVersion` takes precedence over the version the
+   *   document declares: it becomes the catalog's `protocolVersion` and
+   *   selects the version's loading rules, while `toJson` still writes the
+   *   version the document declares. When omitted, the document's version
+   *   applies, and for a document that declares none,
+   *   `DEFAULT_PROTOCOL_VERSION`. `catalogId` replaces the ID the document
+   *   declares, or supplies one for a document that declares none; a document
+   *   that declares none still has none in `toJson`.
    * @returns A new Catalog populated with component and function schemas.
+   * @throws {A2uiCatalogError} If the adapter cannot parse catalog documents.
    * @throws {Error} If the catalog ID is missing or not a string.
    */
-  static fromJson(
-    json: Record<string, any>,
-    protocolVersion?: string,
-    catalogId?: string,
-  ): CatalogApi {
-    return requireCatalogSchemaAdapter().parseCatalog!({json, protocolVersion, catalogId});
+  static fromJson(json: Record<string, any>, options: CatalogParseOptions): CatalogApi {
+    const {schemaAdapter, protocolVersion, catalogId} = options;
+    if (!schemaAdapter.parseCatalog) {
+      throw new A2uiCatalogError(
+        `Schema adapter '${schemaAdapter.name}' cannot parse catalog documents.`,
+      );
+    }
+    return schemaAdapter.parseCatalog({json, protocolVersion, catalogId});
   }
+}
 
-  /**
-   * Constructs a schema-only Catalog directly from a raw A2UI catalog schema.
-   *
-   * @deprecated Use `Catalog.fromJson` instead.
-   * @param catalogSchema Raw catalog schema or client capabilities payload object.
-   * @param protocolVersion Protocol version of the catalog, which takes
-   *   precedence over the one the schema declares, as in `fromJson`.
-   * @returns A new Catalog populated with component and function schemas.
-   * @throws {Error} If the catalog ID is missing or not a string.
-   */
-  static fromSchema(catalogSchema: Record<string, any>, protocolVersion?: string): CatalogApi {
-    return Catalog.fromJson(catalogSchema, protocolVersion);
-  }
+/** Options for `Catalog.fromJson`. */
+export interface CatalogParseOptions {
+  /** Adapter that compiles the document's JSON Schema definitions. */
+  readonly schemaAdapter: CatalogSchemaAdapter;
+  /** Protocol version that overrides the one the document declares. */
+  readonly protocolVersion?: string;
+  /** Catalog ID that overrides the one the document declares. */
+  readonly catalogId?: string;
 }
 
 /**
@@ -869,7 +876,9 @@ function referencesOtherCatalogs(catalog: CatalogInterface<ComponentApi, Functio
   const origin = linkOrigin(catalog);
   let result = crossDocumentRefs.get(origin);
   if (result === undefined) {
-    result = requireCatalogSchemaAdapter().hasCrossDocumentRefs!(origin.toJson());
+    result = requireSchemaAdapter(origin, 'hasCrossDocumentRefs').hasCrossDocumentRefs!(
+      origin.toJson(),
+    );
     crossDocumentRefs.set(origin, result);
   }
   return result;
@@ -899,6 +908,7 @@ export function linkCatalogs<C extends CatalogInterface<ComponentApi, FunctionAp
   if (list.length + extras.length < 2) {
     return list;
   }
+  assertSharedSchemaAdapter([...list, ...extras]);
   return list.map((catalog, i) => {
     if (typeof catalog.withPeerCatalogs !== 'function' || !referencesOtherCatalogs(catalog)) {
       return catalog;
@@ -906,6 +916,31 @@ export function linkCatalogs<C extends CatalogInterface<ComponentApi, FunctionAp
     const peers = [...extras, ...list.filter((other, j) => j !== i && other !== catalog)];
     return catalog.withPeerCatalogs(peers) as C;
   });
+}
+
+/**
+ * Rejects linking catalogs whose schemas come from different schema adapters.
+ *
+ * A linked entry resolves `$ref`s into its peers' definitions through its own
+ * adapter, which cannot read another library's schemas. Catalogs without an
+ * adapter are not compared.
+ */
+function assertSharedSchemaAdapter(
+  catalogs: readonly CatalogInterface<ComponentApi, FunctionApi>[],
+): void {
+  let first: CatalogInterface<ComponentApi, FunctionApi> | undefined;
+  for (const catalog of catalogs) {
+    if (!catalog.schemaAdapter) continue;
+    if (!first) {
+      first = catalog;
+    } else if (catalog.schemaAdapter !== first.schemaAdapter) {
+      throw new A2uiCatalogError(
+        `Cannot link catalog '${catalog.id}' (schema adapter '${catalog.schemaAdapter.name}') ` +
+          `with catalog '${first.id}' (schema adapter '${first.schemaAdapter!.name}'). ` +
+          'Linked catalogs must share one schema adapter.',
+      );
+    }
+  }
 }
 
 function createCatalogInvoker<F extends FunctionApi>(

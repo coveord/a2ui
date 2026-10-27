@@ -17,7 +17,7 @@
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
 import {isWebComponentImplementation} from './is_web_component_implementation.js';
-import {z} from '@a2ui/schema-zod';
+import {objectSchema} from '../test/test_schemas.js';
 
 describe('isWebComponentImplementation', () => {
   class MockElement {}
@@ -26,7 +26,7 @@ describe('isWebComponentImplementation', () => {
     assert.strictEqual(
       isWebComponentImplementation({
         name: 'test',
-        schema: z.object({}),
+        schema: objectSchema(),
         tagName: 'a2ui-test',
         element: MockElement,
       }),
@@ -38,7 +38,7 @@ describe('isWebComponentImplementation', () => {
     assert.strictEqual(
       isWebComponentImplementation({
         name: 'test',
-        schema: z.object({}),
+        schema: objectSchema(),
         element: MockElement,
       }),
       false,
@@ -49,7 +49,7 @@ describe('isWebComponentImplementation', () => {
     assert.strictEqual(
       isWebComponentImplementation({
         name: 'test',
-        schema: z.object({}),
+        schema: objectSchema(),
         tagName: 'a2ui-test',
       }),
       false,

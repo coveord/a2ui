@@ -33,7 +33,7 @@ import {
   PLACEHOLDER_TYPE,
 } from './component-node.js';
 import type {RefFields} from '../catalog/component_references.js';
-import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
+import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
 import {ResolvedBinding, WritableBinding, sameBinding} from './resolved-binding.js';
 import {Signal, signal, setValue, peekValue} from '../reactivity/signals.js';
 import {Subscription} from '../common/events.js';
@@ -44,12 +44,8 @@ const ROOT_DATA_PATH = '/';
 
 const EMPTY_REF_FIELDS: RefFields = new Map();
 
-function requireRefFields(schema: unknown): RefFields {
-  const extract = getCatalogSchemaAdapter()?.extractRefFields;
-  if (!extract) {
-    throw new A2uiStateError('Node resolution requires an installed schema adapter.');
-  }
-  return extract(schema);
+function requireRefFields(schema: unknown, catalog: Catalog<any, any>): RefFields {
+  return requireSchemaAdapter(catalog, 'extractRefFields').extractRefFields!(schema);
 }
 
 interface NodeRecord {
@@ -371,8 +367,8 @@ export class NodeResolver<
         edgeKey,
         parent,
         occurrence,
-        refFields: requireRefFields(api.schema),
-        behavior: api.schemaMetadata?.behavior ?? scrapeSchemaBehavior(api.schema),
+        refFields: requireRefFields(api.schema, compCatalog),
+        behavior: api.schemaMetadata?.behavior ?? scrapeSchemaBehavior(api.schema, compCatalog),
         componentModel: model,
         binder,
       },

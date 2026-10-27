@@ -21,11 +21,7 @@ export * from './types.js';
 export * from './function_invoker.js';
 export * from './standard_schema.js';
 export * from './schema_metadata.js';
-export {
-  getCatalogSchemaAdapter,
-  registerCatalogSchemaAdapter,
-  type CatalogSchemaAdapter,
-} from './schema_adapter.js';
+export {type CatalogParseRequest, type CatalogSchemaAdapter} from './schema_adapter.js';
 export {
   type ChildRefAnalysis,
   type ChildRefAnalysisOptions,

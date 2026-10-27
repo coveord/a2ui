@@ -30,7 +30,7 @@ import {A2uiCatalogError, A2uiExpressionError, A2uiValidationError} from '../err
 import {isAtLeastVersion} from '../common/semver.js';
 
 import {FunctionInvoker} from '../catalog/function_invoker.js';
-import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
+import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
 import {resolveSurfaceCatalog} from '../state/resolve-surface-catalog.js';
 import {SurfaceModel} from '../state/surface-model.js';
 
@@ -61,22 +61,19 @@ function getSystemFunctionCatalog(): Catalog<any> {
 }
 
 /**
- * Extracts declared property keys from a Zod schema representing an object with fixed keys.
+ * Returns the property names a schema declares, using the schema adapter of
+ * the catalog that owns the schema.
  *
- * Traverses Zod wrappers (`ZodEffects`, `ZodOptional`, `ZodNullable`, `ZodDefault`,
- * `ZodCatch`, `ZodIntersection`, `ZodUnion`) and returns the set of allowed key names.
- *
- * @param schema Zod schema to inspect.
+ * @param schema Schema to inspect.
+ * @param catalog Catalog whose adapter reads `schema`.
  * @returns Set of allowed property names, or `null` if arbitrary keys are permitted or undetermined.
+ * @throws {A2uiCatalogError} If the catalog has no adapter that reports schema keys.
  */
-export function getKnownSchemaKeys(schema: unknown): Set<string> | null {
-  const getKeys = getCatalogSchemaAdapter()?.getKnownSchemaKeys;
-  if (!getKeys) {
-    throw new A2uiCatalogError(
-      'Function argument validation requires an installed schema adapter.',
-    );
-  }
-  return getKeys(schema);
+export function getKnownSchemaKeys(
+  schema: unknown,
+  catalog: Pick<CatalogInterface<any, any>, 'id' | 'schemaAdapter'>,
+): Set<string> | null {
+  return requireSchemaAdapter(catalog, 'getKnownSchemaKeys').getKnownSchemaKeys!(schema);
 }
 
 /**
@@ -121,7 +118,7 @@ export function validateFunctionArgs(
 
   const knownKeys = fn.argumentKeys
     ? new Set<string>(fn.argumentKeys)
-    : getKnownSchemaKeys(fn.schema);
+    : getKnownSchemaKeys(fn.schema, catalog);
   if (!knownKeys) {
     // Schema allows arbitrary keys (e.g. passthrough)
     return;

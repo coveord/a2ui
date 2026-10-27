@@ -19,13 +19,12 @@ import {describe, it} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {z} from 'zod';
-import {Catalog} from '@a2ui/web_core_v1_0';
 import {V10_CHILD_REF_OPTIONS} from '@a2ui/web_core_v1_0';
 import {STRICT_VALIDATION} from '@a2ui/web_core_v1_0';
 import {PayloadValidator} from '@a2ui/web_core_v1_0';
 import {A2uiCatalogError} from '@a2ui/web_core_v1_0';
 
-import '../catalog_adapter.js';
+import {parseZodCatalog} from '../catalog_adapter.js';
 import {analyzeChildRefSchema} from './reference-map.js';
 
 function zodSchema(schema: unknown): z.ZodTypeAny {
@@ -35,7 +34,7 @@ function zodSchema(schema: unknown): z.ZodTypeAny {
   return schema;
 }
 
-describe('Catalog.fromJson & schema_loader', () => {
+describe('parseZodCatalog & schema_loader', () => {
   const basicCatalogPath = resolve(
     process.cwd(),
     '../../specification/v0_9_1/catalogs/basic/catalog.json',
@@ -43,7 +42,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   const basicCatalogJson = JSON.parse(readFileSync(basicCatalogPath, 'utf-8'));
 
   it('loads basic catalog successfully and dynamically resolves weight and accessibility', () => {
-    const catalog = Catalog.fromJson(basicCatalogJson, '0.9');
+    const catalog = parseZodCatalog(basicCatalogJson, '0.9');
 
     assert.strictEqual(
       catalog.id,
@@ -113,7 +112,7 @@ describe('Catalog.fromJson & schema_loader', () => {
     // Checkable arrives as an allOf $ref into common_types.json, a document the loader never
     // reads. It used to fall through every branch and be discarded without an error, taking
     // `checks` off every input component with it.
-    const catalog = Catalog.fromJson(basicCatalogJson);
+    const catalog = parseZodCatalog(basicCatalogJson);
 
     for (const name of [
       'Button',
@@ -149,7 +148,7 @@ describe('Catalog.fromJson & schema_loader', () => {
 
   it('resolves an external mixin written as a relative reference', () => {
     // v1.0 catalogs spell the same reference without the absolute URL prefix.
-    const catalog = Catalog.fromJson({
+    const catalog = parseZodCatalog({
       catalogId: 'test_relative_checkable',
       protocolVersion: 'v1.0',
       components: {
@@ -173,7 +172,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   it('resolves the Child reference from common_types.json', () => {
     const v10BasicCatalogPath = resolve(process.cwd(), '../../catalogs/basic/v1/catalog.json');
     const v10BasicCatalogJson = JSON.parse(readFileSync(v10BasicCatalogPath, 'utf-8'));
-    const catalog = Catalog.fromJson(v10BasicCatalogJson);
+    const catalog = parseZodCatalog(v10BasicCatalogJson);
 
     // The regression was not that the description stamp went missing, but that
     // `analyzeChildRefSchema` stopped reporting these properties as child references at
@@ -208,7 +207,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   });
 
   it('rejects an external reference that names no canonical protocol type or peer', () => {
-    const catalog = Catalog.fromJson({
+    const catalog = parseZodCatalog({
       catalogId: 'test_unknown_external_ref',
       protocolVersion: 'v1.0',
       components: {
@@ -254,7 +253,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(customCatalog, '0.9');
+    const catalog = parseZodCatalog(customCatalog, '0.9');
     const btn = catalog.components.get('CustomButton');
     assert.ok(btn);
 
@@ -280,7 +279,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(catalogWithEnums, '0.9');
+    const catalog = parseZodCatalog(catalogWithEnums, '0.9');
     const widget = catalog.components.get('EnumWidget');
     assert.ok(widget);
 
@@ -303,7 +302,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(catalogJson, '0.9');
+    const catalog = parseZodCatalog(catalogJson, '0.9');
     const comp = catalog.components.get('StrictNode');
     assert.ok(comp);
     assert.deepStrictEqual(comp.allowedParents, ['ParentValid']);
@@ -325,7 +324,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(catalogJson, '0.9');
+    const catalog = parseZodCatalog(catalogJson, '0.9');
     const card = catalog.components.get('FlexibleCard');
     assert.ok(card);
     const result = zodSchema(card.schema).safeParse({
@@ -350,7 +349,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(catalogJson, '0.9');
+    const catalog = parseZodCatalog(catalogJson, '0.9');
     assert.ok(catalog.themeSchema);
     const result = zodSchema(catalog.themeSchema).safeParse({
       id: 'theme-1',
@@ -388,7 +387,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(catalogJson, '0.9');
+    const catalog = parseZodCatalog(catalogJson, '0.9');
     const openCard = catalog.components.get('OpenCard');
     const schemaCard = catalog.components.get('SchemaCard');
     const strictCard = catalog.components.get('StrictCard');
@@ -428,7 +427,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(catalogJson, '0.9');
+    const catalog = parseZodCatalog(catalogJson, '0.9');
     const inputComp = catalog.components.get('FlexibleInput');
     assert.ok(inputComp);
 
@@ -442,7 +441,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   });
 
   it('rejects a missing required property whose schema accepts any value', () => {
-    const catalog = Catalog.fromJson(
+    const catalog = parseZodCatalog(
       {
         catalogId: 'https://example.com/any_required.json',
         components: {
@@ -517,7 +516,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       },
     };
 
-    const catalog = Catalog.fromJson(catalogJson, '0.9');
+    const catalog = parseZodCatalog(catalogJson, '0.9');
     const openFn = catalog.functions.get('openFn');
     const schemaFn = catalog.functions.get('schemaFn');
     const strictFn = catalog.functions.get('strictFn');
@@ -541,7 +540,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   });
 
   it('keeps nested child references from inline object array items', () => {
-    const catalog = Catalog.fromJson({
+    const catalog = parseZodCatalog({
       catalogId: 'tabs-cat',
       protocolVersion: '0.9',
       components: {
@@ -608,7 +607,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   };
 
   it('lets a component override a property its mixins and local definitions declare', () => {
-    const schema = Catalog.fromJson(precedenceCatalog).components.get('Toggle')!
+    const schema = parseZodCatalog(precedenceCatalog).components.get('Toggle')!
       .schema as z.ZodObject<z.ZodRawShape>;
     assert.ok(zodSchema(schema).safeParse({checks: 'strict', label: 3, size: 2}).success);
     assert.ok(!zodSchema(schema).safeParse({checks: [{condition: true, message: 'x'}]}).success);
@@ -634,7 +633,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   });
 
   it('lets a component override a property its mixins declare in validationSchema', () => {
-    const schema = Catalog.fromJson(precedenceCatalog).validationSchema;
+    const schema = parseZodCatalog(precedenceCatalog).validationSchema;
     const toggle = (schema.components as Record<string, any>).Toggle;
     assert.deepStrictEqual(toggle.properties.checks, {type: 'string', enum: ['strict']});
     assert.deepStrictEqual(toggle.properties.label, {type: 'number'});
@@ -643,7 +642,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   });
 
   it('treats catalogId as a component envelope field', () => {
-    const catalog = Catalog.fromJson(precedenceCatalog);
+    const catalog = parseZodCatalog(precedenceCatalog);
     const schema = catalog.components.get('Toggle')!.schema as z.ZodObject<z.ZodRawShape>;
     assert.ok(!('catalogId' in schema.shape));
     assert.ok('metadata' in schema.shape);
@@ -659,7 +658,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   it('validates parameter names in object-based functions with shorthand parameter maps', () => {
     assert.throws(
       () =>
-        Catalog.fromJson({
+        parseZodCatalog({
           catalogId: 'https://example.com/test.json',
           protocolVersion: 'v1.0',
           functions: {
@@ -673,7 +672,7 @@ describe('Catalog.fromJson & schema_loader', () => {
       /UAX #?31/,
     );
 
-    const catalog = Catalog.fromJson({
+    const catalog = parseZodCatalog({
       catalogId: 'https://example.com/test.json',
       protocolVersion: 'v1.0',
       functions: {
@@ -688,7 +687,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   });
 
   it('accepts parameters defined with $ref or combiners without treating them as shorthand maps', () => {
-    const catalog = Catalog.fromJson({
+    const catalog = parseZodCatalog({
       catalogId: 'https://example.com/test-ref.json',
       protocolVersion: 'v1.0',
       $defs: {
@@ -788,7 +787,7 @@ describe('Catalog.fromJson & schema_loader', () => {
 
     assert.throws(
       () =>
-        Catalog.fromJson({
+        parseZodCatalog({
           catalogId: 'https://example.com/test-bad-allof.json',
           protocolVersion: 'v1.0',
           functions: {
@@ -804,7 +803,7 @@ describe('Catalog.fromJson & schema_loader', () => {
 
     assert.throws(
       () =>
-        Catalog.fromJson({
+        parseZodCatalog({
           catalogId: 'https://example.com/test-bad-ref.json',
           protocolVersion: 'v1.0',
           $defs: {

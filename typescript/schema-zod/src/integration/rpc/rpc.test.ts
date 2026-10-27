@@ -16,15 +16,21 @@
 
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
-import {z} from '@a2ui/schema-zod';
-import {RpcHandler, A2uiRpcError, RpcErrorCode} from './rpc-handler.js';
-import {A2uiError} from '../errors.js';
-import {Catalog, createFunctionImplementation} from '../catalog/types.js';
-import {validateStandardSchema} from '../catalog/standard_schema.js';
-import {DataContext} from '../resolution/data-context.js';
-import {SurfaceModel} from '../state/surface-model.js';
-import {signal} from '../reactivity/signals.js';
-import {IndexImplementation} from '../functions/system_functions.js';
+import {
+  A2uiError,
+  A2uiRpcError,
+  createFunctionImplementation,
+  DataContext,
+  IndexImplementation,
+  RpcErrorCode,
+  RpcHandler,
+  signal,
+  SurfaceModel,
+  validateStandardSchema,
+} from '@a2ui/web_core_v1_0';
+
+import {z} from '../../index.js';
+import {ZodCatalog} from '../../test/zod_catalog.js';
 
 describe('Stage 3 (Sauce-TS) Bidirectional RPC & @index Function Verification', () => {
   const customRpcApi = {
@@ -63,7 +69,7 @@ describe('Stage 3 (Sauce-TS) Bidirectional RPC & @index Function Verification', 
   };
   const signalImpl = createFunctionImplementation(signalApi, () => signal(42) as any);
 
-  const mockCatalog = new Catalog(
+  const mockCatalog = new ZodCatalog(
     'basic',
     '1.0',
     [],

@@ -17,10 +17,12 @@
 /**
  * A schema-library adapter that augments the catalog model.
  *
- * Core owns this registration point so schema packages depend on core, never
- * the reverse. Later extraction steps add catalog parsing and serialization
- * operations to this contract as their Zod implementations move here.
+ * Core owns this contract so schema packages depend on core, never the
+ * reverse. Core holds no adapter of its own: each catalog carries the adapter
+ * its schemas were written for (`CatalogOptions.schemaAdapter`), and a
+ * `MessageProcessor` receives the one that supplies its protocol schema.
  */
+import {A2uiCatalogError} from '../errors.js';
 import type {CatalogApi, CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 import type {SchemaBehavior} from './schema_metadata.js';
 import type {StandardSchema} from './standard_schema.js';
@@ -116,23 +118,32 @@ export interface CatalogSchemaAdapter {
   ) => unknown;
 }
 
-let registeredAdapter: CatalogSchemaAdapter | undefined;
-
-/**
- * Registers the schema adapter available to this runtime.
- *
- * Registering the same adapter repeatedly is harmless. Registering a distinct
- * adapter fails explicitly because catalog schema operations must have one
- * deterministic implementation per runtime.
- */
-export function registerCatalogSchemaAdapter(adapter: CatalogSchemaAdapter): void {
-  if (registeredAdapter && registeredAdapter !== adapter) {
-    throw new Error(`A catalog schema adapter is already registered: ${registeredAdapter.name}.`);
-  }
-  registeredAdapter = adapter;
+/** The parts of a catalog that identify its schema adapter. */
+interface SchemaAdapterHolder {
+  readonly id: string;
+  readonly schemaAdapter?: CatalogSchemaAdapter;
 }
 
-/** Returns the schema adapter installed by an optional schema package, if any. */
-export function getCatalogSchemaAdapter(): CatalogSchemaAdapter | undefined {
-  return registeredAdapter;
+/**
+ * Returns the catalog's schema adapter after checking it implements an
+ * operation.
+ *
+ * @param catalog The catalog whose schemas the operation reads.
+ * @param operation The adapter member the caller is about to use.
+ * @returns The catalog's adapter.
+ * @throws {A2uiCatalogError} If the catalog has no adapter, or its adapter
+ *   lacks the operation.
+ */
+export function requireSchemaAdapter(
+  catalog: SchemaAdapterHolder,
+  operation: keyof CatalogSchemaAdapter,
+): CatalogSchemaAdapter {
+  const adapter = catalog.schemaAdapter;
+  if (!adapter?.[operation]) {
+    throw new A2uiCatalogError(
+      `Catalog '${catalog.id}' needs a schema adapter that implements '${operation}'. ` +
+        'Pass one in CatalogOptions.schemaAdapter, such as zodCatalogSchemaAdapter from @a2ui/schema-zod.',
+    );
+  }
+  return adapter;
 }

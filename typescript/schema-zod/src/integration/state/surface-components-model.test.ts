@@ -16,14 +16,14 @@
 
 import * as assert from 'node:assert';
 import {describe, it, beforeEach} from 'node:test';
-import {z} from '@a2ui/schema-zod';
-import {Catalog} from '../catalog/types.js';
-import {SurfaceComponentsModel} from './surface-components-model.js';
-import {ComponentModel} from './component-model.js';
+import {Catalog, ComponentModel, SurfaceComponentsModel} from '@a2ui/web_core_v1_0';
+
+import {z} from '../../index.js';
+import {ZodCatalog} from '../../test/zod_catalog.js';
 
 describe('SurfaceComponentsModel', () => {
   let model: SurfaceComponentsModel;
-  const defaultCatalog = new Catalog('default', '1.0', []);
+  const defaultCatalog = new ZodCatalog('default', '1.0', []);
 
   beforeEach(() => {
     model = new SurfaceComponentsModel();
@@ -164,7 +164,7 @@ describe('SurfaceComponentsModel', () => {
         name: 'Text',
         schema: z.object({text: z.string()}),
       };
-      testCatalog = new Catalog('test-cat', '1.0', [boxApi, containerApi, textApi]);
+      testCatalog = new ZodCatalog('test-cat', '1.0', [boxApi, containerApi, textApi]);
       model.setCatalog(testCatalog);
     });
 
@@ -288,7 +288,7 @@ describe('SurfaceComponentsModel', () => {
     });
 
     it('extracts references and validates topology across mixed catalogs', () => {
-      const customCatalog = new Catalog('custom-cat', '1.0', [
+      const customCatalog = new ZodCatalog('custom-cat', '1.0', [
         {
           name: 'CustomCard',
           schema: z.object({
@@ -333,7 +333,7 @@ describe('SurfaceComponentsModel', () => {
     });
 
     it('detects cycles between components from different catalogs', () => {
-      const customCatalog = new Catalog('custom-cat', '1.0', [
+      const customCatalog = new ZodCatalog('custom-cat', '1.0', [
         {
           name: 'CustomContainer',
           schema: z.object({

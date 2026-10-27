@@ -16,14 +16,20 @@
 
 import * as assert from 'node:assert';
 import {describe, it, before, beforeEach, after, afterEach} from 'node:test';
-import {setupTestDom, teardownTestDom, asyncUpdate} from '../test/dom-setup.js';
+import {setupTestDom, teardownTestDom, asyncUpdate} from '../../test/dom-setup.js';
 
-import type {MessageProcessor, ComponentContext, Catalog, SurfaceModel} from '../index.js';
-import type {WebComponentImplementation} from './web_component_implementation.js';
-import type {A2uiLitElement as A2uiLitElementType} from './a2ui-lit-element.js';
-import type {A2uiController as A2uiControllerType} from './a2ui-controller.js';
-import {z} from '@a2ui/schema-zod';
-import type {ComponentApi} from '../catalog/types.js';
+import type {
+  A2uiController as A2uiControllerType,
+  A2uiLitElement as A2uiLitElementType,
+  Catalog,
+  ComponentApi,
+  ComponentContext,
+  MessageProcessor,
+  SurfaceModel,
+  WebComponentImplementation,
+} from '@a2ui/web_core_v1_0';
+
+import {z, zodCatalogSchemaAdapter} from '../../index.js';
 
 const MockTextApi = {
   name: 'Text',
@@ -87,14 +93,18 @@ describe('A2uiController', () => {
 
     // Dynamically import component files *after* setting up JSDOM globals
     // to prevent LitElement from evaluating in an empty Node context and crashing.
-    const {A2uiLitElement} = await import('./a2ui-lit-element.js');
-    A2uiController = (await import('./a2ui-controller.js')).A2uiController;
-    const webCore = await import('../index.js');
+    const webCore = await import('@a2ui/web_core_v1_0');
+    const {A2uiLitElement} = webCore;
+    A2uiController = webCore.A2uiController;
     MessageProcessorClass = webCore.MessageProcessor;
     ComponentContextClass = webCore.ComponentContext;
-    basicCatalog = new webCore.Catalog('test-catalog', '1.0', [
-      MockTextApi as unknown as ComponentApi,
-    ]);
+    basicCatalog = new webCore.Catalog(
+      'test-catalog',
+      '1.0',
+      [MockTextApi as unknown as ComponentApi],
+      [],
+      {schemaAdapter: zodCatalogSchemaAdapter},
+    );
     TextApi = MockTextApi;
 
     /**

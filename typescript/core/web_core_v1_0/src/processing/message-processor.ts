@@ -16,7 +16,7 @@
 
 import {SurfaceModel, ActionListener} from '../state/surface-model.js';
 import {Catalog, ComponentApi, linkCatalogs} from '../catalog/types.js';
-import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
+import {requireSchemaAdapter, type CatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {SurfaceGroupModel} from '../state/surface-group-model.js';
 import {ComponentModel} from '../state/component-model.js';
 import {SurfaceComponentsModel} from '../state/surface-components-model.js';
@@ -29,7 +29,7 @@ import {
   recordComponentGraphBound,
   validateComponentGraph,
 } from '../state/validation-helpers.js';
-import {defaultVersionAdapterFactory} from './adapters/factory.js';
+import {defaultVersionAdapterFactory, VersionAdapterFactory} from './adapters/factory.js';
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {
   InternalOperation,
@@ -113,8 +113,17 @@ export interface CapabilitiesOptions {
 export interface MessageProcessorOptions {
   /** Default protocol version to use for capability generation and data model reporting. Defaults to 'v1.0'. */
   version?: ProtocolVersion;
-  /** Custom version adapter resolver or registry. Defaults to VersionAdapterFactory. */
+  /**
+   * Custom version adapter resolver or registry. Defaults to a
+   * `VersionAdapterFactory` whose built-in adapters validate messages with
+   * `schemaAdapter`.
+   */
   adapterRegistry?: VersionAdapterResolver;
+  /**
+   * Adapter supplying the protocol message schemas. Defaults to the schema
+   * adapter the catalogs share. Ignored when `adapterRegistry` is set.
+   */
+  schemaAdapter?: CatalogSchemaAdapter;
   /** Validation configuration rules. */
   validationConfig?: ValidationConfig;
   /** Listener receiving outbound renderer messages intended for the agent. Required for callAgentFunction. */
@@ -125,20 +134,24 @@ export interface MessageProcessorOptions {
 
 export {formatValidationIssue} from '../validation/format-validation-issue.js';
 
-function schemaToJson(schema: unknown): Record<string, unknown> {
-  const convert = getCatalogSchemaAdapter()?.schemaToJson;
-  if (!convert) {
-    throw new A2uiCatalogError('Schema conversion requires an installed schema adapter.');
-  }
-  return convert(schema, {target: 'jsonSchema2019-09', $refStrategy: 'none'});
+function schemaToJson(schema: unknown, catalog: Catalog<any>): Record<string, unknown> {
+  return requireSchemaAdapter(catalog, 'schemaToJson').schemaToJson!(schema, {
+    target: 'jsonSchema2019-09',
+    $refStrategy: 'none',
+  });
 }
 
-function cleanGeneratedSchema(schema: unknown): void {
-  const cleanSchemaNode = getCatalogSchemaAdapter()?.cleanSchemaNode;
-  if (!cleanSchemaNode) {
-    throw new A2uiCatalogError('Generated schema cleanup requires an installed schema adapter.');
-  }
-  cleanSchemaNode(schema, undefined, {stripAdditionalProperties: true});
+function cleanGeneratedSchema(schema: unknown, catalog: Catalog<any>): void {
+  requireSchemaAdapter(catalog, 'cleanSchemaNode').cleanSchemaNode!(schema, undefined, {
+    stripAdditionalProperties: true,
+  });
+}
+
+/** Returns the schema adapter of the first catalog that has one. */
+function catalogsSchemaAdapter(
+  catalogs: readonly Catalog<any>[],
+): CatalogSchemaAdapter | undefined {
+  return catalogs.find(catalog => catalog.schemaAdapter)?.schemaAdapter;
 }
 import {
   nestedCallRunsInCatalog,
@@ -182,7 +195,12 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
   ) {
     this.catalogs = linkCatalogs(catalogs);
     this.model = new SurfaceGroupModel<T>();
-    this.adapterRegistry = options?.adapterRegistry ?? defaultVersionAdapterFactory;
+    this.adapterRegistry =
+      options?.adapterRegistry ??
+      new VersionAdapterFactory(
+        options?.schemaAdapter ?? catalogsSchemaAdapter(this.catalogs),
+        defaultVersionAdapterFactory,
+      );
     this.rpc = new RpcHandler({
       catalogs: this.catalogs,
       outboundListener: options?.outboundListener,
@@ -307,8 +325,8 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
       let props: Record<string, unknown> = {};
       let reqList: string[] = [];
       if (comp.schema && typeof comp.schema === 'object' && 'safeParse' in comp.schema) {
-        const rawZod = schemaToJson(comp.schema) as Record<string, unknown>;
-        cleanGeneratedSchema(rawZod);
+        const rawZod = schemaToJson(comp.schema, catalog) as Record<string, unknown>;
+        cleanGeneratedSchema(rawZod, catalog);
         props = (rawZod.properties as Record<string, unknown>) || {};
         reqList = Array.isArray(rawZod.required)
           ? (rawZod.required as string[]).filter(r => r !== 'component' && r !== 'id')
@@ -333,8 +351,8 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
     for (const fn of catalog.functions.values()) {
       let paramSchema: Record<string, unknown> = {type: 'object', properties: {}};
       if (fn.schema && typeof fn.schema === 'object' && 'safeParse' in fn.schema) {
-        const rawZod = schemaToJson(fn.schema) as Record<string, unknown>;
-        cleanGeneratedSchema(rawZod);
+        const rawZod = schemaToJson(fn.schema, catalog) as Record<string, unknown>;
+        cleanGeneratedSchema(rawZod, catalog);
         paramSchema = rawZod;
       }
       functions.push({
@@ -347,8 +365,8 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
 
     let theme: Record<string, unknown> | undefined;
     if (catalog.themeSchema) {
-      const rawTheme = schemaToJson(catalog.themeSchema) as Record<string, unknown>;
-      cleanGeneratedSchema(rawTheme);
+      const rawTheme = schemaToJson(catalog.themeSchema, catalog) as Record<string, unknown>;
+      cleanGeneratedSchema(rawTheme, catalog);
       theme = (rawTheme.properties as Record<string, unknown>) || undefined;
     }
 

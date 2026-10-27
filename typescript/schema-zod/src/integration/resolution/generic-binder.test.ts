@@ -16,19 +16,20 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from '@a2ui/schema-zod';
 import {
+  ComponentContext,
+  ComponentModel,
+  FunctionImplementation,
+  type GenerateSetters,
   GenericBinder,
   getSafeChildList,
   MAX_DYNAMIC_CHILD_LIST_SIZE,
-  scrapeSchemaBehavior,
-  type GenerateSetters,
-} from './generic-binder.js';
-import {ComponentContext} from './component-context.js';
-import {SurfaceModel} from '../state/surface-model.js';
-import {Catalog, FunctionImplementation} from '../catalog/types.js';
-import {ComponentModel} from '../state/component-model.js';
-import {CommonSchemas, type DataBinding, type FunctionCall} from '@a2ui/schema-zod';
+  SurfaceModel,
+} from '@a2ui/web_core_v1_0';
+
+import {CommonSchemas, type DataBinding, type FunctionCall, z} from '../../index.js';
+import {getZodSchemaBehavior} from '../../resolution/schema_behavior.js';
+import {ZodCatalog} from '../../test/zod_catalog.js';
 
 describe('GenericBinder Checkable Trait', () => {
   function setupSurfaceAndMocks() {
@@ -49,7 +50,7 @@ describe('GenericBinder Checkable Trait', () => {
           args.value.length >= args.min,
       },
     ];
-    const mockCatalog = new Catalog('test', '0.9', [], mockFunctions);
+    const mockCatalog = new ZodCatalog('test', '0.9', [], mockFunctions);
     const surface = new SurfaceModel('s1', mockCatalog);
 
     const schema = z.object({
@@ -350,7 +351,7 @@ describe('GenericBinder Checkable Trait', () => {
         },
       },
     ];
-    const mockCatalog = new Catalog('test', '0.9', [], mockFunctions);
+    const mockCatalog = new ZodCatalog('test', '0.9', [], mockFunctions);
     const surface = new SurfaceModel('s1', mockCatalog);
     surface.dataModel.set('/order/id', 'ORD-987');
     surface.dataModel.set('/order/total', 49.99);
@@ -411,7 +412,7 @@ describe('GenericBinder Checkable Trait', () => {
         },
       },
     ];
-    const mockCatalog = new Catalog('test', '0.9', [], mockFunctions);
+    const mockCatalog = new ZodCatalog('test', '0.9', [], mockFunctions);
     const surface = new SurfaceModel('s1', mockCatalog);
 
     const actionSchema = z.object({
@@ -464,7 +465,7 @@ describe('GenericBinder Checkable Trait', () => {
         },
       },
     ];
-    const mockCatalog = new Catalog('test', '1.0', [], mockFunctions);
+    const mockCatalog = new ZodCatalog('test', '1.0', [], mockFunctions);
     const surface = new SurfaceModel('s1', mockCatalog);
 
     const actionSchema = z.object({
@@ -516,7 +517,7 @@ describe('GenericBinder Checkable Trait', () => {
         },
       },
     ];
-    const mockCatalog = new Catalog('test', '0.9', [], mockFunctions);
+    const mockCatalog = new ZodCatalog('test', '0.9', [], mockFunctions);
     const surface = new SurfaceModel('s1', mockCatalog);
 
     const actionSchema = z.object({
@@ -714,38 +715,38 @@ describe('GenericBinder Checkable Trait', () => {
     assert.strictEqual(notificationCount, 1);
   });
 
-  describe('scrapeSchemaBehavior schema inference', () => {
+  describe('getZodSchemaBehavior schema inference', () => {
     it('should infer behavior from schema descriptions', () => {
       // Description-based matching across formats (relative, URI, pipe-annotated)
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(z.unknown().describe('REF:common_types.json#/$defs/Action')),
+        getZodSchemaBehavior(z.unknown().describe('REF:common_types.json#/$defs/Action')),
         {type: 'ACTION'},
       );
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(
+        getZodSchemaBehavior(
           z
             .unknown()
             .describe('REF:https://a2ui.org/v1_0/common_types.json#/$defs/Action|On click'),
         ),
         {type: 'ACTION'},
       );
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('REF:#/$defs/ChildList')), {
+      assert.deepStrictEqual(getZodSchemaBehavior(z.unknown().describe('REF:#/$defs/ChildList')), {
         type: 'STRUCTURAL',
       });
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(
+        getZodSchemaBehavior(
           z.unknown().describe('REF:common_types.json#/$defs/ChildList|Children array'),
         ),
         {type: 'STRUCTURAL'},
       );
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(z.unknown().describe('REF:#/$defs/DynamicString')),
+        getZodSchemaBehavior(z.unknown().describe('REF:#/$defs/DynamicString')),
         {
           type: 'DYNAMIC',
         },
       );
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(
+        getZodSchemaBehavior(
           z
             .unknown()
             .describe('REF:https://a2ui.org/v1_0/common_types.json#/$defs/DynamicNumber|Age'),
@@ -753,20 +754,20 @@ describe('GenericBinder Checkable Trait', () => {
         {type: 'DYNAMIC'},
       );
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(z.unknown().describe('REF:common_types.json#/$defs/DataBinding')),
+        getZodSchemaBehavior(z.unknown().describe('REF:common_types.json#/$defs/DataBinding')),
         {
           type: 'DYNAMIC',
         },
       );
 
       // Descriptions without the REF: prefix must NOT be treated as reference schemas
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('#/$defs/ChildList')), {
+      assert.deepStrictEqual(getZodSchemaBehavior(z.unknown().describe('#/$defs/ChildList')), {
         type: 'STATIC',
       });
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('Action')), {
+      assert.deepStrictEqual(getZodSchemaBehavior(z.unknown().describe('Action')), {
         type: 'STATIC',
       });
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('CheckRule')), {
+      assert.deepStrictEqual(getZodSchemaBehavior(z.unknown().describe('CheckRule')), {
         type: 'STATIC',
       });
 
@@ -778,7 +779,7 @@ describe('GenericBinder Checkable Trait', () => {
         customProp: z.unknown(),
       });
 
-      const behavior = scrapeSchemaBehavior(objSchema);
+      const behavior = getZodSchemaBehavior(objSchema);
       assert.strictEqual(behavior.type, 'OBJECT');
       if (behavior.type === 'OBJECT') {
         assert.strictEqual(behavior.shape.checkableField.type, 'CHECKABLE');
@@ -794,7 +795,7 @@ describe('GenericBinder Checkable Trait', () => {
         }),
         text: z.array(z.string().describe('REF:#/$defs/DynamicString')),
       });
-      const nestedBehavior = scrapeSchemaBehavior(nestedSchema);
+      const nestedBehavior = getZodSchemaBehavior(nestedSchema);
       assert.strictEqual(nestedBehavior.type, 'OBJECT');
       if (nestedBehavior.type === 'OBJECT') {
         assert.strictEqual(nestedBehavior.shape.value.type, 'OBJECT');
@@ -845,7 +846,7 @@ describe('GenericBinder Checkable Trait', () => {
     });
 
     it('does not create setter for literal path in v1.0, nor for @path in v0.9', () => {
-      const mockCatalogV10 = new Catalog('test', '1.0', [], []);
+      const mockCatalogV10 = new ZodCatalog('test', '1.0', [], []);
       const surfaceV10 = new SurfaceModel('s1', mockCatalogV10);
       const compV10 = new ComponentModel(
         'c1',
@@ -863,7 +864,7 @@ describe('GenericBinder Checkable Trait', () => {
       );
       assert.strictEqual('setDetails' in (binderV10.snapshot as Record<string, unknown>), false);
 
-      const mockCatalogV09 = new Catalog('test', '0.9', [], []);
+      const mockCatalogV09 = new ZodCatalog('test', '0.9', [], []);
       const surfaceV09 = new SurfaceModel('s2', mockCatalogV09);
       const compV09 = new ComponentModel(
         'c2',
@@ -884,7 +885,7 @@ describe('GenericBinder Checkable Trait', () => {
   });
 
   it('should support v1.0 ValidationResult objects and dynamic messages', async () => {
-    const mockCatalog = new Catalog('test', '1.0', [], []);
+    const mockCatalog = new ZodCatalog('test', '1.0', [], []);
     const surface = new SurfaceModel('s1', mockCatalog);
     (surface.defaultCatalog as any).functions = new Map([
       [
@@ -945,7 +946,7 @@ describe('GenericBinder Checkable Trait', () => {
   });
 
   it('should reset custom message to fallback message when subsequent evaluation returns boolean or no custom message', async () => {
-    const mockCatalog = new Catalog('test', '1.0', [], []);
+    const mockCatalog = new ZodCatalog('test', '1.0', [], []);
     const surface = new SurfaceModel('s1', mockCatalog);
     (surface.defaultCatalog as any).functions = new Map([
       [
@@ -1063,19 +1064,19 @@ describe('GenericBinder Checkable Trait', () => {
   it('should unwrap ZodBranded and ZodLazy schemas and preserve outer wrapper descriptions', () => {
     // Outer description on optional wrapper
     const optionalAction = z.unknown().describe('REF:common_types.json#/$defs/Action').optional();
-    assert.deepStrictEqual(scrapeSchemaBehavior(optionalAction), {type: 'ACTION'});
+    assert.deepStrictEqual(getZodSchemaBehavior(optionalAction), {type: 'ACTION'});
 
     // ZodBranded
     const brandedDynamic = z.string().describe('REF:#/$defs/DynamicString').brand<'CustomBrand'>();
-    assert.deepStrictEqual(scrapeSchemaBehavior(brandedDynamic), {type: 'DYNAMIC'});
+    assert.deepStrictEqual(getZodSchemaBehavior(brandedDynamic), {type: 'DYNAMIC'});
 
     // ZodLazy
     const lazyAction = z.lazy(() => z.unknown().describe('REF:#/$defs/Action'));
-    assert.deepStrictEqual(scrapeSchemaBehavior(lazyAction), {type: 'ACTION'});
+    assert.deepStrictEqual(getZodSchemaBehavior(lazyAction), {type: 'ACTION'});
 
     // Checkable wrapped in optional
     const optionalCheckable = CommonSchemas.Checkable.shape.checks.optional();
-    assert.deepStrictEqual(scrapeSchemaBehavior(optionalCheckable), {type: 'CHECKABLE'});
+    assert.deepStrictEqual(getZodSchemaBehavior(optionalCheckable), {type: 'CHECKABLE'});
 
     // Union option with wrapped object shape containing ComponentId
     const componentIdSchema = z.string().describe('REF:common_types.json#/$defs/ComponentId');
@@ -1086,7 +1087,7 @@ describe('GenericBinder Checkable Trait', () => {
       })
       .optional();
     const unionWithChild = z.union([z.array(z.string()), templateChildOption]);
-    assert.deepStrictEqual(scrapeSchemaBehavior(unionWithChild), {type: 'STRUCTURAL'});
+    assert.deepStrictEqual(getZodSchemaBehavior(unionWithChild), {type: 'STRUCTURAL'});
   });
 
   it('should identify dynamic union options only when shape has path property', () => {
@@ -1097,7 +1098,7 @@ describe('GenericBinder Checkable Trait', () => {
         path: z.string(),
       }),
     ]);
-    assert.deepStrictEqual(scrapeSchemaBehavior(unionWithDynamicPath), {type: 'DYNAMIC'});
+    assert.deepStrictEqual(getZodSchemaBehavior(unionWithDynamicPath), {type: 'DYNAMIC'});
 
     // Union with plain object without path or ComponentId -> STATIC
     const unionWithPlainObject = z.union([
@@ -1107,12 +1108,12 @@ describe('GenericBinder Checkable Trait', () => {
         value: z.number(),
       }),
     ]);
-    assert.deepStrictEqual(scrapeSchemaBehavior(unionWithPlainObject), {type: 'STATIC'});
+    assert.deepStrictEqual(getZodSchemaBehavior(unionWithPlainObject), {type: 'STATIC'});
   });
 
-  it('scrapeSchemaBehavior returns the same tree for the same schema', () => {
+  it('getZodSchemaBehavior returns the same tree for the same schema', () => {
     const schema = z.object({label: z.string()});
-    assert.strictEqual(scrapeSchemaBehavior(schema), scrapeSchemaBehavior(schema));
+    assert.strictEqual(getZodSchemaBehavior(schema), getZodSchemaBehavior(schema));
   });
 
   describe('Generated setter types', () => {

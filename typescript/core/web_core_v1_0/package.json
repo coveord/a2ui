@@ -102,7 +102,6 @@
     "build:tsc": "wireit",
     "test": "wireit",
     "test:conformance": "wireit",
-    "test:timing": "wireit",
     "test:coverage": "c8 node --test \"dist/**/*.test.js\"",
     "generate-zod-schemas": "wireit",
     "compile": "tsc",
@@ -148,7 +147,6 @@
       "files": [
         "src/**/*.ts",
         "src/**/*.json",
-        "tests/**/*.ts",
         "tsconfig.json"
       ],
       "output": [
@@ -158,10 +156,7 @@
       "clean": "if-file-deleted"
     },
     "test": {
-      "command": "(cd ../../schema-zod && yarn build) && node --import ./dist/src/test/dom-setup.js --import ../../schema-zod/dist/src/index.js --test \"dist/**/*.test.js\" \"tests/timing/*.test.mjs\""
-    },
-    "test:timing": {
-      "command": "node --expose-gc --test --test-concurrency=1 \"tests/timing/**/*_test.mjs\"",
+      "command": "node --test \"dist/**/*.test.js\"",
       "dependencies": [
         "build"
       ]
@@ -174,7 +169,6 @@
       "files": [
         "src/**/*.ts",
         "src/**/*.json",
-        "tests/**/*.ts",
         "scripts/**/*.js",
         "package.json",
         "tsconfig.json"
@@ -185,7 +179,6 @@
       "files": [
         "src/**/*.ts",
         "src/**/*.json",
-        "tests/**/*.ts",
         "scripts/**/*.js",
         "package.json",
         "tsconfig.json"

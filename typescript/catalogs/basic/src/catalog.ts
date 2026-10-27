@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import {zodCatalogSchemaAdapter} from '@a2ui/schema-zod';
 import {Catalog} from '@a2ui/web_core_v1_0';
 import {BasicCatalogThemeSchema} from './theme.js';
 import type {WebComponentImplementation} from '@a2ui/web_core_v1_0';
@@ -76,6 +77,7 @@ export const basicCatalog = new Catalog<WebComponentImplementation>(
   BASIC_FUNCTIONS,
   {
     themeSchema: BasicCatalogThemeSchema,
+    schemaAdapter: zodCatalogSchemaAdapter,
     ...BASIC_CATALOG_DOCUMENT_OPTIONS,
   },
 );

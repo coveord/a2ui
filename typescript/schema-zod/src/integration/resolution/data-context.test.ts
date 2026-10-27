@@ -16,22 +16,32 @@
 
 import * as assert from 'node:assert';
 import {describe, it, beforeEach} from 'node:test';
-import {signal, computed, peekValue, getValue, setValue} from '../reactivity/signals.js';
-import {z} from '@a2ui/schema-zod';
-import {DataModel} from '../state/data-model.js';
-import {SurfaceModel} from '../state/surface-model.js';
 import {
+  A2uiCatalogError,
+  A2uiExpressionError,
+  A2uiValidationError,
+  Catalog,
+  computed,
   DataContext,
-  MAX_DYNAMIC_VALUE_DEPTH,
-  getKnownSchemaKeys,
-  validateFunctionArgs,
+  DataModel,
+  getValue,
   isSingleAtKey,
+  MAX_DYNAMIC_VALUE_DEPTH,
+  peekValue,
+  setValue,
+  signal,
+  SurfaceModel,
   unescapeObjectKey,
+  validateFunctionArgs,
   validateReservedDirectives,
-} from './data-context.js';
-import {Catalog} from '../catalog/types.js';
-import {MAX_FUNCTION_CALL_ARGS} from '../protocol_values.js';
-import {A2uiCatalogError, A2uiExpressionError, A2uiValidationError} from '../errors.js';
+} from '@a2ui/web_core_v1_0';
+
+import {z} from '../../index.js';
+import {getZodKnownSchemaKeys} from '../../resolution/known_schema_keys.js';
+import {ZodCatalog} from '../../test/zod_catalog.js';
+
+/** Core's limit on the number of arguments in one function call. */
+const MAX_FUNCTION_CALL_ARGS = 1_000;
 
 const createTestDataContext = (
   model: DataModel,
@@ -670,36 +680,36 @@ describe('DataContext', () => {
   });
 
   describe('Function Argument Stripping & Resource Consumption (Issue #2384)', () => {
-    it('getKnownSchemaKeys extracts keys from ZodObject and ZodEffects', () => {
+    it('getZodKnownSchemaKeys extracts keys from ZodObject and ZodEffects', () => {
       const objSchema = z.object({a: z.string(), b: z.number()});
-      assert.deepStrictEqual(getKnownSchemaKeys(objSchema), new Set(['a', 'b']));
+      assert.deepStrictEqual(getZodKnownSchemaKeys(objSchema), new Set(['a', 'b']));
 
       const refinedSchema = z
         .object({value: z.any(), min: z.number().optional()})
         .refine(data => data.value !== undefined);
-      assert.deepStrictEqual(getKnownSchemaKeys(refinedSchema), new Set(['value', 'min']));
+      assert.deepStrictEqual(getZodKnownSchemaKeys(refinedSchema), new Set(['value', 'min']));
 
       const passthroughSchema = z.object({a: z.string()}).passthrough();
-      assert.strictEqual(getKnownSchemaKeys(passthroughSchema), null);
+      assert.strictEqual(getZodKnownSchemaKeys(passthroughSchema), null);
 
       const unionSchema = z.union([z.object({x: z.string()}), z.object({y: z.number()})]);
-      assert.deepStrictEqual(getKnownSchemaKeys(unionSchema), new Set(['x', 'y']));
+      assert.deepStrictEqual(getZodKnownSchemaKeys(unionSchema), new Set(['x', 'y']));
 
       const intersectionSchema = z.intersection(
         z.object({a: z.string()}),
         z.object({b: z.number()}),
       );
-      assert.deepStrictEqual(getKnownSchemaKeys(intersectionSchema), new Set(['a', 'b']));
+      assert.deepStrictEqual(getZodKnownSchemaKeys(intersectionSchema), new Set(['a', 'b']));
 
       const intersectionWithPassthrough = z.intersection(
         z.object({a: z.string()}),
         z.object({b: z.number()}).passthrough(),
       );
-      assert.strictEqual(getKnownSchemaKeys(intersectionWithPassthrough), null);
+      assert.strictEqual(getZodKnownSchemaKeys(intersectionWithPassthrough), null);
     });
 
     it('validateFunctionArgs allows valid keys when schema is available', () => {
-      const catalog = new Catalog(
+      const catalog = new ZodCatalog(
         'test-cat',
         '1.0',
         [],
@@ -724,7 +734,7 @@ describe('DataContext', () => {
     });
 
     it('validateFunctionArgs throws error on unknown arguments', () => {
-      const catalog = new Catalog(
+      const catalog = new ZodCatalog(
         'test-cat',
         '1.0',
         [],
@@ -754,7 +764,7 @@ describe('DataContext', () => {
     });
 
     it('validateFunctionArgs throws error when exceeding maximum argument limits', () => {
-      const catalog = new Catalog(
+      const catalog = new ZodCatalog(
         'test-cat',
         '1.0',
         [],
@@ -795,7 +805,7 @@ describe('DataContext', () => {
         junkVal: 'Secret',
       });
 
-      const catalog = new Catalog(
+      const catalog = new ZodCatalog(
         'test-cat',
         '1.0',
         [],
@@ -836,7 +846,7 @@ describe('DataContext', () => {
     });
 
     it('resolveDynamicValue dispatches error on unknown arguments', () => {
-      const catalog = new Catalog(
+      const catalog = new ZodCatalog(
         'test-cat',
         '1.0',
         [],
@@ -879,7 +889,7 @@ describe('DataContext', () => {
 
   describe('Multi-catalog function resolution', () => {
     const makeCatalog = (id: string, result: string) =>
-      new Catalog(
+      new ZodCatalog(
         id,
         '1.0',
         [],
@@ -1091,7 +1101,7 @@ describe('DataContext', () => {
     });
 
     it('reports a catalog error thrown while a resolved function runs as EXPRESSION_ERROR', () => {
-      const throwing = new Catalog(
+      const throwing = new ZodCatalog(
         'cat-throwing',
         '1.0',
         [],
@@ -1122,7 +1132,7 @@ describe('DataContext', () => {
 
   describe('Phase 3 resolution parity (deep object recursion, hasPath, onWarning, index scope)', () => {
     it('recursively resolves dynamic bindings inside nested plain objects both synchronously and reactively', () => {
-      const cat = new Catalog('cat', '0.9', []);
+      const cat = new ZodCatalog('cat', '0.9', []);
       const surface = new SurfaceModel('s1', cat);
       surface.dataModel.set('/user', {name: 'Alice', role: 'Admin'});
 
@@ -1159,7 +1169,7 @@ describe('DataContext', () => {
     });
 
     it('emits MISSING_DATA_BINDING on surface.onWarning for absent paths but not for explicit null paths', () => {
-      const cat = new Catalog('cat', '0.9', []);
+      const cat = new ZodCatalog('cat', '0.9', []);
       const surface = new SurfaceModel('s1', cat);
       surface.dataModel.set('/', {explicitNull: null});
 
@@ -1191,7 +1201,7 @@ describe('DataContext', () => {
     });
 
     it('resolves getIndex() from explicit index or trailing numeric segment across parent chain', () => {
-      const cat = new Catalog('cat', '0.9', []);
+      const cat = new ZodCatalog('cat', '0.9', []);
       const surface = new SurfaceModel('s1', cat);
 
       const rootCtx = new DataContext(surface, '/items/7/details');
@@ -1235,7 +1245,7 @@ describe('DataContext', () => {
     });
 
     it('resolves @path and @call in a v1.0 surface context', () => {
-      const cat = new Catalog('cat', '1.0', []);
+      const cat = new ZodCatalog('cat', '1.0', []);
       const surface = new SurfaceModel('s1', cat);
       surface.dataModel.set('/user', {name: 'Alice', role: 'Admin'});
 
@@ -1266,7 +1276,7 @@ describe('DataContext', () => {
     });
 
     it('treats plain path and call keys as static literal data in v1.0', () => {
-      const cat = new Catalog('cat', '1.0', []);
+      const cat = new ZodCatalog('cat', '1.0', []);
       const surface = new SurfaceModel('s1', cat);
       surface.dataModel.set('/user/name', 'Alice');
 
@@ -1295,7 +1305,7 @@ describe('DataContext', () => {
     });
 
     it('unescapes doubled @@ keys during dynamic evaluation in v1.0', () => {
-      const cat = new Catalog('cat', '1.0', []);
+      const cat = new ZodCatalog('cat', '1.0', []);
       const surface = new SurfaceModel('s1', cat);
       surface.dataModel.set('/item/title', 'Widget');
 
@@ -1323,7 +1333,7 @@ describe('DataContext', () => {
     });
 
     it('rejects unrecognized single-@ keys in v1.0 dynamic objects with A2uiValidationError', () => {
-      const cat = new Catalog('cat', '1.0', []);
+      const cat = new ZodCatalog('cat', '1.0', []);
       const surface = new SurfaceModel('s1', cat);
       const ctx = new DataContext(surface, '/');
 
@@ -1343,7 +1353,7 @@ describe('DataContext', () => {
       );
 
       // In pre-v1.0 (v0.9), single-@ keys are not rejected as protocol reserved keys
-      const v09Cat = new Catalog('cat', '0.9', []);
+      const v09Cat = new ZodCatalog('cat', '0.9', []);
       const v09Surface = new SurfaceModel('s1', v09Cat);
       const v09Ctx = new DataContext(v09Surface, '/');
       assert.doesNotThrow(() => v09Ctx.resolveDynamicValue({'@custom': 'allowed in 0.9'}));

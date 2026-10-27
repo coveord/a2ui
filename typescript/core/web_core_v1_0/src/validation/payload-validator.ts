@@ -20,7 +20,7 @@ import {isAtLeastVersion} from '../common/semver.js';
 import {isValidUax31Identifier} from '../common/uax31.js';
 import {A2uiValidationError} from '../errors.js';
 import {formatValidationIssue} from './format-validation-issue.js';
-import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
+import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../protocol_values.js';
 import {IndexApi} from '../functions/system_functions.js';
@@ -213,7 +213,7 @@ export class PayloadValidator {
       return;
     }
 
-    const knownKeys = getKnownSchemaKeys(componentApi.schema);
+    const knownKeys = getKnownSchemaKeys(componentApi.schema, this.catalog);
     this.validateCommonEnvelopeFields(properties, knownKeys, componentType, id, componentCatalogId);
 
     const result = validateStandardSchema(componentApi.schema, properties);
@@ -229,13 +229,8 @@ export class PayloadValidator {
   }
 
   private validateComponentEnvelopeField(field: 'accessibility' | 'metadata', value: unknown) {
-    const validate = getCatalogSchemaAdapter()?.validateComponentEnvelopeField;
-    if (!validate) {
-      throw new A2uiValidationError(
-        'Component envelope validation requires an installed schema adapter.',
-      );
-    }
-    return validate(field, value);
+    return requireSchemaAdapter(this.catalog, 'validateComponentEnvelopeField')
+      .validateComponentEnvelopeField!(field, value);
   }
 
   /**

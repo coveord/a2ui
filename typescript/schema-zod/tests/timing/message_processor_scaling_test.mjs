@@ -24,7 +24,9 @@ import {describe, it} from 'node:test';
 
 import {loadConformanceSuite, measureGrowth, readRepositoryJson} from './timing.mjs';
 
-import {Catalog, MessageProcessor, RELAXED_VALIDATION} from '../../dist/src/index.js';
+import {MessageProcessor, RELAXED_VALIDATION} from '@a2ui/web_core_v1_0';
+
+import {parseZodCatalog} from '../../dist/src/index.js';
 
 const SUITE = 'core/message_processor_scaling.yaml';
 
@@ -37,7 +39,7 @@ const VALIDATION_CONFIGS = {
 function runCase(testCase) {
   assert.equal(testCase.operation, 'process_messages');
   const catalogs = testCase.catalogPaths.map(catalogPath =>
-    Catalog.fromJson(readRepositoryJson(catalogPath), testCase.protocolVersion),
+    parseZodCatalog(readRepositoryJson(catalogPath), testCase.protocolVersion),
   );
   const configName = testCase.args.validation_config;
   assert.ok(configName in VALIDATION_CONFIGS, `Unknown validation config ${configName}`);
