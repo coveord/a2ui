@@ -25,6 +25,7 @@ import {
   unionBranches,
 } from '../catalog/a2ui_json_schema.js';
 import type {EntrySchema} from '../catalog/a2ui_schema.js';
+import {componentSchemaOf, zodSchemaFor} from '../catalog/entry_schema.js';
 import type {JsonSchemaObject} from '../catalog/spec_annotations.js';
 import {ComponentContext} from './component-context.js';
 import {
@@ -71,6 +72,19 @@ export type BehaviorNode =
   | {type: 'ARRAY'; element: BehaviorNode};
 
 const behaviorCache = new WeakMap<object, BehaviorNode>();
+
+/**
+ * Returns the schema a binder reads with: the component's catalog-document
+ * schema when the caller passed that component's authored schema, or the
+ * caller's schema otherwise.
+ */
+function bindingSchemaOf(context: ComponentContext, schema: EntrySchema): EntrySchema {
+  const model = context.componentModel;
+  const entry = model.catalog?.components.get(model.type);
+  return entry && entry.schema === schema
+    ? componentSchemaOf(model.catalog, entry)
+    : zodSchemaFor(schema);
+}
 
 /**
  * Traverses the JSON Schema view of a schema to build a `BehaviorNode` map.
@@ -432,7 +446,7 @@ export class GenericBinder<T> {
    */
   constructor(context: ComponentContext, schema: EntrySchema) {
     this.context = context;
-    this.behaviorTree = scrapeSchemaBehavior(schema);
+    this.behaviorTree = scrapeSchemaBehavior(bindingSchemaOf(context, schema));
 
     if (this.behaviorTree.type !== 'OBJECT') {
       this.behaviorTree = {type: 'OBJECT', shape: {}};

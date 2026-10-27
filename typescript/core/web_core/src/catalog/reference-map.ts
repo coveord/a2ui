@@ -16,6 +16,7 @@
 
 import {a2uiJsonSchemaOf, coreJsonSchema} from './a2ui_json_schema.js';
 import {isA2uiSchema} from './a2ui_schema.js';
+import {componentSchemaOf} from './entry_schema.js';
 import type {Catalog, ComponentApi} from './types.js';
 
 /**
@@ -384,12 +385,15 @@ export function buildComponentRefMap(
   options: ChildRefAnalysisOptions,
 ): ComponentRefMap {
   const refMap: ComponentRefMap = {};
-  const componentApis: ComponentApi[] =
-    typeof (catalogOrComponents as any)?.components?.values === 'function'
-      ? Array.from((catalogOrComponents as any).components.values())
-      : Array.isArray(catalogOrComponents)
-        ? catalogOrComponents
-        : Array.from((catalogOrComponents as Map<string, ComponentApi>).values());
+  const catalog =
+    typeof (catalogOrComponents as Catalog<any, any>)?.components?.values === 'function'
+      ? (catalogOrComponents as Catalog<any, any>)
+      : undefined;
+  const componentApis: ComponentApi[] = catalog
+    ? Array.from(catalog.components.values())
+    : Array.isArray(catalogOrComponents)
+      ? catalogOrComponents
+      : Array.from((catalogOrComponents as Map<string, ComponentApi>).values());
 
   for (const compApi of componentApis) {
     const acc: ChildRefAccumulator = {
@@ -398,7 +402,11 @@ export function buildComponentRefMap(
       nestedRefs: {},
     };
 
-    inspectComponentSchema(compApi.schema, acc, options);
+    inspectComponentSchema(
+      catalog ? componentSchemaOf(catalog, compApi) : compApi.schema,
+      acc,
+      options,
+    );
 
     refMap[compApi.name] = {
       singleRefs: acc.singleRefs,
