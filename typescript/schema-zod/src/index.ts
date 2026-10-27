@@ -29,5 +29,23 @@ export {
   type SpecMixin,
 } from './spec_annotations.js';
 export {formatZodIssue} from './format-zod-issue.js';
+export {type ValidationResultInput} from './schema/catalog-definition.js';
+export {
+  ActionSchema,
+  AccessibilityAttributesSchema,
+  CheckRuleSchema,
+  ChildListSchema,
+  ChildSchema,
+  CommonSchemas,
+  DataBindingSchema,
+  DynamicBooleanSchema,
+  DynamicNumberSchema,
+  DynamicStringListSchema,
+  DynamicStringSchema,
+  DynamicValueSchema,
+  FunctionCallSchema,
+  type DataBinding,
+  type FunctionCall,
+} from './types/common-types.js';
 
 export const ZOD_SCHEMA_ADAPTER_NAME = '@a2ui/schema-zod';

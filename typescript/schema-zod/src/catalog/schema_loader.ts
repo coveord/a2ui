@@ -16,13 +16,8 @@
 
 import {z} from 'zod';
 
-import {
-  A2uiCatalogError,
-  assertUax31Identifier,
-  CommonSchemas,
-  ComponentCommonSchema,
-  isAtLeastVersion,
-} from '@a2ui/web_core_v1_0';
+import {A2uiCatalogError, assertUax31Identifier, isAtLeastVersion} from '@a2ui/web_core_v1_0';
+import {CommonSchemas, ComponentCommonSchema} from '../types/common-types.js';
 import {exclusiveUnion} from './exclusive_union.js';
 import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import {

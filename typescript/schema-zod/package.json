@@ -18,7 +18,8 @@
     "src"
   ],
   "scripts": {
-    "build": "tsc -b --pretty",
+    "build": "yarn generate && tsc -b --pretty",
+    "generate": "node scripts/generate-zod-schemas.mjs && node scripts/generate-superset-common-types.mjs && prettier --write \"src/schema/**/*.ts\" \"src/types/*.ts\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "tsc -b --pretty && node --test \"dist/**/*.test.js\"",

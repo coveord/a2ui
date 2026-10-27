@@ -25,8 +25,7 @@ import {
   peekValue,
 } from '../reactivity/signals.js';
 import {DataModel, DataSubscription} from '../state/data-model.js';
-import {type FunctionCall, type Action} from '../protocol_values.js';
-import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
+import {MAX_FUNCTION_CALL_ARGS, type FunctionCall, type Action} from '../protocol_values.js';
 import {A2uiCatalogError, A2uiExpressionError, A2uiValidationError} from '../errors.js';
 import {isAtLeastVersion} from '../common/semver.js';
 

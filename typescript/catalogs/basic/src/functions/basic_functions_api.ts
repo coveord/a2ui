@@ -26,7 +26,7 @@ import {
   DynamicStringSchema,
   DynamicValueSchema,
   FunctionCallSchema,
-} from '@a2ui/web_core_v1_0';
+} from '@a2ui/schema-zod';
 
 /**
  * Checks that the value is not null, undefined, or empty.

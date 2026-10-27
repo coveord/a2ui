@@ -31,7 +31,7 @@
  * separately in src/v<version>/ directories, e.g. src/v1_0/.
  */
 import {z} from 'zod';
-import {isValidUax31Identifier} from '../common/uax31.js';
+import {isValidUax31Identifier} from '@a2ui/web_core_v1_0';
 import {markChildRef} from './child-ref-helpers.js';
 
 export const ComponentIdSchema = markChildRef(

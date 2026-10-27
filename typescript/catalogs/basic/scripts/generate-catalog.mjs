@@ -30,7 +30,7 @@ generateCatalogApi({
   commonTypesPath: join(rootDir, 'specification', 'v1_0', 'json', 'common_types.json'),
   componentsOutPath: join(catalogSourceDir, 'components', 'basic_components.ts'),
   functionsOutPath: join(catalogSourceDir, 'functions', 'basic_functions_api.ts'),
-  commonTypesImportPath: '@a2ui/web_core_v1_0',
+  commonTypesImportPath: '@a2ui/schema-zod',
   typesImportPath: '@a2ui/web_core_v1_0',
   specImportPath: '@a2ui/schema-zod',
 });

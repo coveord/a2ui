@@ -28,7 +28,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = process.env.A2UI_SCHEMA_TARGET
   ? resolve(process.env.A2UI_SCHEMA_TARGET)
   : join(__dirname, '..');
-const specDir = join(rootDir, '..', '..', '..', 'specification', 'v1_0', 'json');
+const specDir = join(rootDir, '..', '..', 'specification', 'v1_0', 'json');
 const destDir = join(rootDir, 'src', 'schema');
 
 const VERSION_TAG = 'v1.0';
@@ -48,7 +48,7 @@ function generateCommonTypes() {
   let commonTs =
     getHeader(VERSION_TAG, SCRIPT_SOURCE) +
     "import {z} from 'zod';\n" +
-    "import {isValidUax31Identifier} from '../common/uax31.js';\n" +
+    "import {isValidUax31Identifier} from '@a2ui/web_core_v1_0';\n" +
     "import {markChildRef} from '../types/child-ref-helpers.js';\n\n";
 
   const defKeys = [

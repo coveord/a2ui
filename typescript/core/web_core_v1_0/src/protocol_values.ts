@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+/** Maximum arguments accepted by one function call to bound resource consumption. */
+export const MAX_FUNCTION_CALL_ARGS = 1_000;
+
 /** Identifier of a component in an A2UI surface. */
 export type ComponentId = string;
 
@@ -33,7 +36,9 @@ export interface FunctionCall {
 }
 
 /** A component child-list literal or dynamic template. */
-export type ChildList = readonly ComponentId[] | {readonly componentId: ComponentId; readonly path: string};
+export type ChildList =
+  | readonly ComponentId[]
+  | {readonly componentId: ComponentId; readonly path: string};
 
 /** A value that may be literal, bound to data, or produced by a function. */
 export type DynamicValue =

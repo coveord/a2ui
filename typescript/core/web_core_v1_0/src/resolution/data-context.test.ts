@@ -30,7 +30,7 @@ import {
   validateReservedDirectives,
 } from './data-context.js';
 import {Catalog} from '../catalog/types.js';
-import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
+import {MAX_FUNCTION_CALL_ARGS} from '../protocol_values.js';
 import {A2uiCatalogError, A2uiExpressionError, A2uiValidationError} from '../errors.js';
 
 const createTestDataContext = (

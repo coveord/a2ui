@@ -20,7 +20,7 @@ import {fileURLToPath} from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
-const defaultSpecDir = join(rootDir, '..', '..', '..', 'specification');
+const defaultSpecDir = join(rootDir, '..', '..', 'specification');
 const defaultDestFile = join(rootDir, 'src', 'types', 'common-types.ts');
 
 export const HEADER = `/*
@@ -486,7 +486,7 @@ export function generateSupersetCommonTypes(options = {}) {
 
   let outTs = HEADER;
   outTs += `import {z} from 'zod';
-import {isValidUax31Identifier} from '../common/uax31.js';
+import {isValidUax31Identifier} from '@a2ui/web_core_v1_0';
 import {markChildRef} from './child-ref-helpers.js';
 
 `;

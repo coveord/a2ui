@@ -17,7 +17,7 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated from specification/v1.0/json/ via scripts/generate-schemas.mjs
 import {z} from 'zod';
-import {isValidUax31Identifier} from '../common/uax31.js';
+import {isValidUax31Identifier} from '@a2ui/web_core_v1_0';
 import {markChildRef} from '../types/child-ref-helpers.js';
 
 export const ComponentIdSchema = markChildRef(

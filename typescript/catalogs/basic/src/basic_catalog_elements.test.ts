@@ -601,7 +601,7 @@ describe('v1.0 Basic Catalog & Universal Custom Elements', () => {
       override render() {
         const props = this.controller?.props;
         if (!props) return nothing;
-        return html`<span class="custom-badge">${props.title}</span>`;
+        return html`<span class="custom-badge">${(props as {title: string}).title}</span>`;
       }
     }
     const CustomBadgeImpl: WebComponentImplementation = {

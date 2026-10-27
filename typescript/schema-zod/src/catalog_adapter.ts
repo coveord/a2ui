@@ -17,10 +17,7 @@
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {
-  AccessibilityAttributesSchema,
-  AgentToRendererMessageSchema,
   Catalog,
-  ComponentCommonSchema,
   registerCatalogSchemaAdapter,
   validateStandardSchema,
   type CatalogSchemaAdapter,
@@ -33,6 +30,8 @@ import {
   parseCatalogSchema,
 } from './catalog/schema_loader.js';
 import {cleanSchemaNode, generateValidationSchema} from './catalog/schema_generator.js';
+import {AgentToRendererMessageSchema} from './schema/agent-to-renderer.js';
+import {AccessibilityAttributesSchema, ComponentCommonSchema} from './types/common-types.js';
 import {exclusiveUnionOverride} from './catalog/exclusive_union.js';
 import {retainedDefs, serializeCatalogDocument} from './catalog/schema_serializer.js';
 import {

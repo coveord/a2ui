@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {childRefKindOf} from '@a2ui/web_core_v1_0';
+import {childRefKindOf} from '../types/child-ref-helpers.js';
 import type {
   ChildRefAnalysis,
   ChildRefAnalysisOptions,

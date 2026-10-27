@@ -30,7 +30,7 @@ import {
   DynamicNumberSchema,
   DynamicStringListSchema,
   DynamicStringSchema,
-} from '@a2ui/web_core_v1_0';
+} from '@a2ui/schema-zod';
 
 export const TextApi = {
   name: 'Text',

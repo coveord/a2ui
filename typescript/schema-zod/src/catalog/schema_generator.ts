@@ -17,7 +17,8 @@
 
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
-import {CommonSchemas, isAtLeastVersion, toCanonicalVersion} from '@a2ui/web_core_v1_0';
+import {isAtLeastVersion, toCanonicalVersion} from '@a2ui/web_core_v1_0';
+import {CommonSchemas} from '../types/common-types.js';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {
   catalogDocumentModel,

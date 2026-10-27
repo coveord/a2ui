@@ -22,7 +22,7 @@ import {A2uiValidationError} from '../errors.js';
 import {formatValidationIssue} from './format-validation-issue.js';
 import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
-import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
+import {MAX_FUNCTION_CALL_ARGS} from '../protocol_values.js';
 import {IndexApi} from '../functions/system_functions.js';
 import type {ValidationConfig} from './integrity-checker.js';
 import {validateReservedDirectives} from '../resolution/data-context.js';

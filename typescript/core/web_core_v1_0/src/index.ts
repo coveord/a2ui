@@ -29,7 +29,6 @@ export * from './validation/index.js';
 export * from './reactivity/index.js';
 export * from './expressions/index.js';
 export * from './rpc/index.js';
-export * from './schema/index.js';
 export * from './standard_defs.js';
 export * from './functions/system_functions.js';
 export {

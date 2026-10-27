@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import {AccessibilityAttributesSchema, type SchemaBehavior} from '@a2ui/web_core_v1_0';
+import type {SchemaBehavior} from '@a2ui/web_core_v1_0';
+import {AccessibilityAttributesSchema} from '../types/common-types.js';
 import {z} from 'zod';
 
 import {extractRefDefName} from '../catalog/reference-map.js';
