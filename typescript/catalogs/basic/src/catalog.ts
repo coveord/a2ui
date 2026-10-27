@@ -48,9 +48,8 @@ import {BASIC_FUNCTIONS} from './functions/basic_functions.js';
  * Its components and functions are the Zod 4 models generated from the
  * published catalog document (see scripts/generate-catalog-schemas.mjs),
  * listed in the document's order. The catalog carries that document, a copy
- * of catalogs/basic/v1/catalog.json, so `toJson` returns it. The Zod 4 schema
- * adapter does not generate JSON Schema yet, so `validationSchema` is not
- * available.
+ * of catalogs/basic/v1/catalog.json, so `toJson` returns it and
+ * `validationSchema` is bundled from it.
  */
 export const basicCatalog = new Catalog<WebComponentImplementation>(
   'https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json',

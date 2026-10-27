@@ -18,6 +18,7 @@ import * as assert from 'node:assert';
 import {readFileSync} from 'node:fs';
 import {describe, it} from 'node:test';
 
+import {parseZodCatalog} from '@a2ui/schema-zod';
 import {MessageProcessor} from '@a2ui/web_core_v1_0';
 
 import {basicCatalog} from './catalog.js';
@@ -45,5 +46,21 @@ describe('basicCatalog', () => {
     });
 
     assert.ok(JSON.stringify(capabilities).includes(PUBLISHED.catalogId));
+  });
+
+  it('builds the same validation schema as the Zod 3 adapter does from the published document', () => {
+    // The published document declares no theme; the catalog adds its own
+    // `BasicCatalogThemeSchema`, which the validation schema writes as `theme`.
+    const {theme, ...defs} = basicCatalog.validationSchema['$defs'] as Record<string, unknown>;
+
+    assert.deepStrictEqual(
+      {...basicCatalog.validationSchema, $defs: defs},
+      parseZodCatalog(PUBLISHED).validationSchema,
+    );
+    assert.deepStrictEqual(Object.keys((theme as {properties: object}).properties).sort(), [
+      'agentDisplayName',
+      'iconUrl',
+      'primaryColor',
+    ]);
   });
 });

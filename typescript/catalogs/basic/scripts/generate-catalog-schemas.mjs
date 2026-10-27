@@ -905,7 +905,7 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
     if (requiresUserActivation) {
       bodyCode += `  requiresUserActivation: true as const,\n`;
     }
-    if (reproduce && description) {
+    if (description) {
       bodyCode += `  description: '${escapeStr(description)}',\n`;
     }
     bodyCode += `  schema: ${reproduce ? 'spec(' : ''}z.object({\n`;

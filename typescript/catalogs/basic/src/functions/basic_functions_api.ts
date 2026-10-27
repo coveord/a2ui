@@ -33,6 +33,7 @@ import {
 export const RequiredApi = {
   name: 'required' as const,
   returnType: 'validationResult' as const,
+  description: 'Checks that the value is not null, undefined, or empty.',
   schema: z.object({
     'value': z
       .any()
@@ -47,6 +48,7 @@ export const RequiredApi = {
 export const RegexApi = {
   name: 'regex' as const,
   returnType: 'validationResult' as const,
+  description: 'Checks that the value matches a regular expression string.',
   schema: z.object({
     'value': DynamicStringSchema.describe('REF:#/$defs/DynamicString'),
     'pattern': z.string().describe('The regex pattern to match against.'),
@@ -59,6 +61,7 @@ export const RegexApi = {
 export const LengthApi = {
   name: 'length' as const,
   returnType: 'validationResult' as const,
+  description: 'Checks string length constraints.',
   schema: z.object({
     'value': DynamicStringSchema.describe('REF:#/$defs/DynamicString'),
     'min': z.number().int().describe('The minimum allowed length.').optional(),
@@ -72,6 +75,7 @@ export const LengthApi = {
 export const NumericApi = {
   name: 'numeric' as const,
   returnType: 'validationResult' as const,
+  description: 'Checks numeric range constraints.',
   schema: z.object({
     'value': DynamicNumberSchema.describe('REF:#/$defs/DynamicNumber'),
     'min': z.number().describe('The minimum allowed value.').optional(),
@@ -85,6 +89,7 @@ export const NumericApi = {
 export const EmailApi = {
   name: 'email' as const,
   returnType: 'validationResult' as const,
+  description: 'Checks that the value is a valid email address.',
   schema: z.object({
     'value': DynamicStringSchema.describe('REF:#/$defs/DynamicString'),
   }),
@@ -96,6 +101,8 @@ export const EmailApi = {
 export const FormatStringApi = {
   name: 'formatString' as const,
   returnType: 'string' as const,
+  description:
+    "Performs string interpolation of data model values and other functions in the catalog functions list and returns the resulting string. The value string can contain interpolated expressions in the `${expression}` format. Supported expression types include: JSON Pointer paths to the data model (e.g., `${/absolute/path}` or `${relative/path}`), and renderer-side function calls (e.g., `${now()}`). Function arguments must be named (e.g., `${formatDate(value:${/currentDate}, format:'MM-dd')}`). To include a literal `${` sequence, escape it as `\\${`.",
   schema: z.object({
     'value': DynamicStringSchema.describe('REF:#/$defs/DynamicString'),
   }),
@@ -107,6 +114,7 @@ export const FormatStringApi = {
 export const FormatNumberApi = {
   name: 'formatNumber' as const,
   returnType: 'string' as const,
+  description: 'Formats a number with the specified grouping and decimal precision.',
   schema: z.object({
     'value': DynamicNumberSchema.describe('REF:#/$defs/DynamicNumber|The number to format.'),
     'decimals': DynamicNumberSchema.describe(
@@ -124,6 +132,7 @@ export const FormatNumberApi = {
 export const FormatCurrencyApi = {
   name: 'formatCurrency' as const,
   returnType: 'string' as const,
+  description: 'Formats a number as a currency string.',
   schema: z.object({
     'value': DynamicNumberSchema.describe('REF:#/$defs/DynamicNumber|The monetary amount.'),
     'currency': DynamicStringSchema.describe(
@@ -144,6 +153,7 @@ export const FormatCurrencyApi = {
 export const FormatDateApi = {
   name: 'formatDate' as const,
   returnType: 'string' as const,
+  description: 'Formats a timestamp into a string using a pattern.',
   schema: z.object({
     'value': DynamicValueSchema.describe('REF:#/$defs/DynamicValue|The date to format.'),
     'format': DynamicStringSchema.describe(
@@ -158,6 +168,8 @@ export const FormatDateApi = {
 export const PluralizeApi = {
   name: 'pluralize' as const,
   returnType: 'string' as const,
+  description:
+    "Returns a localized string based on the Common Locale Data Repository (CLDR) plural category of the count (zero, one, two, few, many, other). Requires an 'other' fallback. For English, just use 'one' and 'other'.",
   schema: z.object({
     'value': DynamicNumberSchema.describe(
       'REF:#/$defs/DynamicNumber|The numeric value used to determine the plural category.',
@@ -190,6 +202,8 @@ export const OpenUrlApi = {
   name: 'openUrl' as const,
   returnType: 'void' as const,
   requiresUserActivation: true as const,
+  description:
+    'Opens the specified URL in a browser or handler (requires user activation). This function has no return value.',
   schema: z.object({
     'url': z
       .union([
@@ -207,6 +221,7 @@ export const OpenUrlApi = {
 export const AndApi = {
   name: 'and' as const,
   returnType: 'boolean' as const,
+  description: 'Performs a logical AND operation on a list of boolean values.',
   schema: z.object({
     'values': z
       .array(DynamicBooleanSchema.describe('REF:#/$defs/DynamicBoolean'))
@@ -221,6 +236,7 @@ export const AndApi = {
 export const OrApi = {
   name: 'or' as const,
   returnType: 'boolean' as const,
+  description: 'Performs a logical OR operation on a list of boolean values.',
   schema: z.object({
     'values': z
       .array(DynamicBooleanSchema.describe('REF:#/$defs/DynamicBoolean'))
@@ -235,6 +251,7 @@ export const OrApi = {
 export const NotApi = {
   name: 'not' as const,
   returnType: 'boolean' as const,
+  description: 'Performs a logical NOT operation on a boolean value.',
   schema: z.object({
     'value': DynamicBooleanSchema.describe(
       'REF:#/$defs/DynamicBoolean|The boolean value to negate.',
