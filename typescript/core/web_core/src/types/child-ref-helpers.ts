@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 /**
  * Classification kind for a schema marked as a child reference.

@@ -28,7 +28,7 @@
  * This module is internal to web_core and is not re-exported by any facade.
  */
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, normalizeVersionString, toCanonicalVersion} from '../common/semver.js';

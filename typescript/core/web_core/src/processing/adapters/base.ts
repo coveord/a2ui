@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {InternalOperation} from '../operations.js';
 import {A2uiValidationError} from '../../errors.js';
 import {formatZodIssue} from '../format-zod-issue.js';

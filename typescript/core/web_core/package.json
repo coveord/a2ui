@@ -316,7 +316,7 @@
     "lit": "^3.3.3",
     "redos-detector": "^6.1.4",
     "validate-color": "^2.2.4",
-    "zod": "^3.25.76",
+    "zod": "^4.6.7",
     "zod-to-json-schema": "^3.25.2"
   }
 }

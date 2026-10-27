@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {DataValueSchema} from './common-types.js';
 
 const _validateValueProperty = (val: any, ctx: z.RefinementCtx) => {

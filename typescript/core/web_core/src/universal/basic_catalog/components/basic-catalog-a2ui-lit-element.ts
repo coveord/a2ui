@@ -15,7 +15,7 @@
  */
 
 import {html, nothing} from 'lit';
-import type {z} from 'zod';
+import type {z} from 'zod/v3';
 import {ComponentApi, type InferredComponentApiSchemaType} from '../../../catalog/types.js';
 import type {ResolveA2uiProps} from '../../../resolution/generic-binder.js';
 import type {AccessibilityAttributesSchema} from '../../../types/common-types.js';

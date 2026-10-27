@@ -24,7 +24,7 @@ import {
   setValue,
   peekValue,
 } from '../reactivity/signals.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {DataModel, DataSubscription} from '../state/data-model.js';
 import {type FunctionCall, type Action} from '../types/common-types.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';

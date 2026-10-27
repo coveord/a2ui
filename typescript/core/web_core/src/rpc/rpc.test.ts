@@ -16,7 +16,7 @@
 
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {RpcHandler, A2uiRpcError, RpcErrorCode} from './rpc-handler.js';
 import {A2uiError} from '../errors.js';
 import {Catalog, createFunctionImplementation} from '../catalog/types.js';

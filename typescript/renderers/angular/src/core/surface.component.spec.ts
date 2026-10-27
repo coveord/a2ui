@@ -25,7 +25,7 @@ import {initializeAngularReactivity} from './reactivity';
 import {CatalogComponentInstance} from './catalog_component_instance';
 import {AngularCatalog, createComponentImplementation} from '../catalog/types';
 import {ComponentModel, DynamicStringSchema, SurfaceModel} from '@a2ui/web_core/v0_9';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 @Component({
   selector: 'test-text',

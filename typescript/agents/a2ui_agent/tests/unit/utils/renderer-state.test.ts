@@ -15,7 +15,7 @@
  */
 
 import {describe, expect, it, vi} from 'vitest';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 import {
   A2uiCatalogError,

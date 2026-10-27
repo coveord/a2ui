@@ -29,7 +29,7 @@
 import {describe, it, expect, afterEach, vi} from 'vitest';
 import {act, fireEvent, render, waitFor, within} from '@testing-library/react';
 import React, {createContext, useContext, useLayoutEffect, useRef} from 'react';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {
   Catalog,
   CommonSchemas,

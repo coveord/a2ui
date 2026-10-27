@@ -24,7 +24,7 @@ import {NodeResolver} from '../resolution/node-resolver.js';
 import {getValue, peekValue} from '../reactivity/signals.js';
 import {MessageProcessor} from '../processing/message-processor.js';
 import {A2uiLitElement} from './a2ui-lit-element.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {Catalog, ComponentApi} from '../catalog/index.js';
 import {basicCatalog} from '../catalogs/basic/v1/catalog.js';
 

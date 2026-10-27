@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod';
+import type {z} from 'zod/v3';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';

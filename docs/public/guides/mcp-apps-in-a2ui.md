@@ -102,7 +102,7 @@ You must register the component in your catalog application. For example, in Ang
 
 ```typescript
 import {Catalog} from '@a2ui/web_core/v0_9';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {McpApp} from './mcp-app';
 import {Button} from './button';
 import {Snackbar} from './snackbar';

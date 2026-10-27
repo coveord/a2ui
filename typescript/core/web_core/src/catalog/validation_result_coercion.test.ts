@@ -16,7 +16,7 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 import {DataContext} from '../resolution/data-context.js';
 import {DataModel} from '../state/data-model.js';
