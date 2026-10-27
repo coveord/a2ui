@@ -23,14 +23,33 @@ import {
   type CatalogSchemaAdapter,
 } from '@a2ui/web_core_v1_0';
 
-import {inlinePeerAndLocalRefs, linkEntry, parseCatalogSchema} from './catalog/schema_loader.js';
-import {cleanSchemaNode, generateValidationSchema} from './catalog/schema_generator.js';
-import {AgentToRendererMessageSchema} from './schema/agent-to-renderer.js';
-import {AccessibilityAttributesSchema, ComponentCommonSchema} from './types/common-types.js';
 import {exclusiveUnionOverride} from './catalog/exclusive_union.js';
-import {retainedDefs, serializeCatalogDocument} from './catalog/schema_serializer.js';
+import {reproduceZodDefinitions} from './catalog/reproduce_definitions.js';
+import {linkEntry, parseCatalogSchema} from './catalog/schema_loader.js';
 import {describeZodComponent} from './resolution/describe_component.js';
 import {getZodKnownSchemaKeys} from './resolution/known_schema_keys.js';
+import {AgentToRendererMessageSchema} from './schema/agent-to-renderer.js';
+import {
+  AccessibilityAttributesSchema,
+  CommonSchemas,
+  ComponentCommonSchema,
+} from './types/common-types.js';
+
+/**
+ * The descriptions the common type mirrors carry on their `REF:` pointers, by
+ * definition name.
+ */
+const COMMON_TYPE_REF_DESCRIPTIONS: ReadonlyMap<string, string> = new Map(
+  Object.values(CommonSchemas).flatMap(mirror => {
+    const description = (mirror as {description?: unknown}).description;
+    if (typeof description !== 'string' || !description.startsWith('REF:')) return [];
+    const content = description.substring(4);
+    const pipeIndex = content.indexOf('|');
+    if (pipeIndex === -1) return [];
+    const name = content.substring(0, pipeIndex).split('/').pop()!;
+    return [[name, content.substring(pipeIndex + 1)] as [string, string]];
+  }),
+);
 
 /**
  * Zod implementation of the catalog schema adapter.
@@ -54,16 +73,17 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
       schemaAdapter: zodCatalogSchemaAdapter,
     });
   },
-  serializeCatalog: catalog => serializeCatalogDocument(catalog as never),
-  generateValidationSchema: catalog => generateValidationSchema(catalog as never),
-  schemaToJson: (schema, options) =>
-    zodToJsonSchema(schema as never, {
-      target: 'jsonSchema2019-09',
-      override: exclusiveUnionOverride,
-      ...options,
-    }) as Record<string, unknown>,
+  toJsonSchema: schema =>
+    schema && typeof schema === 'object' && 'safeParse' in schema
+      ? (zodToJsonSchema(schema as never, {
+          target: 'jsonSchema2019-09',
+          $refStrategy: 'none',
+          override: exclusiveUnionOverride,
+        }) as Record<string, unknown>)
+      : {type: 'object', properties: {}},
+  reproduceDefinitions: reproduceZodDefinitions,
+  commonTypeRefDescriptions: COMMON_TYPE_REF_DESCRIPTIONS,
   linkEntry,
-  retainedDefs,
   describeComponent: describeZodComponent,
   getKnownSchemaKeys: getZodKnownSchemaKeys,
   getProtocolSchema: version =>
@@ -75,7 +95,6 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
         : ComponentCommonSchema.shape.metadata,
       value,
     ),
-  cleanSchemaNode,
 };
 
 /**
@@ -99,6 +118,3 @@ export function parseZodCatalog(
     catalogId,
   });
 }
-
-/** Links JSON Schema references in catalog entries for Zod-backed catalogs. */
-export {inlinePeerAndLocalRefs};

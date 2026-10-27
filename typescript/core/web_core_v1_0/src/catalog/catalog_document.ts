@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod';
-import {zodToJsonSchema} from 'zod-to-json-schema';
+/**
+ * @fileoverview A catalog's document, assembled from its model.
+ *
+ * Every entry is written from the definition it was loaded from, from the
+ * definition its model reproduces (`CatalogSchemaAdapter.reproduceDefinitions`),
+ * or from the JSON Schema its schema adapter converts its schema to
+ * (`CatalogSchemaAdapter.toJsonSchema`). The rest is plain JSON.
+ */
 
-import {isAtLeastVersion, toCanonicalVersion} from '@a2ui/web_core_v1_0';
-import {exclusiveUnionOverride} from './exclusive_union.js';
-import {loadedDefinition} from './json_entries.js';
-import {getSchemaAnnotation, type JsonSchemaObject} from '@a2ui/web_core_v1_0/catalog';
-import {
-  DEFAULT_COMMON_TYPES_URI,
-  isSpecComponentSchema,
-  isSpecFunctionSchema,
-  schemaRequiresArgs,
-  SpecShaper,
-} from './spec_shape.js';
-import type {CatalogUnions, ComponentApi, FunctionApi} from '@a2ui/web_core_v1_0/catalog';
+import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
+import {loadedDefinition} from './entry_definitions.js';
+import {deepCopyJson, deepFreeze} from './json.js';
+import {DEFAULT_COMMON_TYPES_URI, schemaRequiresArgs} from './json_schema_rules.js';
+import type {JsonSchemaObject} from './schema_annotations.js';
+import {requireSchemaAdapter} from './schema_adapter.js';
+import type {CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 
 /** Names of the union definitions a catalog computes from its entries. */
 export const UNION_DEF_NAMES: ReadonlySet<string> = new Set(['anyComponent', 'anyFunction']);
@@ -37,71 +38,35 @@ export const UNION_DEF_NAMES: ReadonlySet<string> = new Set(['anyComponent', 'an
 /** Top-level keys under which a catalog document may declare its theme. */
 export const THEME_DOCUMENT_KEYS = ['theme', 'themeSchema', 'styles'] as const;
 
-/**
- * The catalog state that `serializeCatalogDocument` reads.
- *
- * A structural subset of `Catalog`, so the serializer does not depend on the
- * class itself.
- */
-export interface SerializableCatalog {
-  readonly id: string;
-  readonly protocolVersion: string;
-  readonly components: ReadonlyMap<string, ComponentApi>;
-  readonly functions: ReadonlyMap<string, FunctionApi>;
-  readonly themeSchema?: z.ZodTypeAny;
-  readonly instructions?: string;
-  readonly schemaUri?: string;
-  readonly schemaId?: string;
-  readonly title?: string;
-  readonly description?: string;
-  readonly declaredProtocolVersion?: string | null;
-  readonly declaresCatalogId?: boolean;
-  readonly declaresComponents?: boolean;
-  readonly functionsLayout?: 'map' | 'list';
-  readonly unions?: CatalogUnions;
-  readonly defs?: Readonly<Record<string, unknown>>;
-  readonly extensionFields?: Readonly<Record<string, unknown>>;
-  readonly commonTypesUri?: string;
-  readonly themeLocation?: 'defs' | 'styles';
-  readonly defModels?: readonly z.ZodTypeAny[];
-}
+/** A catalog, as the document model reads it. */
+type SerializableCatalog = CatalogInterface<ComponentApi, FunctionApi>;
 
 type JsonObject = Record<string, unknown>;
 
 /**
- * Returns a deep copy of a JSON value.
- *
- * @param value JSON-compatible value to copy.
- * @returns A structurally equal copy that shares no objects with `value`.
+ * The catalog document definitions a catalog's models reproduce exactly, as
+ * `CatalogSchemaAdapter.reproduceDefinitions` returns them.
  */
-export function deepCopyJson<V>(value: V): V {
-  if (value === undefined) return value;
-  return JSON.parse(JSON.stringify(value)) as V;
-}
-
-/**
- * Freezes a JSON value and everything it contains, in place.
- *
- * @param value JSON-compatible value.
- * @returns `value`.
- */
-export function deepFreeze<V>(value: V): V {
-  if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child);
-  }
-  return value;
-}
-
-/**
- * Returns a deeply frozen copy of a JSON value, or the value itself when it is
- * already frozen.
- *
- * @param value JSON-compatible value.
- */
-export function frozenJson<V>(value: V): V {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-  return deepFreeze(deepCopyJson(value));
+export interface ReproducedDefinitions {
+  /** The definition of each component whose model reproduces one, by name. */
+  readonly components: ReadonlyMap<string, JsonSchemaObject>;
+  /**
+   * The named definitions the models compute, by name, such as the mixins
+   * components compose. A definition the catalog's `defs` already declare is
+   * kept as declared.
+   */
+  readonly defs: ReadonlyMap<string, JsonSchemaObject>;
+  /** The theme definition, when the theme model reproduces one. */
+  readonly theme?: JsonSchemaObject;
+  /**
+   * Returns the definition of a function whose model reproduces one, given
+   * the document's definitions.
+   */
+  functionDefinition(
+    name: string,
+    fn: FunctionApi,
+    defs: Readonly<JsonObject>,
+  ): JsonSchemaObject | undefined;
 }
 
 function isObject(value: unknown): value is JsonObject {
@@ -152,7 +117,7 @@ function reachableDefs(roots: unknown[], defs: Readonly<JsonObject>): Set<string
  * A definition is used when every local `#/$defs/<name>` reference it reaches
  * resolves against `defs` (or names a union the catalog computes). A loaded
  * entry reused in a catalog without the definitions it references falls back
- * to its Zod schema.
+ * to its schema.
  *
  * @param entry A component or function.
  * @param defs The definitions of the catalog that holds the entry.
@@ -271,21 +236,16 @@ function rewriteRefMarkers(
 }
 
 /**
- * Converts a Zod schema into an unbundled JSON Schema object.
+ * Converts a schema into an unbundled JSON Schema object with the catalog's
+ * schema adapter.
  */
-function zodToUnbundledJson(
-  schema: z.ZodTypeAny | undefined,
+function toUnbundledJson(
+  catalog: SerializableCatalog,
+  schema: unknown,
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): JsonObject {
-  if (!schema || typeof schema !== 'object' || !('safeParse' in schema)) {
-    return {type: 'object', properties: {}};
-  }
-  const json = zodToJsonSchema(schema, {
-    target: 'jsonSchema2019-09',
-    $refStrategy: 'none',
-    override: exclusiveUnionOverride,
-  }) as JsonObject;
+  const json = requireSchemaAdapter(catalog, 'toJsonSchema').toJsonSchema!(schema);
   delete json.definitions;
   delete json.$defs;
   rewriteRefMarkers(json, localDefs, commonTypesUri);
@@ -308,12 +268,13 @@ function closeObjectSchema(json: JsonObject): void {
  * Serializes a component from its model, as an authored catalog entry.
  */
 function serializeComponentModel(
+  catalog: SerializableCatalog,
   name: string,
   comp: ComponentApi,
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): JsonObject {
-  const json = zodToUnbundledJson(comp.schema as never, localDefs, commonTypesUri);
+  const json = toUnbundledJson(catalog, comp.schema, localDefs, commonTypesUri);
   const {
     component: _component,
     id: _id,
@@ -343,6 +304,7 @@ function serializeComponentModel(
  * protocol version (`@call` from v1.0, `call` before), or as a list item.
  */
 function serializeFunctionModel(
+  catalog: SerializableCatalog,
   name: string,
   fn: FunctionApi,
   localDefs: ReadonlySet<string>,
@@ -351,7 +313,7 @@ function serializeFunctionModel(
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
   defs?: Readonly<JsonObject>,
 ): JsonObject {
-  const args = zodToUnbundledJson(fn.schema as never, localDefs, commonTypesUri);
+  const args = toUnbundledJson(catalog, fn.schema, localDefs, commonTypesUri);
   if (asListItem) {
     return {
       name,
@@ -391,14 +353,15 @@ function serializeFunctionModel(
 }
 
 /**
- * Serializes a theme Zod schema into a `$defs.theme` object schema.
+ * Serializes a theme schema into a `$defs.theme` object schema.
  */
 function serializeThemeModel(
-  theme: z.ZodTypeAny,
+  catalog: SerializableCatalog,
+  theme: unknown,
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): JsonObject {
-  const json = zodToUnbundledJson(theme, localDefs, commonTypesUri);
+  const json = toUnbundledJson(catalog, theme, localDefs, commonTypesUri);
   return {
     type: 'object',
     properties: isObject(json.properties) ? json.properties : {},
@@ -437,7 +400,7 @@ export interface CatalogDocumentModel {
   /**
    * The definition of each component: the one `fromJson` loaded, or the one
    * computed from a specification model. `undefined` for a component that
-   * `toJson` and `validationSchema` generate from its Zod schema.
+   * `toJson` and `validationSchema` generate from its schema.
    */
   readonly components: ReadonlyMap<string, JsonSchemaObject | undefined>;
   /** The definition of each function, as for `components`. */
@@ -473,53 +436,72 @@ export function catalogDocumentModel(catalog: SerializableCatalog): CatalogDocum
 }
 
 function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel {
-  const shaper = new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri);
-  const computedDefs = new Map<string, z.ZodTypeAny>();
-  const shapedComponents = new Map<string, JsonSchemaObject>();
-  for (const [name, comp] of catalog.components) {
-    if (loadedDefinition(comp) || !isSpecComponentSchema(comp.schema)) continue;
-    const {schema, catalogDefs} = shaper.componentSchema(
-      name,
-      comp.schema as never,
-      comp.allowedParents,
-      comp.allowedChildren,
-    );
-    shapedComponents.set(name, deepFreeze(schema));
-    for (const [defName, defModel] of catalogDefs) computedDefs.set(defName, defModel);
-  }
-  for (const defModel of catalog.defModels ?? []) {
-    const defName = getSchemaAnnotation(defModel)?.defName;
-    if (defName === undefined) {
-      throw new Error('A catalog definition model must be named with specDef().');
-    }
-    computedDefs.set(defName, defModel);
-  }
+  if (catalog.document) return documentModelOf(catalog, catalog.document);
 
+  const reproduced = catalog.schemaAdapter?.reproduceDefinitions?.(catalog);
   const defs: JsonObject = {...catalog.defs};
-  for (const [defName, defModel] of computedDefs) {
-    if (!(defName in defs)) defs[defName] = shaper.defSchema(defModel);
+  for (const [defName, definition] of reproduced?.defs ?? []) {
+    if (!(defName in defs)) defs[defName] = definition;
   }
   const extensionFields: JsonObject = {...catalog.extensionFields};
-  if (catalog.themeLocation === 'styles' && catalog.themeSchema && !hasAuthoredTheme(catalog)) {
-    const theme = shaper.defSchema(catalog.themeSchema);
+  if (catalog.themeLocation === 'styles' && reproduced?.theme && !hasAuthoredTheme(catalog)) {
+    const theme = reproduced.theme;
     extensionFields['styles'] = isObject(theme['properties']) ? theme['properties'] : {};
   }
 
   const components = new Map<string, JsonSchemaObject | undefined>();
   for (const [name, comp] of catalog.components) {
-    components.set(name, shapedComponents.get(name) ?? entryDefinition(comp, defs));
+    const shaped = loadedDefinition(comp) ? undefined : reproduced?.components.get(name);
+    components.set(name, shaped ? deepFreeze(shaped) : entryDefinition(comp, defs));
   }
   const functions = new Map<string, JsonSchemaObject | undefined>();
   for (const [name, fn] of catalog.functions) {
     const loaded = entryDefinition(fn, defs);
-    functions.set(
-      name,
-      loaded ??
-        (!loadedDefinition(fn) && isSpecFunctionSchema(fn.schema)
-          ? deepFreeze(shaper.functionSchema(name, fn as never, defs))
-          : undefined),
-    );
+    const shaped =
+      loaded || loadedDefinition(fn) ? undefined : reproduced?.functionDefinition(name, fn, defs);
+    functions.set(name, loaded ?? (shaped ? deepFreeze(shaped) : undefined));
   }
+  return {
+    components,
+    functions,
+    defs: deepFreeze(defs),
+    extensionFields: deepFreeze(extensionFields),
+  };
+}
+
+/**
+ * Returns the document model of a catalog that carries its published
+ * document: each entry's definition, the definitions and the theme, as the
+ * document writes them.
+ */
+function documentModelOf(
+  catalog: SerializableCatalog,
+  document: Readonly<JsonObject>,
+): CatalogDocumentModel {
+  const defs: JsonObject = {...(isObject(document['$defs']) ? document['$defs'] : {})};
+  for (const name of UNION_DEF_NAMES) delete defs[name];
+  const extensionFields: JsonObject = {};
+  for (const key of THEME_DOCUMENT_KEYS) {
+    if (document[key] !== undefined) extensionFields[key] = document[key];
+  }
+  const written = isObject(document['components']) ? document['components'] : {};
+  const components = new Map<string, JsonSchemaObject | undefined>();
+  for (const name of catalog.components.keys()) {
+    components.set(name, isObject(written[name]) ? written[name] : undefined);
+  }
+  const functionsWritten = document['functions'];
+  const functionDefs = new Map<string, JsonObject>();
+  if (Array.isArray(functionsWritten)) {
+    for (const item of functionsWritten) {
+      if (isObject(item) && typeof item['name'] === 'string') functionDefs.set(item['name'], item);
+    }
+  } else if (isObject(functionsWritten)) {
+    for (const [name, definition] of Object.entries(functionsWritten)) {
+      if (isObject(definition)) functionDefs.set(name, definition);
+    }
+  }
+  const functions = new Map<string, JsonSchemaObject | undefined>();
+  for (const name of catalog.functions.keys()) functions.set(name, functionDefs.get(name));
   return {
     components,
     functions,
@@ -573,7 +555,7 @@ export function serializeCatalogDocument(catalog: SerializableCatalog): JsonObje
       const definition = model.components.get(name);
       components[name] = definition
         ? deepCopyJson(definition)
-        : serializeComponentModel(name, comp, localDefs, commonTypesUri);
+        : serializeComponentModel(catalog, name, comp, localDefs, commonTypesUri);
     }
     doc.components = components;
   }
@@ -591,6 +573,7 @@ export function serializeCatalogDocument(catalog: SerializableCatalog): JsonObje
       return definition && isFunctionListItem(definition)
         ? deepCopyJson(definition)
         : serializeFunctionModel(
+            catalog,
             name,
             fn,
             localDefs,
@@ -608,6 +591,7 @@ export function serializeCatalogDocument(catalog: SerializableCatalog): JsonObje
         definition && !isFunctionListItem(definition)
           ? deepCopyJson(definition)
           : serializeFunctionModel(
+              catalog,
               name,
               fn,
               localDefs,
@@ -626,16 +610,14 @@ export function serializeCatalogDocument(catalog: SerializableCatalog): JsonObje
   }
 
   // Definitions: the catalog's own and those computed from its models, a
-  // theme generated from Zod for a catalog defined in code, and the computed
+  // theme generated from its schema for a catalog defined in code, and the computed
   // unions.
   const defs: JsonObject = deepCopyJson({...model.defs});
   const themeLocation = catalog.themeLocation ?? (isAtLeastV10 ? undefined : 'defs');
   if (themeLocation === 'defs' && catalog.themeSchema && !hasAuthoredTheme(model)) {
-    defs.theme = getSchemaAnnotation(catalog.themeSchema)
-      ? new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri).defSchema(
-          catalog.themeSchema,
-        )
-      : serializeThemeModel(catalog.themeSchema, localDefs, commonTypesUri);
+    defs.theme =
+      catalog.schemaAdapter?.reproduceDefinitions?.(catalog).theme ??
+      serializeThemeModel(catalog, catalog.themeSchema, localDefs, commonTypesUri);
   }
   const unions = catalog.unions ?? {
     anyComponent: isAtLeastV10 || catalog.components.size > 0,

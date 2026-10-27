@@ -17,7 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {hasCrossDocumentRefs} from './document_refs.js';
+import {hasCrossDocumentRefs} from './catalog_refs.js';
 
 describe('hasCrossDocumentRefs', () => {
   it('finds a reference into another catalog document, however deep', () => {

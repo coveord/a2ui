@@ -15,30 +15,38 @@
  * limitations under the License.
  */
 
-import {zodToJsonSchema} from 'zod-to-json-schema';
+/**
+ * @fileoverview The self-contained JSON Schema that validates a catalog's
+ * payloads, bundled from the catalog's document model.
+ *
+ * Entries with a definition are built from it. Any other entry defined in code
+ * is converted with the catalog's schema adapter
+ * (`CatalogSchemaAdapter.toJsonSchema`). The rest is plain JSON.
+ */
 
-import {isAtLeastVersion, toCanonicalVersion} from '@a2ui/web_core_v1_0';
-import {CommonSchemas} from '../types/common-types.js';
-import {exclusiveUnionOverride} from './exclusive_union.js';
+import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {
   catalogDocumentModel,
-  deepCopyJson,
   THEME_DOCUMENT_KEYS,
   type CatalogDocumentModel,
-} from './schema_serializer.js';
-import {inlinePeerAndLocalRefs, isShorthandParameterMap} from './schema_loader.js';
-import {schemaRequiresArgs, standardDefsForVersion} from './spec_shape.js';
-import type {CatalogInterface, ComponentApi, FunctionApi} from '@a2ui/web_core_v1_0/catalog';
+} from './catalog_document.js';
+import {inlinePeerAndLocalRefs, isShorthandParameterMap} from './catalog_refs.js';
+import {deepCopyJson} from './json.js';
+import {schemaRequiresArgs, standardDefsForVersion} from './json_schema_rules.js';
+import {requireSchemaAdapter} from './schema_adapter.js';
+import type {CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 
 /**
- * Resolves the appropriate standard $defs dictionary based on options or catalog configuration.
- *
- * An explicit `options.protocolVersion` wins over the catalog's own `protocolVersion`, so a
- * caller can serialize a catalog against another version's definitions. A version with no
- * entry of its own at or above 1.0, such as 1.0.1 or 1.1, gets the v1.0 definitions, as the
- * schema loader and payload validator already treat such versions as v1.0. Any other
- * version falls back to the v0.9 definitions.
+ * Converts a schema defined in code to raw JSON Schema with the catalog's
+ * schema adapter.
  */
+function toRawJsonSchema(
+  catalog: CatalogInterface<ComponentApi, FunctionApi>,
+  schema: unknown,
+): JsonObject {
+  return requireSchemaAdapter(catalog, 'toJsonSchema').toJsonSchema!(schema);
+}
+
 function getStandardDefsForCatalog(
   catalog: CatalogInterface<ComponentApi, FunctionApi>,
   options?: GenerateValidationSchemaOptions,
@@ -166,7 +174,7 @@ function cleanSchemaProperties(
 }
 
 /**
- * Cleans auto-generated Zod schema artifacts and transforms REF markers into explicit `$ref` objects.
+ * Cleans converted schema artifacts and transforms REF markers into explicit `$ref` objects.
  *
  * Removes schema metadata and converts `REF:<url>|<desc>` description markers into `$ref` references.
  *
@@ -253,6 +261,7 @@ const STANDARD_MIXIN_REF = /\/(ComponentCommon|Checkable)$/;
  * references resolve against.
  */
 interface SourceContext {
+  readonly catalog: CatalogInterface<ComponentApi, FunctionApi>;
   readonly standardDefs: Record<string, unknown>;
   readonly model: CatalogDocumentModel;
   readonly defs: Readonly<JsonObject>;
@@ -506,7 +515,7 @@ function isV08Catalog(catalog: CatalogInterface<ComponentApi, FunctionApi>): boo
  * Builds the theme definition.
  *
  * A theme loaded from JSON is emitted as written; one defined in code is
- * generated from its Zod schema. From v0.9 a theme that declares neither
+ * generated from its schema. From v0.9 a theme that declares neither
  * `additionalProperties` nor `unevaluatedProperties` gets
  * `additionalProperties: true`, as themes are open; a v0.8 theme stays as
  * written.
@@ -534,11 +543,7 @@ function processTheme(
     return;
   }
 
-  const themeRaw = zodToJsonSchema(catalog.themeSchema as never, {
-    target: 'jsonSchema2019-09',
-    $refStrategy: 'none',
-    override: exclusiveUnionOverride,
-  }) as JsonObject;
+  const themeRaw = toRawJsonSchema(catalog, catalog.themeSchema);
   cleanSchemaNode(themeRaw);
   mergeGeneratedDefs(themeRaw, defs, generated);
 
@@ -566,7 +571,7 @@ function processTheme(
 }
 
 /**
- * Moves the definitions a Zod-generated schema carries into `defs`, recording
+ * Moves the definitions a converted schema carries into `defs`, recording
  * them as generated.
  */
 function mergeGeneratedDefs(raw: JsonObject, defs: JsonObject, generated: unknown[]): void {
@@ -583,9 +588,11 @@ function mergeGeneratedDefs(raw: JsonObject, defs: JsonObject, generated: unknow
 }
 
 /**
- * Extracts raw Zod properties, required fields, and definitions from a component API schema.
+ * Extracts the properties, required fields and definitions of a component
+ * defined in code from the JSON Schema of its schema.
  */
-function extractZodComponentSchema(
+function extractComponentSchema(
+  catalog: CatalogInterface<ComponentApi, FunctionApi>,
   comp: ComponentApi,
   defs: JsonObject,
   generated: unknown[],
@@ -594,22 +601,15 @@ function extractZodComponentSchema(
   reqList: string[];
   additionalProps: boolean | JsonObject | undefined;
 } {
-  if (!comp.schema || typeof comp.schema !== 'object' || !('safeParse' in comp.schema)) {
-    return {props: {}, reqList: [], additionalProps: undefined};
-  }
-  const rawZod = zodToJsonSchema(comp.schema as never, {
-    target: 'jsonSchema2019-09',
-    $refStrategy: 'none',
-    override: exclusiveUnionOverride,
-  }) as JsonObject;
-  cleanSchemaNode(rawZod);
-  mergeGeneratedDefs(rawZod, defs, generated);
+  const raw = toRawJsonSchema(catalog, comp.schema);
+  cleanSchemaNode(raw);
+  mergeGeneratedDefs(raw, defs, generated);
 
-  const props = (rawZod.properties as JsonObject) || {};
-  const reqList = Array.isArray(rawZod.required)
-    ? (rawZod.required as string[]).filter(r => r !== 'component' && r !== 'id')
+  const props = (raw.properties as JsonObject) || {};
+  const reqList = Array.isArray(raw.required)
+    ? (raw.required as string[]).filter(r => r !== 'component' && r !== 'id')
     : [];
-  const rawExtra = rawZod.unevaluatedProperties ?? rawZod.additionalProperties;
+  const rawExtra = raw.unevaluatedProperties ?? raw.additionalProperties;
   const additionalProps =
     typeof rawExtra === 'boolean' || isJsonObject(rawExtra)
       ? (rawExtra as boolean | JsonObject)
@@ -619,13 +619,14 @@ function extractZodComponentSchema(
 }
 
 /**
- * Returns the description on a component's Zod schema, ignoring internal
- * `REF:` markers.
+ * Returns the description a component's schema carries as its `description`
+ * property, as Zod and other schema libraries do, ignoring internal `REF:`
+ * markers.
  */
-function zodComponentDescription(comp: ComponentApi): string | undefined {
-  const zodDescription = (comp.schema as {description?: unknown} | undefined)?.description;
-  return typeof zodDescription === 'string' && !zodDescription.startsWith('REF:')
-    ? zodDescription
+function schemaDescription(comp: ComponentApi): string | undefined {
+  const description = (comp.schema as {description?: unknown} | undefined)?.description;
+  return typeof description === 'string' && !description.startsWith('REF:')
+    ? description
     : undefined;
 }
 
@@ -645,7 +646,7 @@ function authoredClosure(source: Readonly<JsonObject>): unknown {
  * A component with a definition in the catalog's document model (one loaded
  * from JSON, or one whose definition is computed from its specification
  * model) is built from that definition, so every nested keyword survives; any
- * other component defined in code is generated from its Zod schema.
+ * other component defined in code is generated from its schema.
  */
 function processSingleComponent(
   name: string,
@@ -668,12 +669,12 @@ function processSingleComponent(
     // author closed it. Earlier versions close it unless it was declared open.
     closure = authoredClosure(source) ?? (context.isV10 ? undefined : false);
   } else {
-    const extracted = extractZodComponentSchema(comp, defs, generated);
+    const extracted = extractComponentSchema(context.catalog, comp, defs, generated);
     const {component: _ignoredComp, id: _ignoredId, ...sanitized} = extracted.props;
     generated.push(sanitized);
     props = sanitized;
     reqList = extracted.reqList;
-    description = zodComponentDescription(comp);
+    description = schemaDescription(comp);
     closure = context.isV10 ? undefined : (extracted.additionalProps ?? false);
   }
 
@@ -752,7 +753,7 @@ function processComponents(
  * definitions into `defs`.
  *
  * Arguments loaded from JSON are copied as written; ones defined in code are
- * generated from their Zod schema. An object schema is closed with
+ * generated from their schema. An object schema is closed with
  * `unevaluatedProperties`: the declared `unevaluatedProperties` or
  * `additionalProperties`, and `false` when it declares neither.
  */
@@ -773,18 +774,12 @@ function buildFunctionArgsSchema(
       {inlineLocalDefs: false},
     ) as JsonObject;
     restoreSourceRefs(paramSchemaObj, context.standardDefs, false);
-  } else if (fn.schema && typeof fn.schema === 'object' && 'safeParse' in fn.schema) {
-    const rawZod = zodToJsonSchema(fn.schema as never, {
-      target: 'jsonSchema2019-09',
-      $refStrategy: 'none',
-      override: exclusiveUnionOverride,
-    }) as JsonObject;
-    cleanSchemaNode(rawZod);
-    mergeGeneratedDefs(rawZod, defs, generated);
-    generated.push(rawZod);
-    paramSchemaObj = rawZod;
   } else {
-    paramSchemaObj = {type: 'object', properties: {}};
+    const raw = toRawJsonSchema(context.catalog, fn.schema);
+    cleanSchemaNode(raw);
+    mergeGeneratedDefs(raw, defs, generated);
+    generated.push(raw);
+    paramSchemaObj = raw;
   }
 
   if (paramSchemaObj.type === 'object') {
@@ -880,26 +875,6 @@ function processFunctions(
 }
 
 /**
- * Descriptions the shared Zod mirrors of the common types carry on their
- * `REF:` markers, by definition name.
- *
- * The mirrors are shared by every protocol version, so their text is one
- * version's. A reference that carries exactly this text did not get it from
- * its author.
- */
-const MIRROR_REF_DESCRIPTIONS: ReadonlyMap<string, string> = new Map(
-  Object.values(CommonSchemas).flatMap(mirror => {
-    const description = (mirror as {description?: unknown}).description;
-    if (typeof description !== 'string' || !description.startsWith('REF:')) return [];
-    const content = description.substring(4);
-    const pipeIndex = content.indexOf('|');
-    if (pipeIndex === -1) return [];
-    const name = content.substring(0, pipeIndex).split('/').pop()!;
-    return [[name, content.substring(pipeIndex + 1)] as [string, string]];
-  }),
-);
-
-/**
  * Rewrites every reference to a definition of another document, such as
  * `common_types.json#/$defs/DynamicString` or `catalog.json#/$defs/anyFunction`,
  * to the bundled `#/$defs/<name>`. A reference deeper into the definition keeps
@@ -931,7 +906,7 @@ function localizeRefs(node: unknown, keep?: string, visited = new Set<unknown>()
 }
 
 /**
- * Gives each reference to a whole standard definition in a Zod-generated schema
+ * Gives each reference to a whole standard definition in a converted schema
  * the description of the definition it names, from the catalog's own protocol
  * version, unless the reference has a description of its own. A reference
  * deeper into a definition names no definition and is left as it is.
@@ -939,12 +914,13 @@ function localizeRefs(node: unknown, keep?: string, visited = new Set<unknown>()
 function describeStandardRefs(
   node: unknown,
   standardDefs: Record<string, unknown>,
+  mirrorDescriptions: ReadonlyMap<string, string>,
   visited = new Set<unknown>(),
 ): void {
   if (typeof node !== 'object' || node === null || visited.has(node)) return;
   visited.add(node);
   if (Array.isArray(node)) {
-    for (const item of node) describeStandardRefs(item, standardDefs, visited);
+    for (const item of node) describeStandardRefs(item, standardDefs, mirrorDescriptions, visited);
     return;
   }
   const obj = node as JsonObject;
@@ -955,7 +931,7 @@ function describeStandardRefs(
       ? undefined
       : (standardDefs[name] as JsonObject | undefined);
     const inherited =
-      obj['description'] === undefined || obj['description'] === MIRROR_REF_DESCRIPTIONS.get(name);
+      obj['description'] === undefined || obj['description'] === mirrorDescriptions.get(name);
     if (definition && inherited) {
       if (typeof definition['description'] === 'string') {
         obj['description'] = definition['description'];
@@ -964,7 +940,9 @@ function describeStandardRefs(
       }
     }
   }
-  for (const value of Object.values(obj)) describeStandardRefs(value, standardDefs, visited);
+  for (const value of Object.values(obj)) {
+    describeStandardRefs(value, standardDefs, mirrorDescriptions, visited);
+  }
 }
 
 /**
@@ -1002,7 +980,7 @@ function collectReferencedDefs(
  *
  * Components, functions and a theme with a definition in the catalog's
  * document model (see `catalogDocumentModel`) are built from it; other ones
- * defined in code are generated from their Zod schemas. References to common types become local references, and the
+ * defined in code are generated from their schemas. References to common types become local references, and the
  * standard definitions and authored local definitions they reach are copied
  * into `$defs`, alongside the component and function unions.
  *
@@ -1030,9 +1008,10 @@ export function generateValidationSchema<
 
   const standardDefs = getStandardDefsForCatalog(catalog, options);
   const version = options?.protocolVersion ?? catalog.protocolVersion;
-  const model = catalogDocumentModel(catalog as never);
+  const model = catalogDocumentModel(catalog);
   const authoredDefs: Readonly<JsonObject> = model.defs;
   const context: SourceContext = {
+    catalog,
     standardDefs,
     model,
     defs: authoredDefs,
@@ -1046,7 +1025,7 @@ export function generateValidationSchema<
   };
 
   const defs: JsonObject = {};
-  // The parts generated from Zod schemas, whose references to standard
+  // The parts converted from schemas, whose references to standard
   // definitions take those definitions' descriptions.
   const generated: unknown[] = [];
 
@@ -1058,7 +1037,8 @@ export function generateValidationSchema<
   // definitions are copied in below and left as their version defines them.
   localizeRefs(schema, options?.componentEnvelopeRef);
   localizeRefs(defs);
-  for (const node of generated) describeStandardRefs(node, standardDefs);
+  const mirrorDescriptions = catalog.schemaAdapter?.commonTypeRefDescriptions ?? new Map();
+  for (const node of generated) describeStandardRefs(node, standardDefs, mirrorDescriptions);
 
   // Fixed-point iteration to discover all transitive $defs references
   let defsCountBefore: number;
@@ -1106,9 +1086,3 @@ export function generateValidationSchema<
 
   return schema;
 }
-
-/** @deprecated Use {@link GenerateValidationSchemaOptions} instead. */
-export type GenerateCatalogSchemaOptions = GenerateValidationSchemaOptions;
-
-/** @deprecated Use {@link generateValidationSchema} instead. */
-export const generateCatalogSchema = generateValidationSchema;

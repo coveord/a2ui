@@ -23,6 +23,35 @@ export * from './standard_schema.js';
 export * from './schema_metadata.js';
 export {type CatalogParseRequest, type CatalogSchemaAdapter} from './schema_adapter.js';
 export {
+  buildComponentUnion,
+  buildFunctionUnion,
+  THEME_DOCUMENT_KEYS,
+  UNION_DEF_NAMES,
+  type ReproducedDefinitions,
+} from './catalog_document.js';
+export {
+  documentKey,
+  inlinePeerAndLocalRefs,
+  isComponentEnvelopeField,
+  isShorthandParameterMap,
+  PeerScope,
+  resolveJsonPointer,
+  resolvePeerTarget,
+  resolveRefDocument,
+  splitRef,
+  throwUnresolvableRef,
+  type PeerCatalogSource,
+  type RefTarget,
+} from './catalog_refs.js';
+export {loadedDefinition, setLoadedDefinition} from './entry_definitions.js';
+export {deepCopyJson, deepFreeze, frozenJson} from './json.js';
+export {
+  DEFAULT_COMMON_TYPES_URI,
+  schemaRequiresArgs,
+  standardDefsForVersion,
+} from './json_schema_rules.js';
+export {cleanSchemaNode, type GenerateValidationSchemaOptions} from './validation_schema.js';
+export {
   type ChildRefAnalysis,
   type ChildRefAnalysisOptions,
   type ComponentChildRefs,

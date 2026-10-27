@@ -16,25 +16,11 @@
 
 import type {z} from 'zod';
 
-import type {JsonSchemaObject} from '@a2ui/web_core_v1_0/catalog';
-
-/**
- * The JSON Schema definitions of the entries `Catalog.fromJson` loaded, by
- * entry. Kept out of the entries' own properties, so that a copy of an entry
- * made with object spread, which may change its `schema`, does not carry a
- * definition that no longer describes it.
- */
-const definitions = new WeakMap<object, JsonSchemaObject>();
-
-/**
- * Returns the JSON Schema definition of a catalog entry that
- * `Catalog.fromJson` loaded, or `undefined` for an entry defined in code.
- *
- * @param entry A component or function.
- */
-export function loadedDefinition(entry: object): JsonSchemaObject | undefined {
-  return definitions.get(entry);
-}
+import {
+  loadedDefinition,
+  setLoadedDefinition,
+  type JsonSchemaObject,
+} from '@a2ui/web_core_v1_0/catalog';
 
 /**
  * Defines lazily computed, enumerable getters on `target`, so that an object
@@ -101,7 +87,7 @@ export class JsonComponentApi {
     deriveSchema: (jsonSchema: JsonSchemaObject) => z.ZodTypeAny,
   ) {
     this.name = name;
-    definitions.set(this, jsonSchema);
+    setLoadedDefinition(this, jsonSchema);
     defineViews(this, {
       schema: () => deriveSchema(jsonSchema),
       allowedParents: () => stringList(jsonSchema['allowedParents']),
@@ -112,7 +98,7 @@ export class JsonComponentApi {
 
   /** The component's JSON Schema definition, as its catalog document writes it. */
   get jsonSchema(): JsonSchemaObject {
-    return definitions.get(this)!;
+    return loadedDefinition(this)!;
   }
 }
 
@@ -156,7 +142,7 @@ export class JsonFunctionApi {
     deriveSchema: (jsonSchema: JsonSchemaObject) => z.ZodTypeAny,
   ) {
     this.name = name;
-    definitions.set(this, jsonSchema);
+    setLoadedDefinition(this, jsonSchema);
     // A map entry may write the call metadata as constant properties of the
     // call schema, before v1.0 lifted it to keywords.
     const props = isObject(jsonSchema['properties']) ? jsonSchema['properties'] : undefined;
@@ -181,6 +167,6 @@ export class JsonFunctionApi {
 
   /** The function's JSON Schema definition, as its catalog document writes it. */
   get jsonSchema(): JsonSchemaObject {
-    return definitions.get(this)!;
+    return loadedDefinition(this)!;
   }
 }

@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-export {
-  inlinePeerAndLocalRefs,
-  parseZodCatalog,
-  zodCatalogSchemaAdapter,
-} from './catalog_adapter.js';
+export {parseZodCatalog, zodCatalogSchemaAdapter} from './catalog_adapter.js';
 export {
   getSpecAnnotation,
   spec,

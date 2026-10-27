@@ -92,32 +92,46 @@ describe('Catalog Types', () => {
 });
 
 describe('Catalog schema adapter', () => {
-  it('fails schema operations clearly when the catalog has no adapter', () => {
-    const catalog = new Catalog('no-adapter', '1.0');
+  const label: ComponentApi = {name: 'Label', schema: objectSchema(['text'])};
+
+  /** Converts every schema to an object with a `text` property, as an adapter would. */
+  const toJsonSchema = () => ({
+    type: 'object',
+    properties: {text: {description: 'REF:common_types.json#/$defs/DynamicString|The text.'}},
+    required: ['text'],
+    additionalProperties: false,
+  });
+
+  it('fails clearly when an entry defined in code has no adapter to convert it', () => {
+    const catalog = new Catalog('no-adapter', '1.0', [label]);
 
     assert.throws(
       () => catalog.toJson(),
       (err: unknown) =>
         err instanceof A2uiCatalogError &&
         err.message.includes("Catalog 'no-adapter'") &&
-        err.message.includes("'serializeCatalog'") &&
+        err.message.includes("'toJsonSchema'") &&
         err.message.includes('CatalogOptions.schemaAdapter'),
     );
+    assert.throws(() => catalog.validationSchema, /'toJsonSchema'/);
   });
 
-  it('fails clearly when the adapter lacks the operation', () => {
-    const catalog = new Catalog('partial', '1.0', [], [], {schemaAdapter: testSchemaAdapter()});
-
-    assert.throws(() => catalog.validationSchema, /'generateValidationSchema'/);
-  });
-
-  it("uses the catalog's own adapter", () => {
-    const document = {catalogId: 'own'};
-    const catalog = new Catalog('own', '1.0', [], [], {
-      schemaAdapter: testSchemaAdapter({serializeCatalog: () => document}),
+  it('writes entries defined in code with the adapter, turning REF pointers into $refs', () => {
+    const catalog = new Catalog('own', '1.0', [label], [], {
+      schemaAdapter: testSchemaAdapter({toJsonSchema}),
     });
 
-    assert.deepStrictEqual(catalog.toJson(), document);
+    const components = catalog.toJson()['components'] as Record<string, any>;
+    assert.deepStrictEqual(components['Label'].properties, {
+      component: {const: 'Label'},
+      text: {$ref: 'common_types.json#/$defs/DynamicString', description: 'The text.'},
+    });
+    const validation = catalog.validationSchema as Record<string, any>;
+    assert.deepStrictEqual(validation['components'].Label.properties.text, {
+      $ref: '#/$defs/DynamicString',
+      description: 'The text.',
+    });
+    assert.ok('DynamicString' in validation['$defs']);
   });
 
   it('returns the published document it carries, without an adapter', () => {
@@ -128,17 +142,43 @@ describe('Catalog schema adapter', () => {
     assert.notStrictEqual(catalog.toJson(), document);
   });
 
-  it('drops the published document on catalogs derived with withEntries', () => {
-    const catalog = new Catalog('published', '1.0', [], [], {
-      document: {catalogId: 'published'},
-      schemaAdapter: testSchemaAdapter({retainedDefs: defs => defs}),
-    });
+  it('builds the validation schema from the published document, without an adapter', () => {
+    const document = {
+      catalogId: 'published',
+      components: {
+        Label: {
+          type: 'object',
+          allOf: [{$ref: 'common_types.json#/$defs/ComponentCommon'}],
+          properties: {
+            component: {const: 'Label'},
+            text: {$ref: 'common_types.json#/$defs/DynamicString'},
+          },
+          required: ['component', 'text'],
+        },
+      },
+    };
+    const catalog = new Catalog('published', '1.0', [label], [], {document});
 
-    assert.throws(() => catalog.withEntries([], []).toJson(), /'serializeCatalog'/);
+    const validation = catalog.validationSchema as Record<string, any>;
+    assert.deepStrictEqual(validation['components'].Label.required, ['id', 'text', 'component']);
+    assert.strictEqual(
+      validation['components'].Label.properties.text.$ref,
+      '#/$defs/DynamicString',
+    );
+  });
+
+  it('drops the published document on catalogs derived with withEntries', () => {
+    const catalog = new Catalog('published', '1.0', [label], [], {
+      document: {catalogId: 'published'},
+    });
+    const derived = catalog.withEntries([label], []);
+
+    assert.strictEqual(derived.document, undefined);
+    assert.throws(() => derived.toJson(), /'toJsonSchema'/);
   });
 
   it('keeps the adapter on catalogs derived with withEntries', () => {
-    const schemaAdapter = testSchemaAdapter({retainedDefs: defs => defs});
+    const schemaAdapter = testSchemaAdapter();
     const catalog = new Catalog('derived', '1.0', [], [], {schemaAdapter});
 
     assert.strictEqual(catalog.withEntries([], []).schemaAdapter, schemaAdapter);

@@ -24,6 +24,7 @@
  */
 import {A2uiCatalogError} from '../errors.js';
 import type {CatalogApi, CatalogInterface, ComponentApi, FunctionApi} from './types.js';
+import type {ReproducedDefinitions} from './catalog_document.js';
 import type {CompleteComponentSchemaMetadata} from './schema_metadata.js';
 import type {StandardSchema} from './standard_schema.js';
 import type {StandardSchemaResult} from './standard_schema.js';
@@ -43,26 +44,34 @@ export interface CatalogSchemaAdapter {
   readonly name: string;
   /** Parses a catalog document into core catalog models when supported. */
   readonly parseCatalog?: (request: CatalogParseRequest) => CatalogApi;
-  /** Serializes a catalog into its authored document form. */
-  readonly serializeCatalog?: (
+  /**
+   * Converts one schema to JSON Schema, inlining nested definitions. A
+   * description `REF:<ref>|<text>` marks a node that stands for the definition
+   * `<ref>`, such as `common_types.json#/$defs/DynamicString`; core turns it
+   * into a `$ref`. `toJson`, `validationSchema` and inline catalogs use it for
+   * entries defined in code.
+   */
+  readonly toJsonSchema?: (schema: unknown) => Record<string, unknown>;
+  /**
+   * Returns the catalog document definitions that the catalog's models
+   * reproduce exactly, such as Zod 3 models annotated with `spec()`. Core
+   * writes them as they are instead of converting the models.
+   */
+  readonly reproduceDefinitions?: (
     catalog: CatalogInterface<ComponentApi, FunctionApi>,
-  ) => Record<string, unknown>;
-  /** Generates a self-contained JSON Schema used to validate catalog payloads. */
-  readonly generateValidationSchema?: (
-    catalog: CatalogInterface<ComponentApi, FunctionApi>,
-  ) => Record<string, unknown>;
+  ) => ReproducedDefinitions;
+  /**
+   * The descriptions the adapter's own common type schemas carry on their
+   * `REF:` pointers, by definition name. A reference that carries exactly
+   * this text took it from the shared schema rather than from its author, so
+   * the validation schema gives it the definition's own description.
+   */
+  readonly commonTypeRefDescriptions?: ReadonlyMap<string, string>;
   /** Links an entry to peer catalog definitions. */
   readonly linkEntry?: <Entry extends ComponentApi | FunctionApi>(
     entry: Entry,
     peers: readonly CatalogInterface<ComponentApi, FunctionApi>[],
   ) => Entry;
-  /** Retains only definitions reachable from the catalog entries that remain. */
-  readonly retainedDefs?: (
-    defs: Readonly<Record<string, unknown>> | undefined,
-    previousEntries: readonly (ComponentApi | FunctionApi)[],
-    nextEntries: readonly (ComponentApi | FunctionApi)[],
-    extensionFields: Readonly<Record<string, unknown>> | undefined,
-  ) => Readonly<Record<string, unknown>> | undefined;
   /**
    * Reads a component schema's structure: its child references, the behavior
    * of its properties and the property names it declares. A catalog calls it
@@ -78,17 +87,6 @@ export interface CatalogSchemaAdapter {
     field: 'accessibility' | 'metadata',
     value: unknown,
   ) => StandardSchemaResult<unknown>;
-  /** Converts a schema implementation to JSON Schema for legacy inline catalogs. */
-  readonly schemaToJson?: (
-    schema: unknown,
-    options?: Readonly<Record<string, unknown>>,
-  ) => Record<string, unknown>;
-  /** Removes JSON Schema keywords unsupported by generated renderer capabilities. */
-  readonly cleanSchemaNode?: (
-    schema: unknown,
-    visited?: Set<unknown>,
-    options?: {readonly stripAdditionalProperties?: boolean},
-  ) => unknown;
 }
 
 /** The parts of a catalog that identify its schema adapter. */

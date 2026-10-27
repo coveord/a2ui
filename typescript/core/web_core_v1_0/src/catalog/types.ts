@@ -21,7 +21,9 @@ import {A2uiCatalogError, A2uiExpressionError} from '../errors.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {SpecVersion} from '../spec_versions.js';
 import type {JsonSchemaObject} from './schema_annotations.js';
-import {hasCrossDocumentRefs} from './document_refs.js';
+import {retainedDefs, serializeCatalogDocument} from './catalog_document.js';
+import {hasCrossDocumentRefs} from './catalog_refs.js';
+import {generateValidationSchema} from './validation_schema.js';
 import {deepCopyJson, frozenJson} from './json.js';
 import {type ComponentChildRefs, type ComponentRefMap} from './component_references.js';
 import {IndexImplementation} from '../functions/system_functions.js';
@@ -361,6 +363,8 @@ export declare interface CatalogInterface<
   readonly themeSchema?: StandardSchema<any, any>;
   /** See {@link CatalogOptions.schemaAdapter}. */
   readonly schemaAdapter?: CatalogSchemaAdapter;
+  /** See {@link CatalogOptions.document}. Deeply frozen. */
+  readonly document?: Readonly<Record<string, unknown>>;
   /** System instructions or usage guidelines for this catalog. */
   readonly instructions?: string;
   /** Invoker callback that delegates to this catalog's registered functions. */
@@ -472,6 +476,9 @@ export class Catalog<
 
   /** See {@link CatalogOptions.schemaAdapter}. */
   readonly schemaAdapter?: CatalogSchemaAdapter;
+
+  /** See {@link CatalogOptions.document}. Deeply frozen. */
+  readonly document?: Readonly<Record<string, unknown>>;
 
   /**
    * Optional system instructions or usage guidelines for this catalog.
@@ -628,8 +635,7 @@ export class Catalog<
    */
   get validationSchema(): Record<string, unknown> {
     if (!this.cachedValidationSchema) {
-      this.cachedValidationSchema = requireSchemaAdapter(this, 'generateValidationSchema')
-        .generateValidationSchema!(this);
+      this.cachedValidationSchema = generateValidationSchema(this);
     }
     return deepCopyJson(this.cachedValidationSchema!);
   }
@@ -646,10 +652,11 @@ export class Catalog<
 
   /**
    * Whether `toJson` can produce this catalog's document: the catalog carries
-   * its published document, or its schema adapter serializes catalogs.
+   * its published document, or its schema adapter converts schemas to JSON
+   * Schema.
    */
   get hasDocument(): boolean {
-    return this.cachedDocument !== undefined || Boolean(this.schemaAdapter?.serializeCatalog);
+    return this.cachedDocument !== undefined || Boolean(this.schemaAdapter?.toJsonSchema);
   }
 
   /**
@@ -674,7 +681,7 @@ export class Catalog<
    */
   toJson(): Record<string, unknown> {
     if (!this.cachedDocument) {
-      this.cachedDocument = requireSchemaAdapter(this, 'serializeCatalog').serializeCatalog!(this);
+      this.cachedDocument = serializeCatalogDocument(this);
     }
     return deepCopyJson(this.cachedDocument);
   }
@@ -724,7 +731,7 @@ export class Catalog<
       declaresComponents: this.declaresComponents,
       functionsLayout: this.functionsLayout,
       unions,
-      defs: requireSchemaAdapter(this, 'retainedDefs').retainedDefs!(
+      defs: retainedDefs(
         baseDefs,
         [...this.components.values(), ...this.functions.values()],
         [...components, ...functions],
@@ -853,7 +860,8 @@ export class Catalog<
     // frozen, such as those `fromJson` produced, are kept without copying.
     this.defs = frozenJson(options.defs);
     this.extensionFields = frozenJson(options.extensionFields);
-    this.cachedDocument = frozenJson(options.document);
+    this.document = frozenJson(options.document);
+    this.cachedDocument = this.document;
     this.commonTypesUri = options.commonTypesUri;
     this.themeLocation = options.themeLocation;
     this.defModels = options.defModels ? Object.freeze([...options.defModels]) : undefined;

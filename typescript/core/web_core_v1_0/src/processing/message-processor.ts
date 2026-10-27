@@ -17,6 +17,7 @@
 import {SurfaceModel, ActionListener} from '../state/surface-model.js';
 import {Catalog, ComponentApi, linkCatalogs} from '../catalog/types.js';
 import {requireSchemaAdapter, type CatalogSchemaAdapter} from '../catalog/schema_adapter.js';
+import {cleanSchemaNode} from '../catalog/validation_schema.js';
 import {SurfaceGroupModel} from '../state/surface-group-model.js';
 import {ComponentModel} from '../state/component-model.js';
 import {SurfaceComponentsModel} from '../state/surface-components-model.js';
@@ -135,16 +136,11 @@ export interface MessageProcessorOptions {
 export {formatValidationIssue} from '../validation/format-validation-issue.js';
 
 function schemaToJson(schema: unknown, catalog: Catalog<any>): Record<string, unknown> {
-  return requireSchemaAdapter(catalog, 'schemaToJson').schemaToJson!(schema, {
-    target: 'jsonSchema2019-09',
-    $refStrategy: 'none',
-  });
+  return requireSchemaAdapter(catalog, 'toJsonSchema').toJsonSchema!(schema);
 }
 
-function cleanGeneratedSchema(schema: unknown, catalog: Catalog<any>): void {
-  requireSchemaAdapter(catalog, 'cleanSchemaNode').cleanSchemaNode!(schema, undefined, {
-    stripAdditionalProperties: true,
-  });
+function cleanGeneratedSchema(schema: unknown): void {
+  cleanSchemaNode(schema, undefined, {stripAdditionalProperties: true});
 }
 
 /** Returns the schema adapter of the first catalog that has one. */
@@ -326,7 +322,7 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
       let reqList: string[] = [];
       if (comp.schema && typeof comp.schema === 'object' && 'safeParse' in comp.schema) {
         const rawZod = schemaToJson(comp.schema, catalog) as Record<string, unknown>;
-        cleanGeneratedSchema(rawZod, catalog);
+        cleanGeneratedSchema(rawZod);
         props = (rawZod.properties as Record<string, unknown>) || {};
         reqList = Array.isArray(rawZod.required)
           ? (rawZod.required as string[]).filter(r => r !== 'component' && r !== 'id')
@@ -352,7 +348,7 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
       let paramSchema: Record<string, unknown> = {type: 'object', properties: {}};
       if (fn.schema && typeof fn.schema === 'object' && 'safeParse' in fn.schema) {
         const rawZod = schemaToJson(fn.schema, catalog) as Record<string, unknown>;
-        cleanGeneratedSchema(rawZod, catalog);
+        cleanGeneratedSchema(rawZod);
         paramSchema = rawZod;
       }
       functions.push({
@@ -366,7 +362,7 @@ export class MessageProcessor<T extends ComponentApi = ComponentApi> {
     let theme: Record<string, unknown> | undefined;
     if (catalog.themeSchema) {
       const rawTheme = schemaToJson(catalog.themeSchema, catalog) as Record<string, unknown>;
-      cleanGeneratedSchema(rawTheme, catalog);
+      cleanGeneratedSchema(rawTheme);
       theme = (rawTheme.properties as Record<string, unknown>) || undefined;
     }
 
