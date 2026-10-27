@@ -25,6 +25,7 @@ import {
 } from '../types/common-types.js';
 import {childRefKindOf} from '../types/child-ref-helpers.js';
 import type {Action as V1Action} from '../v1_0/schema/common-types.js';
+import {exclusiveUnionOf} from '../catalog/exclusive_union.js';
 import {extractRefDefName} from '../catalog/reference-map.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
@@ -115,6 +116,8 @@ function unwrapZodSchema(type: z.ZodTypeAny): z.ZodTypeAny {
       current = current._def.type;
     } else if (typeName === 'ZodLazy') {
       current = current._def.getter();
+    } else if (exclusiveUnionOf(current)) {
+      current = exclusiveUnionOf(current);
     } else {
       break;
     }
@@ -149,6 +152,8 @@ function getRefDefName(type: z.ZodTypeAny): string {
       current = current._def.type;
     } else if (typeName === 'ZodLazy') {
       current = current._def.getter();
+    } else if (exclusiveUnionOf(current)) {
+      current = exclusiveUnionOf(current);
     } else {
       break;
     }
