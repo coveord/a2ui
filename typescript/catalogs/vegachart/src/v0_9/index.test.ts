@@ -21,6 +21,7 @@ import {describe, it} from 'node:test';
 
 import {Catalog} from '@a2ui/web_core/v1_0';
 
+import {assertBindsAlike} from '../test/binding_parity.js';
 import catalogJson from './catalog.json' with {type: 'json'};
 import {A2uiVegaChart, VEGACHART_CATALOG_ID, VegaChartApi, vegachartCatalog} from './index.js';
 
@@ -35,6 +36,14 @@ describe('VegaChart v0.9 catalog', () => {
     assert.deepStrictEqual(loaded.toJson(), catalogJson);
   });
 
+  it('binds VegaChart loaded with Catalog.fromJson as the code catalog does', () => {
+    const loaded = Catalog.fromJson(catalogJson, '0.9');
+    assertBindsAlike(
+      loaded.components.get('VegaChart')!,
+      vegachartCatalog.components.get('VegaChart')!,
+    );
+  });
+
   it('validates VegaChart properties', () => {
     const parse = (props: unknown) => VegaChartApi.schema.safeParse(props).success;
     assert.strictEqual(parse({spec: {mark: 'bar', data: {values: [{x: 'A', y: 10}]}}}), true);
@@ -44,6 +53,9 @@ describe('VegaChart v0.9 catalog', () => {
     assert.strictEqual(parse({spec: {mark: 'bar'}, height: {'@path': '/h'}}), false);
     assert.strictEqual(parse({}), false);
     assert.strictEqual(parse({spec: {mark: 'bar'}, unknownProp: true}), false);
+    // `accessibility` comes from the v0.9 ComponentCommon mixin.
+    assert.strictEqual(parse({spec: {mark: 'bar'}, accessibility: {label: 'Sales'}}), true);
+    assert.strictEqual(parse({spec: {mark: 'bar'}, accessibility: {label: 42}}), false);
   });
 
   it('exposes the a2ui-vega-chart element', () => {

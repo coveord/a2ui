@@ -21,6 +21,7 @@ import {
   DataContext,
   A2uiExpressionError,
   Catalog,
+  getKnownSchemaKeys,
   MessageProcessor,
 } from '@a2ui/web_core/v0_9';
 import type {CallToolResult, ReadResourceResult} from '@modelcontextprotocol/sdk/types.js';
@@ -224,6 +225,37 @@ describe('callMcpTool', () => {
       assert.throws(() => {
         CallMcpToolApi.schema.parse({});
       });
+    });
+    it('accepts the same arguments when loaded with Catalog.fromJson', () => {
+      const loaded = Catalog.fromJson(mcpCatalogJson, '0.9', MCP_CATALOG_ID).functions.get(
+        'callMcpTool',
+      )!.schema;
+      assert.deepStrictEqual(
+        [...(getKnownSchemaKeys(loaded) ?? [])].sort(),
+        [...(getKnownSchemaKeys(CallMcpToolApi.schema) ?? [])].sort(),
+      );
+      for (const args of [
+        {name: 'get_time'},
+        {name: 'fetch_weather', arguments: {location: 'Tokyo', units: 'celsius'}},
+        {name: {path: '/selectedTool'}, arguments: {city: {path: '/user/city'}, count: 10}},
+        {},
+        {name: 42},
+      ]) {
+        assert.strictEqual(
+          loaded.safeParse(args).success,
+          CallMcpToolApi.schema.safeParse(args).success,
+          JSON.stringify(args),
+        );
+      }
+    });
+
+    it('rejects a server argument when loaded with Catalog.fromJson, as the catalog closes args', () => {
+      // The code schema drops `server` instead. Reading entries through their
+      // JSON definition will make the published behavior the only one.
+      const loaded = Catalog.fromJson(mcpCatalogJson, '0.9', MCP_CATALOG_ID).functions.get(
+        'callMcpTool',
+      )!.schema;
+      assert.strictEqual(loaded.safeParse({name: 'fetch_weather', server: 'x'}).success, false);
     });
   });
 
