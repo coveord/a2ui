@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
+import {validateStandardSchema, type StandardSchema} from '../../catalog/standard_schema.js';
 import {InternalOperation} from '../operations.js';
 import {A2uiValidationError} from '../../errors.js';
 import {formatValidationIssue} from '../../validation/format-validation-issue.js';
@@ -171,7 +171,7 @@ function validateActionSurfaceIds(
  */
 export abstract class BaseVersionAdapter implements VersionAdapter {
   abstract readonly version: ProtocolVersion;
-  protected abstract readonly schema: z.ZodTypeAny;
+  protected abstract readonly schema: StandardSchema;
 
   /** Canonical catalog protocol versions compatible with this adapter. */
   get compatibleCatalogVersions(): ReadonlySet<string> {
@@ -234,12 +234,12 @@ export abstract class BaseVersionAdapter implements VersionAdapter {
     }
 
     const preparedPayload = this.preparePayloadForValidation(msgObj);
-    const parseResult = this.schema.safeParse(preparedPayload);
-    if (!parseResult.success) {
-      const formattedErrors = parseResult.error.errors.map(formatValidationIssue).join('; ');
+    const validationResult = validateStandardSchema(this.schema, preparedPayload);
+    if (validationResult.issues) {
+      const formattedErrors = validationResult.issues.map(formatValidationIssue).join('; ');
       throw new A2uiValidationError(
         `Invalid ${this.version} message: ${formattedErrors}`,
-        parseResult.error,
+        validationResult.issues,
       );
     }
 
