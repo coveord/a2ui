@@ -15,6 +15,7 @@
  */
 
 import {CatalogInterface} from '../catalog/types.js';
+import {validateStandardSchema} from '../catalog/standard_schema.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {isValidUax31Identifier} from '../common/uax31.js';
 import {A2uiValidationError} from '../errors.js';
@@ -442,15 +443,15 @@ export class PayloadValidator {
     const themeSchema = this.catalog.themeSchema;
     if (!themeSchema) return theme;
 
-    const result = themeSchema.safeParse(theme);
-    if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatValidationIssue).join(', ');
+    const result = validateStandardSchema(themeSchema, theme);
+    if (result.issues) {
+      const formattedErrors = result.issues.map(formatValidationIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for theme: ${formattedErrors}`,
-        result.error.issues,
+        result.issues,
       );
     }
-    return result.data;
+    return result.value;
   }
 
   /**

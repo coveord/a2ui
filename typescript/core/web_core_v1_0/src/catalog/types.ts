@@ -26,6 +26,12 @@ import {deepCopyJson, frozenJson} from './json.js';
 import {type ComponentChildRefs, type ComponentRefMap} from './component_references.js';
 import {IndexImplementation} from '../functions/system_functions.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
+import {
+  isStandardSchema,
+  type StandardSchema,
+  type StandardSchemaOutput,
+  validateStandardSchema,
+} from './standard_schema.js';
 import type {ComponentSchemaMetadata} from './schema_metadata.js';
 import {getCatalogSchemaAdapter} from './schema_adapter.js';
 
@@ -77,8 +83,8 @@ export interface FunctionApi {
   readonly name: string;
   /** Return type identifier for the function. */
   readonly returnType: A2uiReturnType;
-  /** Zod schema validating the function's input arguments. */
-  readonly schema: z.ZodTypeAny;
+  /** Schema validating the function's input arguments. */
+  readonly schema: StandardSchema<any, any>;
   /** Allowed caller contexts for the function. */
   readonly allowedCallers?: 'rendererOnly' | 'agentOnly' | 'rendererOrAgent';
   /** Whether the function requires explicit user interaction before execution. */
@@ -122,7 +128,9 @@ export type ResolvedDynamic<T> = T extends {path: string} | {call: string}
 /**
  * Extracts and resolves execution-time argument types from a function's Zod validation schema.
  */
-export type ResolvedFunctionArgs<Schema extends z.ZodTypeAny> = ResolvedDynamic<z.infer<Schema>>;
+export type ResolvedFunctionArgs<Schema extends StandardSchema> = ResolvedDynamic<
+  StandardSchemaOutput<Schema>
+>;
 
 /**
  * Creates a typed FunctionImplementation from an API definition and an execution callback.
@@ -132,7 +140,7 @@ export type ResolvedFunctionArgs<Schema extends z.ZodTypeAny> = ResolvedDynamic<
  * @returns A complete FunctionImplementation object.
  */
 export function createFunctionImplementation<
-  Schema extends z.ZodTypeAny = z.ZodTypeAny,
+  Schema extends StandardSchema = StandardSchema<any, any>,
   TReturn extends A2uiReturnType = A2uiReturnType,
 >(
   api: {
@@ -171,7 +179,7 @@ import {FunctionInvoker} from './function_invoker.js';
  *
  * @template Schema The Zod schema type for the component's properties.
  */
-export interface ComponentApi<Schema extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface ComponentApi<Schema extends StandardSchema = StandardSchema<any, any>> {
   /** Name of the component as it appears in A2UI JSON (e.g., 'Button'). */
   name: string;
 
@@ -196,10 +204,12 @@ export interface ComponentApi<Schema extends z.ZodTypeAny = z.ZodTypeAny> {
 /**
  * Infers the schema type from a ComponentApi.
  *
- * Uses `z.infer` on the `schema` property of a `ComponentApi` object to access
- * component properties with type safety.
+ * Uses the schema's Standard Schema output type to access component properties
+ * with type safety.
  */
-export type InferredComponentApiSchemaType<Api extends ComponentApi> = z.infer<Api['schema']>;
+export type InferredComponentApiSchemaType<Api extends ComponentApi> = StandardSchemaOutput<
+  Api['schema']
+>;
 
 /**
  * The `anyComponent` and `anyFunction` unions a catalog document carries in
@@ -298,7 +308,7 @@ export interface CatalogDocumentOptions {
    * such as the theme of the v0.9 basic catalog's document. `toJson`
    * computes the definitions from them.
    */
-  defModels?: readonly z.ZodTypeAny[];
+  defModels?: readonly StandardSchema[];
   /**
    * Top-level document keys the fields above do not cover, as written: for
    * example `extensions`, or the theme of a v0.8 catalog (`styles`).
@@ -311,7 +321,7 @@ export interface CatalogDocumentOptions {
  */
 export interface CatalogOptions extends CatalogDocumentOptions {
   /** Schema for this catalog's theme parameters. */
-  themeSchema?: z.ZodTypeAny;
+  themeSchema?: StandardSchema<any, any>;
 }
 
 /**
@@ -333,7 +343,7 @@ export declare interface CatalogInterface<
   /** Map of registered function definitions. */
   readonly functions: ReadonlyMap<string, F>;
   /** Schema for theme parameters used by this catalog. */
-  readonly themeSchema?: z.ZodTypeAny;
+  readonly themeSchema?: StandardSchema<any, any>;
   /** System instructions or usage guidelines for this catalog. */
   readonly instructions?: string;
   /** Invoker callback that delegates to this catalog's registered functions. */
@@ -365,7 +375,7 @@ export declare interface CatalogInterface<
   /** See {@link CatalogDocumentOptions.themeLocation}. */
   readonly themeLocation?: 'defs' | 'styles';
   /** See {@link CatalogDocumentOptions.defModels}. */
-  readonly defModels?: readonly z.ZodTypeAny[];
+  readonly defModels?: readonly StandardSchema[];
   /** Self-contained, bundled JSON Schema used to validate payloads against this catalog. */
   readonly validationSchema: Record<string, unknown>;
   /**
@@ -439,7 +449,7 @@ export class Catalog<
   /**
    * Schema for theme parameters used by this catalog.
    */
-  readonly themeSchema?: z.ZodTypeAny;
+  readonly themeSchema?: StandardSchema<any, any>;
 
   /**
    * Optional system instructions or usage guidelines for this catalog.
@@ -494,7 +504,7 @@ export class Catalog<
   readonly themeLocation?: 'defs' | 'styles';
 
   /** See {@link CatalogDocumentOptions.defModels}. */
-  readonly defModels?: readonly z.ZodTypeAny[];
+  readonly defModels?: readonly StandardSchema[];
 
   private cachedValidationSchema?: Record<string, unknown>;
 
@@ -726,7 +736,7 @@ export class Catalog<
     protocolVersion: ProtocolVersion | string,
     components: T[] = [],
     functions: F[] = [],
-    themeSchemaOrOptions?: z.ZodTypeAny | CatalogOptions,
+    themeSchemaOrOptions?: StandardSchema<any, any> | CatalogOptions,
     instructions?: string,
   ) {
     if (!protocolVersion) {
@@ -748,9 +758,9 @@ export class Catalog<
     }
     this.functions = funcMap;
 
-    const options: CatalogOptions = isZodSchema(themeSchemaOrOptions)
+    const options: CatalogOptions = isStandardSchema(themeSchemaOrOptions)
       ? {themeSchema: themeSchemaOrOptions}
-      : (themeSchemaOrOptions ?? {});
+      : ((themeSchemaOrOptions ?? {}) as CatalogOptions);
     this.themeSchema = options.themeSchema;
     this.instructions = options.instructions ?? instructions;
     this.schemaUri = options.schemaUri;
@@ -891,18 +901,6 @@ export function linkCatalogs<C extends CatalogInterface<ComponentApi, FunctionAp
   });
 }
 
-/**
- * Whether a value is a Zod schema. Checked structurally so schemas built with
- * another copy of Zod are recognized.
- */
-function isZodSchema(value: unknown): value is z.ZodTypeAny {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as {safeParse?: unknown}).safeParse === 'function'
-  );
-}
-
 function createCatalogInvoker<F extends FunctionApi>(
   catalogId: string,
   protocolVersion: ProtocolVersion | string,
@@ -927,8 +925,15 @@ function createCatalogInvoker<F extends FunctionApi>(
     }
 
     try {
-      const safeArgs = fn.schema.parse(rawArgs);
-      return execute.call(fn, safeArgs, ctx, abortSignal);
+      const result = validateStandardSchema(fn.schema, rawArgs);
+      if (result.issues) {
+        throw new A2uiExpressionError(
+          `Validation failed for function '${name}': ${result.issues.map(issue => issue.message).join(', ')}`,
+          name,
+          result.issues,
+        );
+      }
+      return execute.call(fn, result.value as Record<string, unknown>, ctx, abortSignal);
     } catch (e: any) {
       if (e?.name === 'ZodError' || e instanceof z.ZodError) {
         throw new A2uiExpressionError(

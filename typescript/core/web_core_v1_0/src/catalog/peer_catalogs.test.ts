@@ -24,6 +24,7 @@ import {A2uiCatalogError} from '../errors.js';
 import {MessageProcessor} from '../processing/message-processor.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {Catalog, CatalogApi, ComponentApi, linkCatalogs} from './types.js';
+import {validateStandardSchema} from './standard_schema.js';
 
 /** Walks up from this file until it finds `relPath`. */
 function findRepoFile(relPath: string): string {
@@ -74,7 +75,7 @@ function component(
 }
 
 function accepts(catalog: CatalogApi, name: string, value: Record<string, unknown>): boolean {
-  return catalog.components.get(name)!.schema.safeParse(value).success;
+  return !validateStandardSchema(catalog.components.get(name)!.schema, value).issues;
 }
 
 /** Types schema-only catalogs as the catalogs a `MessageProcessor` takes. */

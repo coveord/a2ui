@@ -20,6 +20,7 @@ import {z} from 'zod';
 import {RpcHandler, A2uiRpcError, RpcErrorCode} from './rpc-handler.js';
 import {A2uiError} from '../errors.js';
 import {Catalog, createFunctionImplementation} from '../catalog/types.js';
+import {validateStandardSchema} from '../catalog/standard_schema.js';
 import {DataContext} from '../resolution/data-context.js';
 import {SurfaceModel} from '../state/surface-model.js';
 import {signal} from '../reactivity/signals.js';
@@ -165,8 +166,9 @@ describe('Stage 3 (Sauce-TS) Bidirectional RPC & @index Function Verification', 
     assert.strictEqual(indexValue2, 2);
 
     // Schema coercion parses string offsets and falls back safely on NaN
-    const parsedArgs = IndexImplementation.schema?.parse({offset: '5'});
-    const indexValue3 = IndexImplementation.execute(parsedArgs, context2);
+    const parsedResult = validateStandardSchema(IndexImplementation.schema, {offset: '5'});
+    assert.ok(!parsedResult.issues);
+    const indexValue3 = IndexImplementation.execute(parsedResult.value!, context2);
     assert.strictEqual(indexValue3, 7);
   });
 

@@ -21,7 +21,7 @@ export interface ValidationIssue {
   readonly keys?: readonly unknown[];
   readonly message?: string;
   readonly options?: readonly unknown[];
-  readonly path?: readonly PropertyKey[];
+  readonly path?: readonly unknown[];
   readonly received?: unknown;
   readonly unionErrors?: readonly {readonly issues: readonly ValidationIssue[]}[];
 }

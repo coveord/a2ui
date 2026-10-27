@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod';
+import type {StandardSchema} from '../catalog/standard_schema.js';
 import type {ComponentApi} from '../catalog/types.js';
 
 /**
@@ -24,7 +24,7 @@ import type {ComponentApi} from '../catalog/types.js';
  * @template Schema the Zod schema type for the component's properties.
  */
 export interface WebComponentImplementation<
-  Schema extends z.ZodTypeAny = z.ZodTypeAny,
+  Schema extends StandardSchema = StandardSchema<any, any>,
 > extends ComponentApi<Schema> {
   /** The HTML tag name of the Custom Element registered for this component. */
   readonly tagName: string;

@@ -16,12 +16,13 @@
 
 export interface StandardSchemaIssue {
   readonly message: string;
-  readonly path?: readonly PropertyKey[];
+  readonly path?: readonly unknown[];
 }
 
-export type StandardSchemaResult<Output> =
-  | {readonly value: Output; readonly issues?: undefined}
-  | {readonly value?: undefined; readonly issues: readonly StandardSchemaIssue[]};
+export interface StandardSchemaResult<Output> {
+  readonly value?: Output;
+  readonly issues?: readonly StandardSchemaIssue[];
+}
 
 export interface StandardSchema<Input = unknown, Output = Input> {
   readonly ['~standard']: {
@@ -37,11 +38,17 @@ export interface StandardSchema<Input = unknown, Output = Input> {
   };
 }
 
-export type StandardSchemaInput<Schema extends StandardSchema> =
-  Schema['~standard']['types'] extends {readonly input: infer Input} ? Input : unknown;
+export type StandardSchemaInput<Schema> = Schema extends {
+  readonly ['~standard']: {readonly types?: {readonly input: infer Input}};
+}
+  ? Input
+  : unknown;
 
-export type StandardSchemaOutput<Schema extends StandardSchema> =
-  Schema['~standard']['types'] extends {readonly output: infer Output} ? Output : unknown;
+export type StandardSchemaOutput<Schema> = Schema extends {
+  readonly ['~standard']: {readonly types?: {readonly output: infer Output}};
+}
+  ? Output
+  : unknown;
 
 export function isStandardSchema(value: unknown): value is StandardSchema {
   return (

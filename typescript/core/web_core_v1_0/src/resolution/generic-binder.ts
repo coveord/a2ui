@@ -29,6 +29,7 @@ import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import type {ComponentSchemaMetadata} from '../catalog/schema_metadata.js';
+import type {StandardSchema} from '../catalog/standard_schema.js';
 
 // --- Schema Scraping ---
 
@@ -72,11 +73,16 @@ export type BehaviorNode =
 
 const behaviorCache = new WeakMap<z.ZodTypeAny, BehaviorNode>();
 
+function isZodSchema(schema: z.ZodTypeAny | StandardSchema): schema is z.ZodTypeAny {
+  return typeof schema === 'object' && schema !== null && '_def' in schema;
+}
 function behaviorFromMetadata(
-  schema: z.ZodTypeAny,
+  schema: z.ZodTypeAny | StandardSchema,
   metadata?: ComponentSchemaMetadata,
 ): BehaviorNode {
-  const behavior = metadata?.behavior ?? scrapeSchemaBehavior(schema);
+  const behavior =
+    metadata?.behavior ??
+    (isZodSchema(schema) ? scrapeSchemaBehavior(schema) : {type: 'OBJECT', shape: {}});
   if (!metadata?.dynamicFields || behavior.type !== 'OBJECT') return behavior;
 
   return {
@@ -483,7 +489,11 @@ export class GenericBinder<T> {
    * @param context Component context providing state and event dispatching.
    * @param schema Zod schema defining the component properties.
    */
-  constructor(context: ComponentContext, schema: z.ZodTypeAny, metadata?: ComponentSchemaMetadata) {
+  constructor(
+    context: ComponentContext,
+    schema: z.ZodTypeAny | StandardSchema,
+    metadata?: ComponentSchemaMetadata,
+  ) {
     this.context = context;
     this.behaviorTree = behaviorFromMetadata(schema, metadata);
 
