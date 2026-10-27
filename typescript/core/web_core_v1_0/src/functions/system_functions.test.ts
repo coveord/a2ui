@@ -18,8 +18,9 @@ import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
 
 import {IndexApi, IndexImplementation, SYSTEM_FUNCTIONS} from './system_functions.js';
-import {DataContext} from '../resolution/data-context.js';
-import {A2uiValidationError} from '../errors.js';
+import {Catalog} from '../catalog/types.js';
+import {DataContext, validateFunctionArgs} from '../resolution/data-context.js';
+import {A2uiExpressionError, A2uiValidationError} from '../errors.js';
 
 /** Builds a context that reports the given data path and no iteration index. */
 function contextAtPath(path: string): DataContext {
@@ -88,5 +89,17 @@ describe('@index system function', () => {
       getIndex: () => Number.NaN,
     } as unknown as DataContext;
     assert.throws(() => IndexImplementation.execute({}, badContext), A2uiValidationError);
+  });
+
+  it('declares its arguments, so they are checked without a schema adapter', () => {
+    const catalog = new Catalog('no-adapter', '1.0');
+
+    assert.deepStrictEqual(IndexImplementation.argumentKeys, ['offset']);
+    assert.doesNotThrow(() => validateFunctionArgs('@index', {offset: 1}, catalog));
+    assert.throws(
+      () => validateFunctionArgs('@index', {offset: 1, foo: 2}, catalog),
+      (err: unknown) =>
+        err instanceof A2uiExpressionError && err.message.includes("Unknown argument 'foo'"),
+    );
   });
 });

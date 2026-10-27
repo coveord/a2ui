@@ -90,6 +90,12 @@ export interface FunctionApi {
   readonly requiresUserActivation?: boolean;
   /** Human-readable description of the function's purpose. */
   readonly description?: string;
+  /**
+   * Names of the arguments the function accepts. When set, argument
+   * validation rejects any other name without asking the catalog's schema
+   * adapter to reflect on `schema`.
+   */
+  readonly argumentKeys?: readonly string[];
 }
 
 export type {JsonSchemaObject};
@@ -149,6 +155,7 @@ export function createFunctionImplementation<
     allowedCallers?: 'rendererOnly' | 'agentOnly' | 'rendererOrAgent';
     requiresUserActivation?: boolean;
     description?: string;
+    argumentKeys?: readonly string[];
   },
   execute: (
     args: ResolvedFunctionArgs<Schema>,
@@ -163,6 +170,7 @@ export function createFunctionImplementation<
     allowedCallers: api.allowedCallers,
     requiresUserActivation: api.requiresUserActivation,
     description: api.description,
+    argumentKeys: api.argumentKeys,
     execute: execute as (
       args: Record<string, unknown>,
       ctx: DataContext,

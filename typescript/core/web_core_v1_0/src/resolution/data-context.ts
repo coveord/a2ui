@@ -119,7 +119,9 @@ export function validateFunctionArgs(
     return;
   }
 
-  const knownKeys = getKnownSchemaKeys(fn.schema);
+  const knownKeys = fn.argumentKeys
+    ? new Set<string>(fn.argumentKeys)
+    : getKnownSchemaKeys(fn.schema);
   if (!knownKeys) {
     // Schema allows arbitrary keys (e.g. passthrough)
     return;

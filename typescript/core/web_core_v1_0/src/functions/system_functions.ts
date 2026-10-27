@@ -66,6 +66,8 @@ export const IndexApi = {
   allowedCallers: 'rendererOnly' as const,
   /** Standard Schema validating optional numeric or dynamic offsets. */
   schema: IndexArgsSchema,
+  /** The only argument `@index` accepts. */
+  argumentKeys: ['offset'] as const,
 };
 
 /**
