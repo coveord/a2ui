@@ -20,7 +20,11 @@
  * Exports the adapter, the `z` it is built for, and the v1.0 common type
  * schemas that catalog components compose.
  */
-export {ZOD4_SCHEMA_ADAPTER_NAME, zod4CatalogSchemaAdapter} from './catalog_adapter.js';
+export {
+  parseZod4Catalog,
+  ZOD4_SCHEMA_ADAPTER_NAME,
+  zod4CatalogSchemaAdapter,
+} from './catalog_adapter.js';
 export {describeZod4Component, getZod4KnownSchemaKeys} from './resolution/describe_component.js';
 export {z} from 'zod';
 export {type ValidationResultInput} from './schema/catalog-definition.js';
