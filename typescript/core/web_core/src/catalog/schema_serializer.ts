@@ -19,6 +19,7 @@ import type {z} from 'zod/v3';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
+import {normalizeSchema, zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
 import {entrySchemaOverride} from './entry_json_override.js';
 import {loadedDefinition} from './json_entries.js';
 import {getSpecAnnotation, type JsonSchemaObject} from './spec_annotations.js';
@@ -48,7 +49,7 @@ export interface SerializableCatalog {
   readonly protocolVersion: string;
   readonly components: ReadonlyMap<string, ComponentApi>;
   readonly functions: ReadonlyMap<string, FunctionApi>;
-  readonly themeSchema?: z.ZodTypeAny;
+  readonly themeSchema?: EntrySchema;
   readonly instructions?: string;
   readonly schemaUri?: string;
   readonly schemaId?: string;
@@ -271,22 +272,27 @@ function rewriteRefMarkers(
 }
 
 /**
- * Converts a Zod schema into an unbundled JSON Schema object, as `toJson()`
- * writes an entry defined in code without specification annotations.
+ * Converts an entry's schema into an unbundled JSON Schema object, as
+ * `toJson()` writes an entry defined in code without specification
+ * annotations: a Zod 3 schema with `zod-to-json-schema`, and any other
+ * `A2uiSchema` as it writes itself as JSON Schema.
  *
- * @param schema The Zod schema.
+ * @param schema The entry's schema.
  * @param localDefs Names of authored definitions that stay local references.
  * @param commonTypesUri The URI of the common types document.
  */
 export function zodToUnbundledJson(
-  schema: z.ZodTypeAny | undefined,
+  schema: EntrySchema | undefined,
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): JsonObject {
-  if (!schema || typeof schema !== 'object' || !('safeParse' in schema)) {
-    return {type: 'object', properties: {}};
+  const zod3 = zod3SchemaOf(schema);
+  if (!zod3) {
+    return schema && typeof schema === 'object'
+      ? (deepCopyJson(normalizeSchema(schema as A2uiSchema)) as JsonObject)
+      : {type: 'object', properties: {}};
   }
-  const json = zodToJsonSchema(schema, {
+  const json = zodToJsonSchema(zod3, {
     target: 'jsonSchema2019-09',
     $refStrategy: 'none',
     override: entrySchemaOverride,
@@ -399,7 +405,7 @@ function serializeFunctionModel(
  * Serializes a theme Zod schema into a `$defs.theme` object schema.
  */
 function serializeThemeModel(
-  theme: z.ZodTypeAny,
+  theme: EntrySchema,
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): JsonObject {
@@ -482,10 +488,13 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   const computedDefs = new Map<string, z.ZodTypeAny>();
   const shapedComponents = new Map<string, JsonSchemaObject>();
   for (const [name, comp] of catalog.components) {
-    if (loadedDefinition(comp) || !isSpecComponentSchema(comp.schema)) continue;
+    // A loaded entry's schema is derived on first read, so it is not read here.
+    if (loadedDefinition(comp)) continue;
+    const zod3 = zod3SchemaOf(comp.schema);
+    if (!zod3 || !isSpecComponentSchema(zod3)) continue;
     const {schema, catalogDefs} = shaper.componentSchema(
       name,
-      comp.schema,
+      zod3,
       comp.allowedParents,
       comp.allowedChildren,
     );
@@ -501,12 +510,13 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   }
 
   const functions = new Map<string, JsonSchemaObject | undefined>();
-  const rawFunctions = new Map<string, FunctionApi>();
+  const rawFunctions = new Map<string, z.ZodTypeAny>();
   for (const [name, fn] of catalog.functions) {
-    if (!loadedDefinition(fn) && isSpecFunctionSchema(fn.schema)) {
-      rawFunctions.set(name, fn);
+    const zod3 = loadedDefinition(fn) ? undefined : zod3SchemaOf(fn.schema);
+    if (zod3 && isSpecFunctionSchema(zod3)) {
+      rawFunctions.set(name, zod3);
       // Pre-scan function schema for any referenced catalog $defs models.
-      shaper.toJson(fn.schema, computedDefs);
+      shaper.toJson(zod3, computedDefs);
     }
   }
 
@@ -523,7 +533,10 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   }
   const extensionFields: JsonObject = {...catalog.extensionFields};
   if (catalog.themeLocation === 'styles' && catalog.themeSchema && !hasAuthoredTheme(catalog)) {
-    const theme = shaper.defSchema(catalog.themeSchema);
+    const zod3Theme = zod3SchemaOf(catalog.themeSchema);
+    const theme = zod3Theme
+      ? shaper.defSchema(zod3Theme)
+      : zodToUnbundledJson(catalog.themeSchema, new Set(), catalog.commonTypesUri);
     extensionFields['styles'] = isObject(theme['properties']) ? theme['properties'] : {};
   }
 
@@ -537,7 +550,14 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
       name,
       loaded ??
         (rawFunctions.has(name)
-          ? deepFreeze(shaper.functionSchema(name, fn, defs, computedDefs))
+          ? deepFreeze(
+              shaper.functionSchema(
+                name,
+                {...fn, schema: rawFunctions.get(name)!},
+                defs,
+                computedDefs,
+              ),
+            )
           : undefined),
     );
   }
@@ -652,11 +672,11 @@ export function serializeCatalogDocument(catalog: SerializableCatalog): JsonObje
   const defs: JsonObject = deepCopyJson({...model.defs});
   const themeLocation = catalog.themeLocation ?? (isAtLeastV10 ? undefined : 'defs');
   if (themeLocation === 'defs' && catalog.themeSchema && !hasAuthoredTheme(model)) {
-    defs.theme = getSpecAnnotation(catalog.themeSchema)
-      ? new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri).defSchema(
-          catalog.themeSchema,
-        )
-      : serializeThemeModel(catalog.themeSchema, localDefs, commonTypesUri);
+    const zod3Theme = zod3SchemaOf(catalog.themeSchema);
+    defs.theme =
+      zod3Theme && getSpecAnnotation(zod3Theme)
+        ? new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri).defSchema(zod3Theme)
+        : serializeThemeModel(catalog.themeSchema, localDefs, commonTypesUri);
   }
   const unions = catalog.unions ?? {
     anyComponent: isAtLeastV10 || catalog.components.size > 0,

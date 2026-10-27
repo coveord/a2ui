@@ -36,7 +36,8 @@ import {FunctionInvoker} from '../catalog/function_invoker.js';
 import {resolveSurfaceCatalog} from '../state/resolve-surface-catalog.js';
 import {SurfaceModel} from '../state/surface-model.js';
 
-import {functionSchemaOf} from '../catalog/entry_schema.js';
+import type {EntrySchema} from '../catalog/a2ui_schema.js';
+import {functionSchemaOf, zodSchemaFor} from '../catalog/entry_schema.js';
 import {Catalog, CatalogInterface} from '../catalog/types.js';
 import {SpecVersion} from '../spec_versions.js';
 import {IndexApi, SYSTEM_FUNCTIONS} from '../v1_0/functions/system_functions.js';
@@ -71,10 +72,12 @@ function getSystemFunctionCatalog(): Catalog<any> {
  * Traverses Zod wrappers (`ZodEffects`, `ZodOptional`, `ZodNullable`, `ZodDefault`,
  * `ZodCatch`, `ZodIntersection`, `ZodUnion`) and returns the set of allowed key names.
  *
- * @param schema Zod schema to inspect.
+ * @param input Schema to inspect: a Zod 3 schema, or any other `EntrySchema`,
+ *   read as JSON Schema.
  * @returns Set of allowed property names, or `null` if arbitrary keys are permitted or undetermined.
  */
-export function getKnownSchemaKeys(schema: z.ZodTypeAny): Set<string> | null {
+export function getKnownSchemaKeys(input: EntrySchema): Set<string> | null {
+  const schema = zodSchemaFor(input);
   if (schemaKeysCache.has(schema)) {
     return schemaKeysCache.get(schema) as Set<string> | null;
   }
