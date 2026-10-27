@@ -24,7 +24,6 @@ import {
   setValue,
   peekValue,
 } from '../reactivity/signals.js';
-import {z} from 'zod';
 import {DataModel, DataSubscription} from '../state/data-model.js';
 import {type FunctionCall, type Action} from '../types/common-types.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
@@ -973,15 +972,12 @@ export class DataContext {
    */
   private dispatchExpressionError(e: unknown, name: string): void {
     if (!this.surface) return;
-    if (
-      e instanceof z.ZodError ||
-      (typeof e === 'object' && e !== null && (e as {name?: string}).name === 'ZodError')
-    ) {
-      const zodErr = e as z.ZodError;
+    if (typeof e === 'object' && e !== null && (e as {name?: string}).name === 'ZodError') {
+      const schemaError = e as {message?: string; errors?: unknown; issues?: unknown};
       const err = new A2uiExpressionError(
-        `Validation failed for function '${name}': ${zodErr.message}`,
+        `Validation failed for function '${name}': ${schemaError.message ?? 'Schema validation failed.'}`,
         name,
-        zodErr.errors ?? (zodErr as unknown as {issues?: unknown}).issues,
+        schemaError.errors ?? schemaError.issues,
       );
       this.surface.dispatchError({
         code: 'EXPRESSION_ERROR',

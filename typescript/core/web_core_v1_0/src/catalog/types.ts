@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
 import type {ProtocolVersion} from '../processing/adapters/base.js';
 import {DataContext} from '../resolution/data-context.js';
 import {Signal} from '../reactivity/signals.js';
@@ -935,7 +934,7 @@ function createCatalogInvoker<F extends FunctionApi>(
       }
       return execute.call(fn, result.value as Record<string, unknown>, ctx, abortSignal);
     } catch (e: any) {
-      if (e?.name === 'ZodError' || e instanceof z.ZodError) {
+      if (e?.name === 'ZodError') {
         throw new A2uiExpressionError(
           `Validation failed for function '${name}': ${e.message}`,
           name,
