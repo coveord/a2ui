@@ -35,7 +35,7 @@ import {isAtLeastVersion, normalizeVersionString, toCanonicalVersion} from '../c
 import {V08_STANDARD_DEFS} from '../v0_8/standard_defs.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
-import {exclusiveUnionOverride} from './exclusive_union.js';
+import {entrySchemaOverride} from './entry_json_override.js';
 import {getSpecAnnotation, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
 
 type JsonObject = Record<string, unknown>;
@@ -762,7 +762,7 @@ function fallbackJson(schema: z.ZodTypeAny): JsonObject {
   const json = zodToJsonSchema(schema, {
     target: 'jsonSchema2019-09',
     $refStrategy: 'none',
-    override: exclusiveUnionOverride,
+    override: entrySchemaOverride,
   }) as JsonObject;
   delete json['$schema'];
   delete json['definitions'];

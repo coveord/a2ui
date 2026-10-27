@@ -21,6 +21,7 @@ import {Signal} from '../reactivity/signals.js';
 import {A2uiCatalogError, A2uiExpressionError} from '../errors.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {SpecVersion} from '../spec_versions.js';
+import {functionSchemaOf, safeParseEntry} from './entry_schema.js';
 import {
   hasCrossDocumentRefs,
   inlinePeerAndLocalRefs,
@@ -573,7 +574,7 @@ export class Catalog<
     Object.assign(copy, this, {
       components,
       functions,
-      invoker: createCatalogInvoker(this.id, this.protocolVersion, functions),
+      invoker: createCatalogInvoker(copy),
       cachedValidationSchema: undefined,
       _componentRefMap: undefined,
       _peerCatalogs: Object.freeze(linked),
@@ -778,7 +779,7 @@ export class Catalog<
     this.commonTypesUri = options.commonTypesUri;
     this.themeLocation = options.themeLocation;
     this.defModels = options.defModels ? Object.freeze([...options.defModels]) : undefined;
-    this.invoker = createCatalogInvoker(this.id, this.protocolVersion, this.functions);
+    this.invoker = createCatalogInvoker(this);
   }
 
   /**
@@ -918,15 +919,23 @@ function isZodSchema(value: unknown): value is z.ZodTypeAny {
   );
 }
 
+/**
+ * Returns the invoker of a catalog's functions. It reads the catalog's fields
+ * when called, so a linked copy can be given its invoker as it is assembled.
+ *
+ * Arguments are validated against the function's definition in the catalog's
+ * document and against its own schema (see `safeParseEntry`), and the function
+ * runs with them as its own schema parses them, so it receives the values,
+ * such as defaults, its implementation is typed for.
+ */
 function createCatalogInvoker<F extends FunctionApi>(
-  catalogId: string,
-  protocolVersion: ProtocolVersion | string,
-  functions: ReadonlyMap<string, F>,
+  catalog: CatalogInterface<ComponentApi, F>,
 ): FunctionInvoker {
   return (name, rawArgs, ctx, abortSignal) => {
+    const catalogId = catalog.id;
     const fn =
-      functions.get(name) ??
-      (isAtLeastVersion(protocolVersion, SpecVersion.V1_0) && name === '@index'
+      catalog.functions.get(name) ??
+      (isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0) && name === '@index'
         ? (IndexImplementation as unknown as F)
         : undefined);
     if (!fn) {
@@ -942,8 +951,9 @@ function createCatalogInvoker<F extends FunctionApi>(
     }
 
     try {
-      const safeArgs = fn.schema.parse(rawArgs);
-      return execute.call(fn, safeArgs, ctx, abortSignal);
+      const parsed = safeParseEntry(functionSchemaOf(catalog, fn), fn.schema, rawArgs);
+      if (!parsed.success) throw parsed.error;
+      return execute.call(fn, parsed.data as Record<string, unknown>, ctx, abortSignal);
     } catch (e: any) {
       if (e?.name === 'ZodError' || e instanceof z.ZodError) {
         throw new A2uiExpressionError(

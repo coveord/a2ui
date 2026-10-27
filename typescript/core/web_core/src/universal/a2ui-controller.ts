@@ -16,6 +16,7 @@
 
 import {ReactiveController} from 'lit';
 import {GenericBinder, ResolveA2uiProps} from '../resolution/generic-binder.js';
+import {componentSchemaOf} from '../catalog/entry_schema.js';
 import {ComponentApi, InferredComponentApiSchemaType} from '../catalog/types.js';
 import {A2uiLitElement} from './a2ui-lit-element.js';
 
@@ -55,7 +56,10 @@ export class A2uiController<
     private host: A2uiLitElement<any, any>,
     api: Api,
   ) {
-    this.binder = new GenericBinder(this.host.context, api.schema);
+    this.binder = new GenericBinder(
+      this.host.context,
+      componentSchemaOf(this.host.context?.componentModel?.catalog, api),
+    );
     this._props = this.binder.snapshot as Props;
     this.host.addController(this);
     if (this.host.isConnected) {

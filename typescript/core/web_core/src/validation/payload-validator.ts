@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import {componentSchemaOf, functionSchemaOf, safeParseEntry} from '../catalog/entry_schema.js';
 import {CatalogInterface} from '../catalog/types.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {isValidUax31Identifier} from '../common/uax31.js';
@@ -212,10 +213,11 @@ export class PayloadValidator {
       return;
     }
 
-    const knownKeys = getKnownSchemaKeys(componentApi.schema);
+    const schema = componentSchemaOf(this.catalog, componentApi);
+    const knownKeys = getKnownSchemaKeys(schema);
     this.validateCommonEnvelopeFields(properties, knownKeys, componentType, id, componentCatalogId);
 
-    const result = componentApi.schema.safeParse(properties);
+    const result = safeParseEntry(schema, componentApi.schema, properties);
     if (!result.success) {
       const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
       throw new A2uiValidationError(
@@ -418,7 +420,7 @@ export class PayloadValidator {
       return (args ?? {}) as Record<string, unknown>;
     }
 
-    const result = fn.schema.safeParse(args ?? {});
+    const result = safeParseEntry(functionSchemaOf(this.catalog, fn), fn.schema, args ?? {});
     if (!result.success) {
       const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
       throw new A2uiValidationError(
