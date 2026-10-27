@@ -56,8 +56,6 @@ export interface CatalogSchemaAdapter {
     entry: Entry,
     peers: readonly CatalogInterface<ComponentApi, FunctionApi>[],
   ) => Entry;
-  /** Detects whether a catalog document references an external catalog. */
-  readonly hasCrossDocumentRefs?: (document: unknown) => boolean;
   /** Retains only definitions reachable from the catalog entries that remain. */
   readonly retainedDefs?: (
     defs: Readonly<Record<string, unknown>> | undefined,

@@ -21,6 +21,7 @@ import {A2uiCatalogError, A2uiExpressionError} from '../errors.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {SpecVersion} from '../spec_versions.js';
 import type {JsonSchemaObject} from './schema_annotations.js';
+import {hasCrossDocumentRefs} from './document_refs.js';
 import {deepCopyJson, frozenJson} from './json.js';
 import {type ComponentChildRefs, type ComponentRefMap} from './component_references.js';
 import {IndexImplementation} from '../functions/system_functions.js';
@@ -644,6 +645,14 @@ export class Catalog<
   }
 
   /**
+   * Whether `toJson` can produce this catalog's document: the catalog carries
+   * its published document, or its schema adapter serializes catalogs.
+   */
+  get hasDocument(): boolean {
+    return this.cachedDocument !== undefined || Boolean(this.schemaAdapter?.serializeCatalog);
+  }
+
+  /**
    * Returns the unbundled catalog document for this catalog, assembled from
    * its model and memoized.
    *
@@ -953,9 +962,9 @@ function referencesOtherCatalogs(catalog: CatalogInterface<ComponentApi, Functio
   const origin = linkOrigin(catalog);
   let result = crossDocumentRefs.get(origin);
   if (result === undefined) {
-    result = requireSchemaAdapter(origin, 'hasCrossDocumentRefs').hasCrossDocumentRefs!(
-      origin.toJson(),
-    );
+    // A catalog that cannot produce a document has no `$ref` to resolve.
+    const documentless = origin instanceof Catalog && !origin.hasDocument;
+    result = !documentless && hasCrossDocumentRefs(origin.toJson());
     crossDocumentRefs.set(origin, result);
   }
   return result;

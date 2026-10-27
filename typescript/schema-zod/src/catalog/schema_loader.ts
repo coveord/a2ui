@@ -158,29 +158,6 @@ function resolveRefDocument(doc: string, peers: readonly PeerCatalogSource[]): R
   return {kind: 'unresolved'};
 }
 
-/**
- * Whether a JSON document contains a `$ref` into another catalog document: one
- * whose document part is neither empty, nor the common types document, nor a
- * bare `catalog.json`.
- *
- * @param node A catalog document or a part of one.
- */
-export function hasCrossDocumentRefs(node: unknown): boolean {
-  if (Array.isArray(node)) return node.some(hasCrossDocumentRefs);
-  if (!node || typeof node !== 'object') return false;
-  for (const [key, value] of Object.entries(node)) {
-    if (key === '$ref' && typeof value === 'string') {
-      const {doc} = splitRef(value);
-      if (doc && doc !== CATALOG_DOCUMENT && !isDocumentNamed(doc, COMMON_TYPES_DOCUMENT)) {
-        return true;
-      }
-    } else if (hasCrossDocumentRefs(value)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /** Stable identities of the documents local `#/...` pointers resolve into. */
 const documentIds = new WeakMap<object, number>();
 let nextDocumentId = 0;

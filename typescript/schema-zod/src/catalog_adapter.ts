@@ -23,12 +23,7 @@ import {
   type CatalogSchemaAdapter,
 } from '@a2ui/web_core_v1_0';
 
-import {
-  hasCrossDocumentRefs,
-  inlinePeerAndLocalRefs,
-  linkEntry,
-  parseCatalogSchema,
-} from './catalog/schema_loader.js';
+import {inlinePeerAndLocalRefs, linkEntry, parseCatalogSchema} from './catalog/schema_loader.js';
 import {cleanSchemaNode, generateValidationSchema} from './catalog/schema_generator.js';
 import {AgentToRendererMessageSchema} from './schema/agent-to-renderer.js';
 import {AccessibilityAttributesSchema, ComponentCommonSchema} from './types/common-types.js';
@@ -68,7 +63,6 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
       ...options,
     }) as Record<string, unknown>,
   linkEntry,
-  hasCrossDocumentRefs,
   retainedDefs,
   describeComponent: describeZodComponent,
   getKnownSchemaKeys: getZodKnownSchemaKeys,

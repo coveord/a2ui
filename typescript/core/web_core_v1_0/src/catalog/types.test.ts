@@ -160,6 +160,15 @@ describe('Catalog schema adapter', () => {
     );
   });
 
+  it('links catalogs that cannot produce a document without asking for one', () => {
+    const schemaAdapter = testSchemaAdapter();
+    const a = new Catalog('a', '1.0', [], [], {schemaAdapter});
+    const b = new Catalog('b', '1.0', [], [], {schemaAdapter});
+
+    assert.strictEqual(a.hasDocument, false);
+    assert.deepStrictEqual(linkCatalogs([a, b]), [a, b]);
+  });
+
   it('refuses to link catalogs that use different adapters', () => {
     const a = new Catalog('a', '1.0', [], [], {schemaAdapter: testSchemaAdapter()});
     const b = new Catalog('b', '1.0', [], [], {schemaAdapter: testSchemaAdapter()});
