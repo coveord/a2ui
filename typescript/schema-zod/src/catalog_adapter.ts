@@ -17,9 +17,12 @@
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {
-  Catalog,
+  AccessibilityAttributesSchema,
   AgentToRendererMessageSchema,
+  Catalog,
+  ComponentCommonSchema,
   registerCatalogSchemaAdapter,
+  validateStandardSchema,
   type CatalogSchemaAdapter,
 } from '@a2ui/web_core_v1_0';
 
@@ -80,6 +83,13 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
   getKnownSchemaKeys: getZodKnownSchemaKeys,
   getProtocolSchema: version =>
     version === 'v1.0' || version === '1.0' ? AgentToRendererMessageSchema : undefined,
+  validateComponentEnvelopeField: (field, value) =>
+    validateStandardSchema(
+      field === 'accessibility'
+        ? AccessibilityAttributesSchema.optional()
+        : ComponentCommonSchema.shape.metadata,
+      value,
+    ),
   cleanSchemaNode,
 };
 

@@ -14,12 +14,43 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
-
 import {createFunctionImplementation, FunctionImplementation} from '../catalog/types.js';
+import type {StandardSchema} from '../catalog/standard_schema.js';
 import {A2uiValidationError} from '../errors.js';
 import {resolveContextIndex} from '../resolution/data-context.js';
-import {DataBindingSchema, FunctionCallSchema} from '../schema/common-types.js';
+
+interface IndexArgs {
+  readonly offset?: unknown;
+}
+
+const IndexArgsSchema: StandardSchema<Record<string, unknown>, IndexArgs> = {
+  '~standard': {
+    version: 1,
+    vendor: '@a2ui/web_core_v1_0',
+    validate: value => {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        return {issues: [{message: 'Expected object for @index arguments.'}]};
+      }
+      const offset = (value as Record<string, unknown>)['offset'];
+      if (offset === undefined) return {value: {}};
+      if (typeof offset === 'number') return {value: {offset}};
+      if (typeof offset === 'string' || typeof offset === 'boolean' || offset === null) {
+        const number = Number(offset);
+        return Number.isNaN(number)
+          ? {issues: [{message: 'Expected a numeric @index offset.'}]}
+          : {value: {offset: number}};
+      }
+      if (
+        typeof offset === 'object' &&
+        offset !== null &&
+        ('@path' in offset || 'path' in offset || '@call' in offset || 'call' in offset)
+      ) {
+        return {value: {offset}};
+      }
+      return {issues: [{message: 'Expected a numeric or dynamic @index offset.'}]};
+    },
+  },
+};
 
 /**
  * System function definition for computing iteration indices in array contexts.
@@ -33,15 +64,8 @@ export const IndexApi = {
   returnType: 'number' as const,
   /** Scope of callers permitted to invoke this function. */
   allowedCallers: 'rendererOnly' as const,
-  /**
-   * Zod schema validating function arguments.
-   *
-   * `offset` is a DynamicNumber, so a payload may bind it to a path or a
-   * nested call. Once resolved, the value is coerced to a number.
-   */
-  schema: z.object({
-    'offset': z.union([DataBindingSchema, FunctionCallSchema, z.coerce.number()]).optional(),
-  }),
+  /** Standard Schema validating optional numeric or dynamic offsets. */
+  schema: IndexArgsSchema,
 };
 
 /**

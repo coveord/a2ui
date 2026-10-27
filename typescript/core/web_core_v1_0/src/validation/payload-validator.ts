@@ -20,8 +20,8 @@ import {isAtLeastVersion} from '../common/semver.js';
 import {isValidUax31Identifier} from '../common/uax31.js';
 import {A2uiValidationError} from '../errors.js';
 import {formatValidationIssue} from './format-validation-issue.js';
+import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
-import {AccessibilityAttributesSchema, ComponentCommonSchema} from '../types/common-types.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
 import {IndexApi} from '../functions/system_functions.js';
 import type {ValidationConfig} from './integrity-checker.js';
@@ -228,6 +228,16 @@ export class PayloadValidator {
     this.validateNestedFunctions(properties, componentCatalogId);
   }
 
+  private validateComponentEnvelopeField(field: 'accessibility' | 'metadata', value: unknown) {
+    const validate = getCatalogSchemaAdapter()?.validateComponentEnvelopeField;
+    if (!validate) {
+      throw new A2uiValidationError(
+        'Component envelope validation requires an installed schema adapter.',
+      );
+    }
+    return validate(field, value);
+  }
+
   /**
    * Validates `accessibility` and `metadata` from `ComponentCommon` when the
    * component schema does not explicitly declare them, removing them from
@@ -243,12 +253,12 @@ export class PayloadValidator {
     if ('accessibility' in properties && !knownKeys?.has('accessibility')) {
       const accVal = properties['accessibility'];
       delete properties['accessibility'];
-      const accResult = AccessibilityAttributesSchema.optional().safeParse(accVal);
-      if (!accResult.success) {
-        const formattedErrors = accResult.error.errors.map(formatValidationIssue).join(', ');
+      const accResult = this.validateComponentEnvelopeField('accessibility', accVal);
+      if (accResult.issues) {
+        const formattedErrors = accResult.issues.map(formatValidationIssue).join(', ');
         throw new A2uiValidationError(
           `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
-          accResult.error.issues,
+          accResult.issues,
         );
       }
       this.validateNestedFunctions(accVal, componentCatalogId);
@@ -257,12 +267,12 @@ export class PayloadValidator {
     if ('metadata' in properties && !knownKeys?.has('metadata')) {
       const metaVal = properties['metadata'];
       delete properties['metadata'];
-      const metaResult = ComponentCommonSchema.shape.metadata.safeParse(metaVal);
-      if (!metaResult.success) {
-        const formattedErrors = metaResult.error.errors.map(formatValidationIssue).join(', ');
+      const metaResult = this.validateComponentEnvelopeField('metadata', metaVal);
+      if (metaResult.issues) {
+        const formattedErrors = metaResult.issues.map(formatValidationIssue).join(', ');
         throw new A2uiValidationError(
           `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
-          metaResult.error.issues,
+          metaResult.issues,
         );
       }
     }
