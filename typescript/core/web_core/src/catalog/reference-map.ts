@@ -15,6 +15,7 @@
  */
 
 import {childRefKindOf} from '../types/child-ref-helpers.js';
+import {componentSchemaOf} from './entry_schema.js';
 import type {Catalog, ComponentApi} from './types.js';
 
 /**
@@ -595,12 +596,15 @@ export function buildComponentRefMap(
   options: ChildRefAnalysisOptions,
 ): ComponentRefMap {
   const refMap: ComponentRefMap = {};
-  const componentApis: ComponentApi[] =
+  const catalog =
     typeof (catalogOrComponents as any)?.components?.values === 'function'
-      ? Array.from((catalogOrComponents as any).components.values())
-      : Array.isArray(catalogOrComponents)
-        ? catalogOrComponents
-        : Array.from((catalogOrComponents as Map<string, ComponentApi>).values());
+      ? (catalogOrComponents as Catalog<any, any>)
+      : undefined;
+  const componentApis: ComponentApi[] = catalog
+    ? Array.from(catalog.components.values())
+    : Array.isArray(catalogOrComponents)
+      ? catalogOrComponents
+      : Array.from((catalogOrComponents as Map<string, ComponentApi>).values());
 
   for (const compApi of componentApis) {
     const acc: ChildRefAccumulator = {
@@ -609,7 +613,7 @@ export function buildComponentRefMap(
       nestedRefs: {},
     };
 
-    inspectComponentSchema(compApi.schema, acc, options);
+    inspectComponentSchema(componentSchemaOf(catalog, compApi), acc, options);
 
     refMap[compApi.name] = {
       singleRefs: acc.singleRefs,

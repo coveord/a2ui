@@ -19,6 +19,7 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {CommonSchemas} from '../types/common-types.js';
+import {entrySchemaOverride} from './entry_json_override.js';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {
   catalogDocumentModel,
@@ -581,7 +582,7 @@ function extractZodComponentSchema(
   const rawZod = zodToJsonSchema(comp.schema, {
     target: 'jsonSchema2019-09',
     $refStrategy: 'none',
-    override: exclusiveUnionOverride,
+    override: entrySchemaOverride,
   }) as JsonObject;
   cleanSchemaNode(rawZod);
   mergeGeneratedDefs(rawZod, defs, generated);
@@ -753,7 +754,7 @@ function buildFunctionArgsSchema(
     const rawZod = zodToJsonSchema(fn.schema, {
       target: 'jsonSchema2019-09',
       $refStrategy: 'none',
-      override: exclusiveUnionOverride,
+      override: entrySchemaOverride,
     }) as JsonObject;
     cleanSchemaNode(rawZod);
     mergeGeneratedDefs(rawZod, defs, generated);

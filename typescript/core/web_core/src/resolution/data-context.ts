@@ -36,6 +36,7 @@ import {FunctionInvoker} from '../catalog/function_invoker.js';
 import {resolveSurfaceCatalog} from '../state/resolve-surface-catalog.js';
 import {SurfaceModel} from '../state/surface-model.js';
 
+import {functionSchemaOf} from '../catalog/entry_schema.js';
 import {Catalog, CatalogInterface} from '../catalog/types.js';
 import {SpecVersion} from '../spec_versions.js';
 import {IndexApi, SYSTEM_FUNCTIONS} from '../v1_0/functions/system_functions.js';
@@ -182,7 +183,7 @@ export function validateFunctionArgs(
     return;
   }
 
-  const knownKeys = getKnownSchemaKeys(fn.schema);
+  const knownKeys = getKnownSchemaKeys(functionSchemaOf(catalog, fn));
   if (!knownKeys) {
     // Schema allows arbitrary keys (e.g. passthrough)
     return;
