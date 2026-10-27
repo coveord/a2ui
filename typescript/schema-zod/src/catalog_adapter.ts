@@ -18,6 +18,7 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {
   Catalog,
+  AgentToRendererMessageSchema,
   registerCatalogSchemaAdapter,
   type CatalogSchemaAdapter,
 } from '@a2ui/web_core_v1_0';
@@ -77,6 +78,8 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
   extractRefDefName,
   getSchemaBehavior: getZodSchemaBehavior,
   getKnownSchemaKeys: getZodKnownSchemaKeys,
+  getProtocolSchema: version =>
+    version === 'v1.0' || version === '1.0' ? AgentToRendererMessageSchema : undefined,
   cleanSchemaNode,
 };
 

@@ -171,7 +171,7 @@ function validateActionSurfaceIds(
  */
 export abstract class BaseVersionAdapter implements VersionAdapter {
   abstract readonly version: ProtocolVersion;
-  protected abstract readonly schema: StandardSchema;
+  protected abstract get schema(): StandardSchema;
 
   /** Canonical catalog protocol versions compatible with this adapter. */
   get compatibleCatalogVersions(): ReadonlySet<string> {

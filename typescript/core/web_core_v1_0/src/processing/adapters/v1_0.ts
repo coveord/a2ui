@@ -15,19 +15,26 @@
  */
 
 import {BaseVersionAdapter, ProtocolVersion} from './base.js';
+import {getCatalogSchemaAdapter} from '../../catalog/schema_adapter.js';
 import {
   InternalComponentPayload,
   InternalOperation,
   INTERNAL_OPERATION_TYPES,
 } from '../operations.js';
-import {AgentToRendererMessageSchema} from '../../schema/agent-to-renderer.js';
 
 /**
  * Protocol version adapter for specification v1.0.
  */
 export class V1Point0Adapter extends BaseVersionAdapter {
   readonly version: ProtocolVersion = 'v1.0';
-  protected readonly schema = AgentToRendererMessageSchema;
+
+  protected get schema() {
+    const schema = getCatalogSchemaAdapter()?.getProtocolSchema?.(this.version);
+    if (!schema) {
+      throw new Error('Protocol validation requires an installed schema adapter.');
+    }
+    return schema;
+  }
 
   protected getNativeActionKeys(): string[] {
     return [...INTERNAL_OPERATION_TYPES];

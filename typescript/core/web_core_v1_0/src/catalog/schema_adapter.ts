@@ -23,6 +23,7 @@
  */
 import type {CatalogApi, CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 import type {SchemaBehavior} from './schema_metadata.js';
+import type {StandardSchema} from './standard_schema.js';
 import type {
   ChildRefAnalysis,
   ChildRefAnalysisOptions,
@@ -94,6 +95,8 @@ export interface CatalogSchemaAdapter {
   readonly getSchemaBehavior?: (schema: unknown) => SchemaBehavior;
   /** Extracts statically declared object keys for strict function argument validation. */
   readonly getKnownSchemaKeys?: (schema: unknown) => Set<string> | null;
+  /** Returns the validation schema for a supported protocol version. */
+  readonly getProtocolSchema?: (version: string) => StandardSchema | undefined;
   /** Converts a schema implementation to JSON Schema for legacy inline catalogs. */
   readonly schemaToJson?: (
     schema: unknown,
