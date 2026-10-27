@@ -17,6 +17,12 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
+import {
+  zodCatalogSchemaAdapter,
+  ChildListSchema as Zod3ChildListSchema,
+  DynamicStringSchema as Zod3DynamicStringSchema,
+  z as z3,
+} from '@a2ui/schema-zod';
 import {A2uiValidationError, Catalog, MessageProcessor} from '@a2ui/web_core_v1_0';
 import {z} from 'zod';
 
@@ -122,5 +128,56 @@ describe('zod4CatalogSchemaAdapter', () => {
         ]),
       A2uiValidationError,
     );
+  });
+});
+
+describe('zod4CatalogSchemaAdapter JSON Schema', () => {
+  it('writes a catalog defined in code, with common types as references', () => {
+    const components = zod4Catalog().toJson()['components'] as Record<string, unknown>;
+
+    assert.deepStrictEqual(components['Column'], {
+      type: 'object',
+      properties: {
+        component: {const: 'Column'},
+        children: {$ref: 'common_types.json#/$defs/ChildList'},
+      },
+      required: ['component', 'children'],
+      unevaluatedProperties: false,
+    });
+  });
+
+  it('bundles the common types the catalog uses into its validation schema', () => {
+    const schema = zod4Catalog().validationSchema as {
+      components: Record<string, {properties: Record<string, {$ref?: string}>}>;
+      $defs: Record<string, unknown>;
+    };
+
+    assert.strictEqual(schema.components['Text'].properties['text'].$ref, '#/$defs/DynamicString');
+    for (const name of [
+      'ChildList',
+      'ComponentId',
+      'DynamicString',
+      'DataBinding',
+      'FunctionCall',
+    ]) {
+      assert.ok(name in schema.$defs, name);
+    }
+  });
+
+  it('writes the same JSON Schema as the Zod 3 adapter for the same catalog', () => {
+    const zod3 = new Catalog(
+      'https://example.com/zod4.json',
+      '1.0',
+      [
+        {name: 'Column', schema: z3.object({children: Zod3ChildListSchema}).strict()},
+        {name: 'Text', schema: z3.object({text: Zod3DynamicStringSchema}).strict()},
+      ],
+      [],
+      {schemaAdapter: zodCatalogSchemaAdapter},
+    );
+    const zod4 = zod4Catalog();
+
+    assert.deepStrictEqual(zod4.toJson(), zod3.toJson());
+    assert.deepStrictEqual(zod4.validationSchema, zod3.validationSchema);
   });
 });
