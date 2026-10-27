@@ -17,7 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {zodCatalogSchemaAdapter} from '@a2ui/schema-zod';
+import {zod4CatalogSchemaAdapter} from '@a2ui/schema-zod-v4';
 import {isCompleteComponentMetadata, type ComponentSchemaMetadata} from '@a2ui/web_core_v1_0';
 
 import {basicCatalog} from './catalog.js';
@@ -37,7 +37,7 @@ describe('basic catalog schema metadata', () => {
   for (const api of basicCatalog.components.values()) {
     it(`${api.name} ships complete metadata that matches its Zod schema`, () => {
       assert.ok(isCompleteComponentMetadata(api.schemaMetadata));
-      const derived = zodCatalogSchemaAdapter.describeComponent!(api.schema);
+      const derived = zod4CatalogSchemaAdapter.describeComponent!(api.schema);
 
       assert.deepStrictEqual(childRefs(api.schemaMetadata), childRefs(derived));
       assert.deepStrictEqual(

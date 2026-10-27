@@ -46,6 +46,7 @@
     "playwright": "1.58.1",
     "playwright-core": "1.58.1",
     "typescript": "5.9.3",
+    "@a2ui/catalog-basic/zod": "4.6.7",
     "@a2ui/schema-zod-v4/zod": "4.6.7",
     "zod": "^3.25.76",
     "hono": "^4.11.10",

@@ -27,12 +27,12 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@a2ui/schema-zod": "workspace:*",
+    "@a2ui/schema-zod-v4": "workspace:*",
     "@a2ui/web_core_v1_0": "workspace:*",
     "@lit/context": "^1.1.6",
     "lit": "^3.3.3",
     "validate-color": "^2.2.4",
-    "zod": "^3.25.76"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/jsdom": "^28.0.3",

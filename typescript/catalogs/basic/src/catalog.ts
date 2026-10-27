@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import {zodCatalogSchemaAdapter} from '@a2ui/schema-zod';
+import {zod4CatalogSchemaAdapter} from '@a2ui/schema-zod-v4';
 import {Catalog} from '@a2ui/web_core_v1_0';
 import {BasicCatalogThemeSchema} from './theme.js';
 import type {WebComponentImplementation} from '@a2ui/web_core_v1_0';
-import {BASIC_CATALOG_DOCUMENT_OPTIONS} from './components/basic_components.js';
+import BASIC_CATALOG_DOCUMENT from './catalog.json' with {type: 'json'};
 import {
   A2uiAudioPlayer,
   A2uiButton,
@@ -45,11 +45,12 @@ import {BASIC_FUNCTIONS} from './functions/basic_functions.js';
  * The v1 basic catalog of A2UI components implemented via Web Components
  * (Custom Elements).
  *
- * Its components and functions are the models generated from the published
- * catalog document (see scripts/generate-catalog-schemas.mjs), listed in the
- * document's order, and its document-level fields are those the generated
- * models carry, so `toJson` computes the published document from the models
- * and `validationSchema` is built from it.
+ * Its components and functions are the Zod 4 models generated from the
+ * published catalog document (see scripts/generate-catalog-schemas.mjs),
+ * listed in the document's order. The catalog carries that document, a copy
+ * of catalogs/basic/v1/catalog.json, so `toJson` returns it. The Zod 4 schema
+ * adapter does not generate JSON Schema yet, so `validationSchema` is not
+ * available.
  */
 export const basicCatalog = new Catalog<WebComponentImplementation>(
   'https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json',
@@ -77,7 +78,13 @@ export const basicCatalog = new Catalog<WebComponentImplementation>(
   BASIC_FUNCTIONS,
   {
     themeSchema: BasicCatalogThemeSchema,
-    schemaAdapter: zodCatalogSchemaAdapter,
-    ...BASIC_CATALOG_DOCUMENT_OPTIONS,
+    schemaAdapter: zod4CatalogSchemaAdapter,
+    document: BASIC_CATALOG_DOCUMENT,
+    schemaUri: BASIC_CATALOG_DOCUMENT.$schema,
+    schemaId: BASIC_CATALOG_DOCUMENT.$id,
+    title: BASIC_CATALOG_DOCUMENT.title,
+    description: BASIC_CATALOG_DOCUMENT.description,
+    instructions: BASIC_CATALOG_DOCUMENT.instructions,
+    declaredProtocolVersion: BASIC_CATALOG_DOCUMENT.protocolVersion,
   },
 );

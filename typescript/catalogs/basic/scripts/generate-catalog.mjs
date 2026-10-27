@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import {copyFileSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {generateCatalogApi} from './generate-catalog-schemas.mjs';
@@ -24,15 +25,20 @@ const rootDir = resolve(__dirname, '../../../..');
 
 console.log('Generating Basic Catalog v1 APIs...');
 
+const catalogPath = join(rootDir, 'catalogs', 'basic', 'v1', 'catalog.json');
+
 generateCatalogApi({
   version: 'v1_0',
-  catalogPath: join(rootDir, 'catalogs', 'basic', 'v1', 'catalog.json'),
+  catalogPath,
   commonTypesPath: join(rootDir, 'specification', 'v1_0', 'json', 'common_types.json'),
   componentsOutPath: join(catalogSourceDir, 'components', 'basic_components.ts'),
   functionsOutPath: join(catalogSourceDir, 'functions', 'basic_functions_api.ts'),
-  commonTypesImportPath: '@a2ui/schema-zod',
+  commonTypesImportPath: '@a2ui/schema-zod-v4',
   typesImportPath: '@a2ui/web_core_v1_0',
-  specImportPath: '@a2ui/schema-zod',
+  // The Zod 4 adapter cannot reproduce a catalog document, so the catalog
+  // carries the published one instead (see src/catalog.ts).
+  reproduceDocument: false,
 });
+copyFileSync(catalogPath, join(catalogSourceDir, 'catalog.json'));
 
 console.log('Successfully generated Basic Catalog v1 APIs.');

@@ -16,7 +16,7 @@
 
 import {RequiredApi, RegexApi, LengthApi, NumericApi, EmailApi} from './basic_functions_api.js';
 
-import type {ValidationResultInput} from '@a2ui/schema-zod';
+import type {ValidationResultInput} from '@a2ui/schema-zod-v4';
 
 declare module '@a2ui/web_core_v1_0' {
   interface A2uiReturnTypeMap {

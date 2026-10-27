@@ -979,6 +979,9 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
  * @param {string} [options.typesImportPath] Relative import path for catalog types.
  * @param {string} [options.specImportPath] Relative import path for spec annotations,
  *     from the functions file.
+ * @param {boolean} [options.reproduceDocument] Whether the generated models are
+ *     annotated so a schema adapter can reproduce the catalog document from
+ *     them. Defaults to true.
  */
 export function generateCatalogApi({
   version,
@@ -989,6 +992,7 @@ export function generateCatalogApi({
   commonTypesImportPath,
   typesImportPath,
   specImportPath,
+  reproduceDocument = true,
 }) {
   const commonJson = JSON.parse(readFileSync(commonTypesPath, 'utf8'));
   const catalogJson = JSON.parse(readFileSync(catalogPath, 'utf8'));
@@ -999,7 +1003,7 @@ export function generateCatalogApi({
       commonTypesImportPath,
       specImportPath,
       typesImportPath,
-      reproduceDocument: true,
+      reproduceDocument,
     });
     writeFileSync(componentsOutPath, componentsTs);
   }
@@ -1008,7 +1012,7 @@ export function generateCatalogApi({
     const functionsTs = generateFunctionsFile(version, catalogJson, commonDefs, {
       commonTypesImportPath,
       specImportPath,
-      reproduceDocument: true,
+      reproduceDocument,
     });
     writeFileSync(functionsOutPath, functionsTs);
   }
