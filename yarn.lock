@@ -468,6 +468,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@a2ui/schema-zod-v4@workspace:typescript/schema-zod-v4":
+  version: 0.0.0-use.local
+  resolution: "@a2ui/schema-zod-v4@workspace:typescript/schema-zod-v4"
+  dependencies:
+    "@a2ui/schema-zod": "workspace:*"
+    "@a2ui/web_core_v1_0": "workspace:*"
+    "@types/node": "npm:25.9.3"
+    eslint: "npm:10.4.1"
+    prettier: "npm:3.8.4"
+    typescript: "npm:5.9.3"
+    zod: "npm:4.6.7"
+  languageName: unknown
+  linkType: soft
+
 "@a2ui/schema-zod@workspace:*, @a2ui/schema-zod@workspace:typescript/schema-zod":
   version: 0.0.0-use.local
   resolution: "@a2ui/schema-zod@workspace:typescript/schema-zod"
@@ -25619,6 +25633,13 @@ __metadata:
   peerDependencies:
     zod: ^3.25.0 || ^4.0.0
   checksum: 10c0/0ccfec48c46de1be440b719cd02044d4abb89ed0e14c13e637cd55bf29102f67ccdba373f25def0fc7130e5f15025be4d557a7edcc95d5a3811599aade689e1b
+  languageName: node
+  linkType: hard
+
+"zod@npm:4.6.7":
+  version: 4.6.7
+  resolution: "zod@npm:4.6.7"
+  checksum: 10c0/4ce2eb14034317b7254e347ca37b5ad591cf8333147030cf05b9b5d31692d45073f7f2747aa50cf8c6b29012194d2b22978cecc89969cf34a0d18e89d0ee7d7b
   languageName: node
   linkType: hard
 
