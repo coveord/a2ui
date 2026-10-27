@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
-import type {StandardSchemaV1} from '@standard-schema/spec';
 import {z} from 'zod/v3';
 
-import {A2uiCatalogError} from '../errors.js';
-import {zod3SchemaOf, type EntrySchema} from './a2ui_schema.js';
+import {
+  validateA2uiSchema,
+  zod3SchemaOf,
+  type A2uiSchemaResult,
+  type A2uiValidator,
+  type EntrySchema,
+} from './a2ui_schema.js';
 import {loadedDefinition} from './json_entries.js';
 import {DEFAULT_PROTOCOL_VERSION, linkEntry, parseCatalogSchema} from './schema_loader.js';
 import {serializeCatalogDocument} from './schema_serializer.js';
@@ -186,16 +190,8 @@ export function themeSchemaOf(
   return typeof catalog.toJson === 'function' ? reloadedEntries(catalog).themeSchema : undefined;
 }
 
-/** Reads a library's validation result as a Zod parse result. */
-function asParseResult(
-  result: StandardSchemaV1.Result<unknown> | Promise<StandardSchemaV1.Result<unknown>>,
-  vendor: string,
-): z.SafeParseReturnType<unknown, unknown> {
-  if (result instanceof Promise) {
-    throw new A2uiCatalogError(
-      `A schema from '${vendor}' validates asynchronously, which A2UI does not support.`,
-    );
-  }
+/** Reads a synchronous Standard Schema result as a Zod parse result. */
+function asParseResult(result: A2uiSchemaResult<unknown>): z.SafeParseReturnType<unknown, unknown> {
   if (!result.issues) return {success: true, data: result.value};
   return {
     success: false,
@@ -204,8 +200,8 @@ function asParseResult(
         code: z.ZodIssueCode.custom,
         message: issue.message,
         path: (issue.path ?? []).map(segment =>
-          typeof segment === 'object'
-            ? (segment.key as string | number)
+          typeof segment === 'object' && segment !== null && 'key' in segment
+            ? ((segment as {key: unknown}).key as string | number)
             : (segment as string | number),
         ),
       })),
@@ -241,6 +237,5 @@ export function safeParseEntry(
     if (!result.success || (!zod3 && !('~standard' in ownSchema))) return result;
   }
   if (zod3) return zod3.safeParse(value);
-  const standard = (ownSchema as StandardSchemaV1)['~standard'];
-  return asParseResult(standard.validate(value), standard.vendor);
+  return asParseResult(validateA2uiSchema(ownSchema as A2uiValidator, value));
 }
