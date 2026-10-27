@@ -329,6 +329,13 @@ export interface CatalogOptions extends CatalogDocumentOptions {
    * require it.
    */
   schemaAdapter?: CatalogSchemaAdapter;
+  /**
+   * The catalog document as published, which `toJson` returns instead of
+   * asking the schema adapter to serialize the catalog. Generated catalogs
+   * set it when their models do not record how to reproduce the document.
+   * A catalog derived with `withEntries` does not keep it.
+   */
+  document?: Readonly<Record<string, unknown>>;
 }
 
 /**
@@ -837,6 +844,7 @@ export class Catalog<
     // frozen, such as those `fromJson` produced, are kept without copying.
     this.defs = frozenJson(options.defs);
     this.extensionFields = frozenJson(options.extensionFields);
+    this.cachedDocument = frozenJson(options.document);
     this.commonTypesUri = options.commonTypesUri;
     this.themeLocation = options.themeLocation;
     this.defModels = options.defModels ? Object.freeze([...options.defModels]) : undefined;

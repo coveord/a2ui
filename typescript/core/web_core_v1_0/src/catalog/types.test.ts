@@ -120,6 +120,23 @@ describe('Catalog schema adapter', () => {
     assert.deepStrictEqual(catalog.toJson(), document);
   });
 
+  it('returns the published document it carries, without an adapter', () => {
+    const document = {catalogId: 'published', components: {}};
+    const catalog = new Catalog('published', '1.0', [], [], {document});
+
+    assert.deepStrictEqual(catalog.toJson(), document);
+    assert.notStrictEqual(catalog.toJson(), document);
+  });
+
+  it('drops the published document on catalogs derived with withEntries', () => {
+    const catalog = new Catalog('published', '1.0', [], [], {
+      document: {catalogId: 'published'},
+      schemaAdapter: testSchemaAdapter({retainedDefs: defs => defs}),
+    });
+
+    assert.throws(() => catalog.withEntries([], []).toJson(), /'serializeCatalog'/);
+  });
+
   it('keeps the adapter on catalogs derived with withEntries', () => {
     const schemaAdapter = testSchemaAdapter({retainedDefs: defs => defs});
     const catalog = new Catalog('derived', '1.0', [], [], {schemaAdapter});
