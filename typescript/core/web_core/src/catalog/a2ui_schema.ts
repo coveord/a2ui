@@ -20,6 +20,8 @@ import type {z} from 'zod/v3';
 import {A2uiCatalogError} from '../errors.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
 
+export type {StandardJSONSchemaV1, StandardSchemaV1};
+
 /**
  * A schema from any library that implements both Standard Schema and Standard
  * JSON Schema, such as Zod 4, Valibot or ArkType.
@@ -99,6 +101,18 @@ const DOCUMENT_KEYWORDS = ['$schema', '$id'];
 
 function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Whether a value is a schema that A2UI reads through its JSON Schema view
+ * rather than as a plain JSON Schema object: one implementing Standard Schema
+ * (`~standard`), or a Zod 3 schema.
+ *
+ * @param value The value to test.
+ */
+export function isA2uiSchema(value: unknown): value is A2uiStandardSchema {
+  if (typeof value !== 'object' || value === null) return false;
+  return '~standard' in value || zod3SchemaOf(value) !== undefined;
 }
 
 /**
