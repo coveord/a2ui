@@ -21,7 +21,13 @@
  * the reverse. Later extraction steps add catalog parsing and serialization
  * operations to this contract as their Zod implementations move here.
  */
-import type {CatalogApi} from './types.js';
+import type {CatalogApi, CatalogInterface, ComponentApi, FunctionApi} from './types.js';
+import type {
+  ChildRefAnalysis,
+  ChildRefAnalysisOptions,
+  ComponentRefMap,
+  RefFields,
+} from './component_references.js';
 
 /** Input accepted by a catalog schema adapter's parser. */
 export interface CatalogParseRequest {
@@ -38,6 +44,62 @@ export interface CatalogSchemaAdapter {
   readonly name: string;
   /** Parses a catalog document into core catalog models when supported. */
   readonly parseCatalog?: (request: CatalogParseRequest) => CatalogApi;
+  /** Serializes a catalog into its authored document form. */
+  readonly serializeCatalog?: (
+    catalog: CatalogInterface<ComponentApi, FunctionApi>,
+  ) => Record<string, unknown>;
+  /** Generates a self-contained JSON Schema used to validate catalog payloads. */
+  readonly generateValidationSchema?: (
+    catalog: CatalogInterface<ComponentApi, FunctionApi>,
+  ) => Record<string, unknown>;
+  /** Links an entry to peer catalog definitions. */
+  readonly linkEntry?: <Entry extends ComponentApi | FunctionApi>(
+    entry: Entry,
+    peers: readonly CatalogInterface<ComponentApi, FunctionApi>[],
+  ) => Entry;
+  /** Detects whether a catalog document references an external catalog. */
+  readonly hasCrossDocumentRefs?: (document: unknown) => boolean;
+  /** Retains only definitions reachable from the catalog entries that remain. */
+  readonly retainedDefs?: (
+    defs: Readonly<Record<string, unknown>> | undefined,
+    previousEntries: readonly (ComponentApi | FunctionApi)[],
+    nextEntries: readonly (ComponentApi | FunctionApi)[],
+    extensionFields: Readonly<Record<string, unknown>> | undefined,
+  ) => Readonly<Record<string, unknown>> | undefined;
+  /** Builds the topology reference map for a catalog. */
+  readonly buildComponentRefMap?: (
+    catalog: CatalogInterface<ComponentApi, FunctionApi>,
+    options: ChildRefAnalysisOptions,
+  ) => ComponentRefMap;
+  /** Inspects a schema for child-reference behavior. */
+  readonly analyzeChildRefSchema?: (
+    schema: unknown,
+    options: ChildRefAnalysisOptions,
+  ) => ChildRefAnalysis;
+  /** Decides whether a schema represents a single child reference. */
+  readonly isChildSchema?: (schema: unknown, options: ChildRefAnalysisOptions) => boolean;
+  /** Decides whether a schema represents a child list or dynamic template. */
+  readonly isChildListSchema?: (schema: unknown, options: ChildRefAnalysisOptions) => boolean;
+  /** Decides whether a schema represents any child reference form. */
+  readonly isChildOrChildListSchema?: (
+    schema: unknown,
+    options: ChildRefAnalysisOptions,
+  ) => boolean;
+  /** Extracts component child-reference fields from a schema implementation. */
+  readonly extractRefFields?: (schema: unknown) => RefFields;
+  /** Extracts a referenced definition name from a schema-library marker. */
+  readonly extractRefDefName?: (ref: string) => string;
+  /** Converts a schema implementation to JSON Schema for legacy inline catalogs. */
+  readonly schemaToJson?: (
+    schema: unknown,
+    options?: Readonly<Record<string, unknown>>,
+  ) => Record<string, unknown>;
+  /** Removes JSON Schema keywords unsupported by generated renderer capabilities. */
+  readonly cleanSchemaNode?: (
+    schema: unknown,
+    visited?: Set<unknown>,
+    options?: {readonly stripAdditionalProperties?: boolean},
+  ) => unknown;
 }
 
 let registeredAdapter: CatalogSchemaAdapter | undefined;

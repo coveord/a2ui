@@ -15,7 +15,7 @@
  */
 
 import {z} from 'zod';
-import {childRefKindOf, type ChildRefKind} from '../types/child-ref-helpers.js';
+import {childRefKindOf, type ChildRefKind} from '@a2ui/web_core_v1_0';
 
 /**
  * Classification reads the child-reference marker `ComponentIdSchema` and

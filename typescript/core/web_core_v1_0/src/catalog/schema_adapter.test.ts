@@ -17,23 +17,18 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {
-  getCatalogSchemaAdapter,
-  registerCatalogSchemaAdapter,
-  type CatalogSchemaAdapter,
-} from './schema_adapter.js';
-
-const adapter: CatalogSchemaAdapter = {name: 'test-schema-adapter'};
+import {getCatalogSchemaAdapter, registerCatalogSchemaAdapter} from './schema_adapter.js';
 
 describe('catalog schema adapter registration', () => {
   it('keeps one deterministic adapter registration', () => {
-    registerCatalogSchemaAdapter(adapter);
+    const adapter = getCatalogSchemaAdapter();
+    assert.ok(adapter);
     registerCatalogSchemaAdapter(adapter);
 
     assert.strictEqual(getCatalogSchemaAdapter(), adapter);
     assert.throws(
       () => registerCatalogSchemaAdapter({name: 'another-schema-adapter'}),
-      /already registered: test-schema-adapter/,
+      new RegExp(`already registered: ${adapter.name}`),
     );
   });
 });

@@ -25,12 +25,20 @@ import {
 } from '../types/common-types.js';
 import {childRefKindOf} from '../types/child-ref-helpers.js';
 import type {Action as V1Action} from '../schema/common-types.js';
-import {extractRefDefName} from '../catalog/reference-map.js';
+import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import type {ComponentSchemaMetadata} from '../catalog/schema_metadata.js';
 
 // --- Schema Scraping ---
+
+function extractRefDefName(ref: string): string {
+  const extract = getCatalogSchemaAdapter()?.extractRefDefName;
+  if (!extract) {
+    throw new Error('Schema behavior scraping requires an installed schema adapter.');
+  }
+  return extract(ref);
+}
 
 /**
  * Represents the intended runtime behavior of a property parsed from its Zod
@@ -41,6 +49,7 @@ import type {ComponentSchemaMetadata} from '../catalog/schema_metadata.js';
  *   values.
  * - ACTION: The property represents a user interaction (e.g. Action). The
  *   Binder will resolve deep payload bindings and output a ready-to-call () =>
+
  *   void closure.
  * - STRUCTURAL: The property dictates the rendering of child components (e.g.
  *   ChildList). The Binder outputs lists of objects containing { id, basePath }

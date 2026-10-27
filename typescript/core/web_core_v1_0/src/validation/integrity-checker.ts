@@ -28,32 +28,64 @@ export const MAX_FUNC_CALL_DEPTH = 5;
 export const RELAXED_PATH_PATTERN =
   /^(?:(?:\/(?:[^~/]|~[01])*)*|(?:[^~/]|~[01])+(?:\/(?:[^~/]|~[01])*)*)$/;
 
-import {
-  analyzeChildRefSchema,
-  buildComponentRefMap,
+import type {
   ChildRefAnalysis,
   ChildRefAnalysisOptions,
-  ComponentChildRefs,
   ComponentRefMap,
-  isChildListSchema,
-  isChildOrChildListSchema,
-  isChildSchema,
-} from '../catalog/reference-map.js';
+} from '../catalog/component_references.js';
+import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 
 import {isValidUax31Identifier, assertUax31Identifier} from '../common/uax31.js';
 
-export type {ChildRefAnalysis, ChildRefAnalysisOptions, ComponentChildRefs, ComponentRefMap};
-export {
-  analyzeChildRefSchema,
-  assertUax31Identifier,
-  buildComponentRefMap,
-  isChildListSchema,
-  isChildOrChildListSchema,
-  isChildSchema,
-  isValidUax31Identifier,
-  V10_CHILD_REF_OPTIONS,
-};
+export function analyzeChildRefSchema(
+  schema: unknown,
+  options: ChildRefAnalysisOptions,
+): ChildRefAnalysis {
+  const analyze = getCatalogSchemaAdapter()?.analyzeChildRefSchema;
+  if (!analyze) {
+    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
+  }
+  return analyze(schema, options);
+}
+
+export function buildComponentRefMap(
+  catalog: Catalog<ComponentApi>,
+  options: ChildRefAnalysisOptions,
+): ComponentRefMap {
+  const build = getCatalogSchemaAdapter()?.buildComponentRefMap;
+  if (!build) {
+    throw new A2uiValidationError('Reference mapping requires an installed schema adapter.');
+  }
+  return build(catalog, options);
+}
+
+export function isChildSchema(schema: unknown, options: ChildRefAnalysisOptions): boolean {
+  const check = getCatalogSchemaAdapter()?.isChildSchema;
+  if (!check)
+    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
+  return check(schema, options);
+}
+
+export function isChildListSchema(schema: unknown, options: ChildRefAnalysisOptions): boolean {
+  const check = getCatalogSchemaAdapter()?.isChildListSchema;
+  if (!check)
+    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
+  return check(schema, options);
+}
+
+export function isChildOrChildListSchema(
+  schema: unknown,
+  options: ChildRefAnalysisOptions,
+): boolean {
+  const check = getCatalogSchemaAdapter()?.isChildOrChildListSchema;
+  if (!check)
+    throw new A2uiValidationError('Reference analysis requires an installed schema adapter.');
+  return check(schema, options);
+}
+
+export type {ChildRefAnalysis, ChildRefAnalysisOptions, ComponentRefMap};
+export {assertUax31Identifier, isValidUax31Identifier, V10_CHILD_REF_OPTIONS};
 
 /**
  * Yields `[referencedId, path]` pairs for every child reference reachable from a

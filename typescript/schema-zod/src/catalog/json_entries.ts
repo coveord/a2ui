@@ -16,7 +16,7 @@
 
 import type {z} from 'zod';
 
-import type {JsonSchemaObject} from './schema_annotations.js';
+import type {JsonSchemaObject} from '@a2ui/web_core_v1_0/catalog';
 
 /**
  * The JSON Schema definitions of the entries `Catalog.fromJson` loaded, by

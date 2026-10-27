@@ -19,17 +19,19 @@ import {describe, it} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {z} from 'zod';
-import {Catalog} from './types.js';
+import {Catalog} from '@a2ui/web_core_v1_0';
+import {V10_CHILD_REF_OPTIONS} from '@a2ui/web_core_v1_0';
+import {STRICT_VALIDATION} from '@a2ui/web_core_v1_0';
+import {PayloadValidator} from '@a2ui/web_core_v1_0';
+import {A2uiCatalogError} from '@a2ui/web_core_v1_0';
+
+import '../catalog_adapter.js';
 import {analyzeChildRefSchema} from './reference-map.js';
-import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
-import {STRICT_VALIDATION} from '../validation/integrity-checker.js';
-import {PayloadValidator} from '../validation/payload-validator.js';
-import {A2uiCatalogError} from '../errors.js';
 
 describe('Catalog.fromJson & schema_loader', () => {
   const basicCatalogPath = resolve(
     process.cwd(),
-    '../../../specification/v0_9_1/catalogs/basic/catalog.json',
+    '../../specification/v0_9_1/catalogs/basic/catalog.json',
   );
   const basicCatalogJson = JSON.parse(readFileSync(basicCatalogPath, 'utf-8'));
 
@@ -162,7 +164,7 @@ describe('Catalog.fromJson & schema_loader', () => {
   });
 
   it('resolves the Child reference from common_types.json', () => {
-    const v10BasicCatalogPath = resolve(process.cwd(), '../../../catalogs/basic/v1/catalog.json');
+    const v10BasicCatalogPath = resolve(process.cwd(), '../../catalogs/basic/v1/catalog.json');
     const v10BasicCatalogJson = JSON.parse(readFileSync(v10BasicCatalogPath, 'utf-8'));
     const catalog = Catalog.fromJson(v10BasicCatalogJson);
 

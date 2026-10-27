@@ -173,7 +173,7 @@
       "clean": "if-file-deleted"
     },
     "test": {
-      "command": "node --test \"dist/**/*.test.js\" \"tests/timing/*.test.mjs\""
+      "command": "(cd ../../schema-zod && yarn build) && node --import ./dist/src/test/dom-setup.js --import ../../schema-zod/dist/src/index.js --test \"dist/**/*.test.js\" \"tests/timing/*.test.mjs\""
     },
     "test:timing": {
       "command": "node --expose-gc --test --test-concurrency=1 \"tests/timing/**/*_test.mjs\"",

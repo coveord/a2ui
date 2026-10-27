@@ -17,8 +17,7 @@
 
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
-import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
-import {CommonSchemas} from '../types/common-types.js';
+import {CommonSchemas, isAtLeastVersion, toCanonicalVersion} from '@a2ui/web_core_v1_0';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {
   catalogDocumentModel,
@@ -28,7 +27,7 @@ import {
 } from './schema_serializer.js';
 import {inlinePeerAndLocalRefs, isShorthandParameterMap} from './schema_loader.js';
 import {schemaRequiresArgs, standardDefsForVersion} from './spec_shape.js';
-import type {CatalogInterface, ComponentApi, FunctionApi} from './types.js';
+import type {CatalogInterface, ComponentApi, FunctionApi} from '@a2ui/web_core_v1_0/catalog';
 
 /**
  * Resolves the appropriate standard $defs dictionary based on options or catalog configuration.

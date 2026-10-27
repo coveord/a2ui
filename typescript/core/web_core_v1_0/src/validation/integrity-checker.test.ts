@@ -22,7 +22,7 @@ import {describe, it} from 'node:test';
 import assert from 'node:assert/strict';
 import {getComponentReferences} from './integrity-checker.js';
 import {A2uiIntegrityError, A2uiRecursionError} from '../errors.js';
-import {ComponentRefMap} from '../catalog/reference-map.js';
+import {ComponentRefMap} from '../catalog/component_references.js';
 
 describe('Integrity Verification', () => {
   describe('getComponentReferences', () => {

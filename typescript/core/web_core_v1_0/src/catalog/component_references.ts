@@ -39,3 +39,12 @@ export interface ChildRefAnalysisOptions {
   readonly childListRefNames: ReadonlySet<string>;
   readonly childPropertyNames?: ReadonlySet<string>;
 }
+
+/** Describes how a component property references child component nodes. */
+export type RefKind =
+  | {readonly kind: 'single'}
+  | {readonly kind: 'list'}
+  | {readonly kind: 'nested'; readonly keys: ReadonlySet<string>};
+
+/** Child-referencing properties of a component schema. */
+export type RefFields = ReadonlyMap<string, RefKind>;

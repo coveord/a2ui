@@ -16,10 +16,13 @@
 
 import {z} from 'zod';
 
-import {isAtLeastVersion} from '../common/semver.js';
-import {assertUax31Identifier} from '../common/uax31.js';
-import {A2uiCatalogError} from '../errors.js';
-import {CommonSchemas, ComponentCommonSchema} from '../types/common-types.js';
+import {
+  A2uiCatalogError,
+  assertUax31Identifier,
+  CommonSchemas,
+  ComponentCommonSchema,
+  isAtLeastVersion,
+} from '@a2ui/web_core_v1_0';
 import {exclusiveUnion} from './exclusive_union.js';
 import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import {
@@ -28,7 +31,12 @@ import {
   deepCopyJson,
   deepFreeze,
 } from './schema_serializer.js';
-import type {CatalogDocumentOptions, CatalogInterface, ComponentApi, FunctionApi} from './types.js';
+import type {
+  CatalogDocumentOptions,
+  CatalogInterface,
+  ComponentApi,
+  FunctionApi,
+} from '@a2ui/web_core_v1_0/catalog';
 
 /**
  * The fields of a parsed catalog document: its ID, version and entries, and

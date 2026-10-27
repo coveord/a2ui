@@ -32,7 +32,8 @@ import {
   NodeProps,
   PLACEHOLDER_TYPE,
 } from './component-node.js';
-import {extractRefFields, RefFields} from './ref-fields.js';
+import type {RefFields} from '../catalog/component_references.js';
+import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {ResolvedBinding, WritableBinding, sameBinding} from './resolved-binding.js';
 import {Signal, signal, setValue, peekValue} from '../reactivity/signals.js';
 import {Subscription} from '../common/events.js';
@@ -42,6 +43,14 @@ const ROOT_COMPONENT_ID = 'root';
 const ROOT_DATA_PATH = '/';
 
 const EMPTY_REF_FIELDS: RefFields = new Map();
+
+function requireRefFields(schema: unknown): RefFields {
+  const extract = getCatalogSchemaAdapter()?.extractRefFields;
+  if (!extract) {
+    throw new A2uiStateError('Node resolution requires an installed schema adapter.');
+  }
+  return extract(schema);
+}
 
 interface NodeRecord {
   readonly node: MutableComponentNode;
@@ -362,7 +371,7 @@ export class NodeResolver<
         edgeKey,
         parent,
         occurrence,
-        refFields: extractRefFields(api.schema),
+        refFields: requireRefFields(api.schema),
         behavior: scrapeSchemaBehavior(api.schema),
         componentModel: model,
         binder,

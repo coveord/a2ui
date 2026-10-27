@@ -37,7 +37,6 @@ export {
   type NodeState,
 } from './component-node.js';
 export * from './node-resolver.js';
-export * from './ref-fields.js';
 export * from './resolved-binding.js';
 export type {
   /** Asynchronous markdown rendering function. */

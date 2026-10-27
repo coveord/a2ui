@@ -31,10 +31,18 @@
 import {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
-import {isAtLeastVersion, normalizeVersionString, toCanonicalVersion} from '../common/semver.js';
-import {V10_STANDARD_DEFS} from '../standard_defs.js';
+import {
+  isAtLeastVersion,
+  normalizeVersionString,
+  toCanonicalVersion,
+  V10_STANDARD_DEFS,
+} from '@a2ui/web_core_v1_0';
 import {exclusiveUnionOverride} from './exclusive_union.js';
-import {getSchemaAnnotation, type SpecAnnotation, type SpecMixin} from './schema_annotations.js';
+import {
+  getSchemaAnnotation,
+  type SpecAnnotation,
+  type SpecMixin,
+} from '@a2ui/web_core_v1_0/catalog';
 
 type JsonObject = Record<string, unknown>;
 

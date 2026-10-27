@@ -32,7 +32,6 @@ export {
   type ComponentChildRefs,
   type ComponentRefMap,
 } from './component_references.js';
-export {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 export {
   getSchemaAnnotation,
   setSchemaAnnotation,

@@ -14,21 +14,19 @@
  * limitations under the License.
  */
 
-import {childRefKindOf} from '../types/child-ref-helpers.js';
+import {childRefKindOf} from '@a2ui/web_core_v1_0';
 import type {
   ChildRefAnalysis,
   ChildRefAnalysisOptions,
-  ComponentChildRefs,
   ComponentRefMap,
-} from './component_references.js';
-import type {Catalog, ComponentApi} from './types.js';
+} from '@a2ui/web_core_v1_0/catalog';
+import type {Catalog, ComponentApi} from '@a2ui/web_core_v1_0/catalog';
 
 export type {
   ChildRefAnalysis,
   ChildRefAnalysisOptions,
-  ComponentChildRefs,
   ComponentRefMap,
-} from './component_references.js';
+} from '@a2ui/web_core_v1_0/catalog';
 
 /**
  * Extracts the target definition name from a JSON Schema `$ref` pointer or URI.

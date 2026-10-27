@@ -21,32 +21,15 @@ import {Signal} from '../reactivity/signals.js';
 import {A2uiCatalogError, A2uiExpressionError} from '../errors.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {SpecVersion} from '../spec_versions.js';
-import {
-  hasCrossDocumentRefs,
-  inlinePeerAndLocalRefs,
-  linkEntry,
-  parseCatalogSchema,
-} from './schema_loader.js';
 import type {JsonSchemaObject} from './schema_annotations.js';
-import {generateValidationSchema} from './schema_generator.js';
-import {
-  deepCopyJson,
-  frozenJson,
-  retainedDefs,
-  serializeCatalogDocument,
-} from './schema_serializer.js';
-import {
-  buildComponentRefMap,
-  type ComponentChildRefs,
-  type ComponentRefMap,
-} from './reference-map.js';
+import {deepCopyJson, frozenJson} from './json.js';
+import {type ComponentChildRefs, type ComponentRefMap} from './component_references.js';
 import {IndexImplementation} from '../functions/system_functions.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 import type {ComponentSchemaMetadata} from './schema_metadata.js';
 import {getCatalogSchemaAdapter} from './schema_adapter.js';
 
 export type {ComponentChildRefs};
-export {inlinePeerAndLocalRefs};
 
 /**
  * Registry mapping A2UI function return type identifiers to their TypeScript runtime types.
@@ -62,6 +45,16 @@ export interface A2uiReturnTypeMap {
   object: Record<string, unknown>;
   any: unknown;
   void: void;
+}
+
+function requireCatalogSchemaAdapter() {
+  const adapter = getCatalogSchemaAdapter();
+  if (!adapter) {
+    throw new A2uiCatalogError(
+      'Catalog schema operations require an installed schema adapter such as @a2ui/schema-zod.',
+    );
+  }
+  return adapter;
 }
 
 /**
@@ -566,11 +559,11 @@ export class Catalog<
 
     const components = new Map<string, T>();
     for (const [name, component] of this.components) {
-      components.set(name, linkEntry(component, linked));
+      components.set(name, requireCatalogSchemaAdapter().linkEntry!(component, linked));
     }
     const functions = new Map<string, F>();
     for (const [name, fn] of this.functions) {
-      functions.set(name, linkEntry(fn, linked));
+      functions.set(name, requireCatalogSchemaAdapter().linkEntry!(fn, linked));
     }
     const copy = Object.create(Object.getPrototypeOf(this)) as this;
     Object.assign(copy, this, {
@@ -601,9 +594,9 @@ export class Catalog<
    */
   get validationSchema(): Record<string, unknown> {
     if (!this.cachedValidationSchema) {
-      this.cachedValidationSchema = generateValidationSchema(this);
+      this.cachedValidationSchema = requireCatalogSchemaAdapter().generateValidationSchema!(this);
     }
-    return deepCopyJson(this.cachedValidationSchema);
+    return deepCopyJson(this.cachedValidationSchema!);
   }
 
   /**
@@ -638,7 +631,7 @@ export class Catalog<
    */
   toJson(): Record<string, unknown> {
     if (!this.cachedDocument) {
-      this.cachedDocument = serializeCatalogDocument(this);
+      this.cachedDocument = requireCatalogSchemaAdapter().serializeCatalog!(this);
     }
     return deepCopyJson(this.cachedDocument);
   }
@@ -687,7 +680,7 @@ export class Catalog<
       declaresComponents: this.declaresComponents,
       functionsLayout: this.functionsLayout,
       unions,
-      defs: retainedDefs(
+      defs: requireCatalogSchemaAdapter().retainedDefs!(
         baseDefs,
         [...this.components.values(), ...this.functions.values()],
         [...components, ...functions],
@@ -710,7 +703,7 @@ export class Catalog<
   get componentRefMap(): ComponentRefMap {
     if (!this._componentRefMap) {
       const options = V10_CHILD_REF_OPTIONS;
-      this._componentRefMap = buildComponentRefMap(this, options);
+      this._componentRefMap = requireCatalogSchemaAdapter().buildComponentRefMap!(this, options);
     }
     return this._componentRefMap;
   }
@@ -809,18 +802,7 @@ export class Catalog<
     protocolVersion?: string,
     catalogId?: string,
   ): CatalogApi {
-    const adapter = getCatalogSchemaAdapter();
-    if (adapter?.parseCatalog) {
-      return adapter.parseCatalog({json, protocolVersion, catalogId});
-    }
-    const {
-      id,
-      protocolVersion: resolvedVersion,
-      components,
-      functions,
-      ...options
-    } = parseCatalogSchema(json, protocolVersion, catalogId);
-    return new Catalog(id, resolvedVersion, components, functions, options);
+    return requireCatalogSchemaAdapter().parseCatalog!({json, protocolVersion, catalogId});
   }
 
   /**
@@ -870,7 +852,7 @@ function referencesOtherCatalogs(catalog: CatalogInterface<ComponentApi, Functio
   const origin = linkOrigin(catalog);
   let result = crossDocumentRefs.get(origin);
   if (result === undefined) {
-    result = hasCrossDocumentRefs(origin.toJson());
+    result = requireCatalogSchemaAdapter().hasCrossDocumentRefs!(origin.toJson());
     crossDocumentRefs.set(origin, result);
   }
   return result;

@@ -18,10 +18,10 @@
 import type {z} from 'zod';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
-import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
+import {isAtLeastVersion, toCanonicalVersion} from '@a2ui/web_core_v1_0';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {loadedDefinition} from './json_entries.js';
-import {getSchemaAnnotation, type JsonSchemaObject} from './schema_annotations.js';
+import {getSchemaAnnotation, type JsonSchemaObject} from '@a2ui/web_core_v1_0/catalog';
 import {
   DEFAULT_COMMON_TYPES_URI,
   isSpecComponentSchema,
@@ -29,7 +29,7 @@ import {
   schemaRequiresArgs,
   SpecShaper,
 } from './spec_shape.js';
-import type {CatalogUnions, ComponentApi, FunctionApi} from './types.js';
+import type {CatalogUnions, ComponentApi, FunctionApi} from '@a2ui/web_core_v1_0/catalog';
 
 /** Names of the union definitions a catalog computes from its entries. */
 export const UNION_DEF_NAMES: ReadonlySet<string> = new Set(['anyComponent', 'anyFunction']);

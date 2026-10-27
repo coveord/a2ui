@@ -16,6 +16,11 @@
 
 /** Stable identity used when this package registers its catalog schema adapter. */
 export {
+  inlinePeerAndLocalRefs,
+  installZodCatalogSchemaAdapter,
+  zodCatalogSchemaAdapter,
+} from './catalog_adapter.js';
+export {
   getSpecAnnotation,
   spec,
   specDef,
