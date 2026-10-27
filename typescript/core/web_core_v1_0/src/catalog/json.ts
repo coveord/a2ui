@@ -34,3 +34,24 @@ export function frozenJson<Value>(value: Value): Value {
     ? value
     : deepFreeze(deepCopyJson(value));
 }
+
+/**
+ * Returns the JSON text of a value with object keys sorted, so that values
+ * equal as JSON give the same text whatever their key order.
+ *
+ * @param value JSON-compatible value.
+ */
+export function canonicalJsonStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJsonStringify).join(',')}]`;
+  }
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  const entries = keys.map(
+    key =>
+      `${JSON.stringify(key)}:${canonicalJsonStringify((value as Record<string, unknown>)[key])}`,
+  );
+  return `{${entries.join(',')}}`;
+}

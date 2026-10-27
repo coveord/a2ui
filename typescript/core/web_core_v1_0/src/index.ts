@@ -30,6 +30,7 @@ export * from './reactivity/index.js';
 export * from './expressions/index.js';
 export * from './rpc/index.js';
 export * from './standard_defs.js';
+export * from './runtime_common_types.js';
 export * from './functions/system_functions.js';
 export {
   createAndImplementation,

@@ -114,13 +114,15 @@
   },
   "wireit": {
     "generate-zod-schemas": {
-      "command": "node scripts/generate-standard-defs.mjs && prettier --write \"src/standard_defs.ts\"",
+      "command": "node scripts/generate-standard-defs.mjs && node scripts/generate-runtime-common-types.mjs && prettier --write \"src/standard_defs.ts\" \"src/runtime_common_types.ts\"",
       "files": [
         "../../../specification/v1_0/json/*.json",
-        "scripts/generate-standard-defs.mjs"
+        "scripts/generate-standard-defs.mjs",
+        "scripts/generate-runtime-common-types.mjs"
       ],
       "output": [
-        "src/standard_defs.ts"
+        "src/standard_defs.ts",
+        "src/runtime_common_types.ts"
       ]
     },
     "copy-spec": {

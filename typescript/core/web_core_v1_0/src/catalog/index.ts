@@ -43,8 +43,38 @@ export {
   type PeerCatalogSource,
   type RefTarget,
 } from './catalog_refs.js';
+export {
+  DEFAULT_PROTOCOL_VERSION,
+  functionArgsSchema,
+  JsonComponentApi,
+  JsonFunctionApi,
+  linkLoadedEntry,
+  loadCatalogDocument,
+  runtimeComponentSchema,
+  runtimeFunctionArgsSchema,
+  runtimeThemeSchema,
+  type CatalogEntryConverters,
+  type CatalogLoadContext,
+  type LoadedCatalogDocument,
+  type RuntimeComponentSchema,
+} from './catalog_loading.js';
 export {loadedDefinition, setLoadedDefinition} from './entry_definitions.js';
-export {deepCopyJson, deepFreeze, frozenJson} from './json.js';
+export {
+  forSubsetConverters,
+  withoutConditionals,
+  withoutFormatAssertions,
+  withoutNegations,
+  withoutUnevaluatedProperties,
+  withoutUnicodePropertyPatterns,
+  withRequiredBranchesExpanded,
+  withRefsUnderDefs,
+} from './json_schema_compat.js';
+export {
+  behaviorForJsonSchema,
+  componentMetadataFromJson,
+  refDefinitionName,
+} from './json_component_metadata.js';
+export {canonicalJsonStringify, deepCopyJson, deepFreeze, frozenJson} from './json.js';
 export {
   DEFAULT_COMMON_TYPES_URI,
   schemaRequiresArgs,

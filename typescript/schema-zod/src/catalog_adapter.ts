@@ -18,6 +18,7 @@ import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {
   Catalog,
+  linkLoadedEntry,
   validateStandardSchema,
   type CatalogApi,
   type CatalogSchemaAdapter,
@@ -25,7 +26,7 @@ import {
 
 import {exclusiveUnionOverride} from './catalog/exclusive_union.js';
 import {reproduceZodDefinitions} from './catalog/reproduce_definitions.js';
-import {linkEntry, parseCatalogSchema} from './catalog/schema_loader.js';
+import {parseCatalogSchema} from './catalog/schema_loader.js';
 import {describeZodComponent} from './resolution/describe_component.js';
 import {getZodKnownSchemaKeys} from './resolution/known_schema_keys.js';
 import {AgentToRendererMessageSchema} from './schema/agent-to-renderer.js';
@@ -83,7 +84,7 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
       : {type: 'object', properties: {}},
   reproduceDefinitions: reproduceZodDefinitions,
   commonTypeRefDescriptions: COMMON_TYPE_REF_DESCRIPTIONS,
-  linkEntry,
+  linkEntry: linkLoadedEntry,
   describeComponent: describeZodComponent,
   getKnownSchemaKeys: getZodKnownSchemaKeys,
   getProtocolSchema: version =>

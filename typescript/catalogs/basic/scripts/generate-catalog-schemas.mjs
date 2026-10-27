@@ -16,6 +16,8 @@
 
 import {readFileSync, writeFileSync} from 'node:fs';
 
+import {componentMetadataFromJson} from '@a2ui/web_core_v1_0';
+
 /**
  * @fileoverview Schema-driven catalog code generator.
  *
@@ -581,133 +583,6 @@ function generateDefModel(name, schema, ctx) {
   return `export const ${defModelName(name)} = specDef('${name}', ${code}${extra});\n\n`;
 }
 
-function schemaRefName(schema) {
-  if (!schema || typeof schema !== 'object') return '';
-  if (typeof schema.$ref === 'string') return extractRefName(schema.$ref);
-  for (const key of ['allOf', 'anyOf', 'oneOf']) {
-    for (const member of schema[key] || []) {
-      const name = schemaRefName(member);
-      if (name) return name;
-    }
-  }
-  return '';
-}
-
-function behaviorForSchema(schema, catalogDefs, commonDefs, seen = new Set()) {
-  const ref = schemaRefName(schema);
-  if (ref === 'Action') return {type: 'ACTION'};
-  if (ref === 'ChildList' || ref === 'TemplateChildList') return {type: 'STRUCTURAL'};
-  if (ref === 'Checkable' || ref === 'CheckRule') return {type: 'CHECKABLE'};
-  if (ref === 'DataBinding' || ref === 'FunctionCall' || ref.startsWith('Dynamic')) {
-    return {type: 'DYNAMIC'};
-  }
-
-  if (ref && !seen.has(ref)) {
-    const definition = catalogDefs[ref] ?? commonDefs[ref];
-    if (definition) {
-      const nextSeen = new Set(seen);
-      nextSeen.add(ref);
-      return behaviorForSchema(definition, catalogDefs, commonDefs, nextSeen);
-    }
-  }
-
-  const branches = schema?.oneOf ?? schema?.anyOf ?? schema?.allOf;
-  if (Array.isArray(branches)) {
-    const behaviors = branches.map(branch =>
-      behaviorForSchema(branch, catalogDefs, commonDefs, seen),
-    );
-    for (const type of ['ACTION', 'DYNAMIC', 'STRUCTURAL', 'CHECKABLE']) {
-      const match = behaviors.find(behavior => behavior.type === type);
-      if (match) return match;
-    }
-    const object = behaviors.find(behavior => behavior.type === 'OBJECT');
-    if (object) return object;
-  }
-
-  if (schema?.type === 'array') {
-    const element = behaviorForSchema(schema.items ?? {}, catalogDefs, commonDefs, seen);
-    if (element.type === 'CHECKABLE') return element;
-    return {type: 'ARRAY', element};
-  }
-
-  if (schema?.type === 'object' || schema?.properties) {
-    return {
-      type: 'OBJECT',
-      shape: Object.fromEntries(
-        Object.entries(schema.properties ?? {}).map(([key, value]) => [
-          key,
-          behaviorForSchema(value, catalogDefs, commonDefs, seen),
-        ]),
-      ),
-    };
-  }
-
-  return {type: 'STATIC'};
-}
-
-/**
- * Computes the runtime metadata core reads instead of inspecting the schema.
- *
- * @param properties The component's flattened properties.
- * @param catalogDefs The catalog document's `$defs`.
- * @param commonDefs The common types' `$defs`.
- * @param propertyKeys The properties the generated Zod object declares.
- */
-function componentRuntimeMetadata(properties, catalogDefs, commonDefs, propertyKeys) {
-  const childRefs = [];
-  const childLists = [];
-  const nestedChildRefs = {};
-
-  for (const [name, schema] of Object.entries(properties)) {
-    const ref = schemaRefName(schema);
-    if (['Child', 'ComponentId', 'ChildComponentId'].includes(ref)) childRefs.push(name);
-    if (['ChildList', 'TemplateChildList'].includes(ref)) childLists.push(name);
-
-    const items = schema?.items;
-    const itemProperties = items?.properties;
-    if (itemProperties && typeof itemProperties === 'object') {
-      const nested = Object.entries(itemProperties)
-        .filter(([, itemSchema]) =>
-          ['Child', 'ComponentId', 'ChildComponentId'].includes(schemaRefName(itemSchema)),
-        )
-        .map(([key]) => key);
-      if (nested.length > 0) {
-        childLists.push(name);
-        nestedChildRefs[name] = nested;
-      }
-    }
-  }
-
-  const shape = Object.fromEntries(
-    Object.entries(properties).map(([name, schema]) => [
-      name,
-      behaviorForSchema(schema, catalogDefs, commonDefs),
-    ]),
-  );
-  if (!shape.accessibility && commonDefs.AccessibilityAttributes) {
-    shape.accessibility = behaviorForSchema(
-      commonDefs.AccessibilityAttributes,
-      catalogDefs,
-      commonDefs,
-    );
-  }
-  const behavior = {type: 'OBJECT', shape};
-  const dynamicFields = Object.fromEntries(
-    Object.entries(behavior.shape)
-      .filter(([, field]) => ['DYNAMIC', 'ACTION', 'STRUCTURAL', 'CHECKABLE'].includes(field.type))
-      .map(([name, field]) => [name, field.type]),
-  );
-
-  return {
-    behavior,
-    ...(childRefs.length ? {childRefs} : {}),
-    ...(childLists.length ? {childLists: [...new Set(childLists)]} : {}),
-    ...(Object.keys(nestedChildRefs).length ? {nestedChildRefs} : {}),
-    ...(Object.keys(dynamicFields).length ? {dynamicFields} : {}),
-    propertyKeys,
-  };
-}
-
 /**
  * Generates TypeScript component APIs from a catalog schema.
  */
@@ -764,7 +639,7 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
     const propertyKeys = Object.keys(properties).filter(
       name => name !== discriminatorProp && name !== idProp,
     );
-    const metadata = componentRuntimeMetadata(properties, catalogDefs, commonDefs, propertyKeys);
+    const metadata = componentMetadataFromJson(properties, catalogDefs, commonDefs, propertyKeys);
     if (Object.keys(metadata).length > 0) {
       bodyCode += `  schemaMetadata: ${literal(metadata)},\n`;
     }
