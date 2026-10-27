@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type {A2uiValidator} from '../../catalog/a2ui_schema.js';
 import {BaseVersionAdapter, ProtocolVersion} from './base.js';
 import {InternalComponentPayload, InternalOperation} from '../operations.js';
 import {A2uiMessageSchema} from '../../v0_9/schema/server-to-client.js';
@@ -23,7 +24,10 @@ import {A2uiMessageSchema} from '../../v0_9/schema/server-to-client.js';
  */
 export class V0Point9Adapter extends BaseVersionAdapter {
   readonly version: ProtocolVersion = 'v0.9';
-  protected readonly schema = A2uiMessageSchema;
+
+  constructor(schema: A2uiValidator | null = A2uiMessageSchema) {
+    super(schema);
+  }
 
   override get compatibleCatalogVersions(): ReadonlySet<string> {
     return new Set(['0.9', '0.9.1']);

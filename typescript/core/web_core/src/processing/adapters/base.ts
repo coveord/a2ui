@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
-import {InternalOperation} from '../operations.js';
+import {
+  formatA2uiSchemaIssue,
+  validateA2uiSchema,
+  type A2uiValidator,
+} from '../../catalog/a2ui_schema.js';
 import {A2uiValidationError} from '../../errors.js';
-import {formatZodIssue} from '../format-zod-issue.js';
+import {InternalOperation} from '../operations.js';
 import {SemVer, normalizeVersionString, toSemVer, toCanonicalVersion} from '../../common/semver.js';
 
 /**
@@ -179,7 +182,12 @@ function validateActionSurfaceIds(
  */
 export abstract class BaseVersionAdapter implements VersionAdapter {
   abstract readonly version: ProtocolVersion;
-  protected abstract readonly schema: z.ZodTypeAny;
+
+  /**
+   * @param schema The schema that validates this version's messages, or
+   *     `null` to skip validation.
+   */
+  constructor(protected readonly schema: A2uiValidator | null) {}
 
   /** Canonical catalog protocol versions compatible with this adapter. */
   get compatibleCatalogVersions(): ReadonlySet<string> {
@@ -241,14 +249,16 @@ export abstract class BaseVersionAdapter implements VersionAdapter {
       );
     }
 
-    const preparedPayload = this.preparePayloadForValidation(msgObj);
-    const parseResult = this.schema.safeParse(preparedPayload);
-    if (!parseResult.success) {
-      const formattedErrors = parseResult.error.errors.map(formatZodIssue).join('; ');
-      throw new A2uiValidationError(
-        `Invalid ${this.version} message: ${formattedErrors}`,
-        parseResult.error,
-      );
+    if (this.schema) {
+      const preparedPayload = this.preparePayloadForValidation(msgObj);
+      const result = validateA2uiSchema(this.schema, preparedPayload);
+      if (result.issues) {
+        const formattedErrors = result.issues.map(formatA2uiSchemaIssue).join('; ');
+        throw new A2uiValidationError(
+          `Invalid ${this.version} message: ${formattedErrors}`,
+          result.issues,
+        );
+      }
     }
 
     return this.extractOperationsFromObject(msgObj);

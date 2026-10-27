@@ -17,6 +17,7 @@
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
 import {z} from 'zod/v3';
+import type {A2uiValidator} from '../../catalog/a2ui_schema.js';
 import {A2uiValidationError} from '../../errors.js';
 import {VersionAdapterFactory} from './factory.js';
 import {
@@ -36,6 +37,35 @@ import {V0Point9Adapter} from './v0_9.js';
 import {V1Point0Adapter} from './v1_0.js';
 
 describe('VersionAdapterFactory', () => {
+  it('uses injected protocol validators and can skip validation explicitly', () => {
+    const rejectAll: A2uiValidator = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => ({issues: [{message: 'Rejected'}]}),
+      },
+    };
+    const validMessage = {version: 'v0.9', deleteSurface: {surfaceId: 's1'}};
+    const malformedMessage = {version: 'v0.9', createSurface: {}};
+
+    assert.throws(
+      () =>
+        new VersionAdapterFactory({'0.9': rejectAll})
+          .getAdapter('v0.9')
+          .extractOperations(validMessage),
+      (error: unknown) =>
+        error instanceof A2uiValidationError && /root: Rejected/.test(error.message),
+    );
+    assert.throws(() =>
+      new VersionAdapterFactory().getAdapter('v0.9').extractOperations(malformedMessage),
+    );
+    assert.doesNotThrow(() =>
+      new VersionAdapterFactory({'0.9': null})
+        .getAdapter('v0.9')
+        .extractOperations(malformedMessage),
+    );
+  });
+
   it('resolves v1.0 adapter and extracts operations with initial state and surface properties', () => {
     const payload = {
       version: 'v1.0',
