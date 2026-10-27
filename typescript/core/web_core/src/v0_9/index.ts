@@ -23,6 +23,13 @@
 
 export * from '../catalog/function_invoker.js';
 export * from '../catalog/types.js';
+export {normalizeSchema, type A2uiSchema, type A2uiStandardSchema} from '../catalog/a2ui_schema.js';
+export {
+  createComponentApi,
+  createFunctionApi,
+  type ComponentApiOptions,
+  type FunctionApiOptions,
+} from '../catalog/schema_entries.js';
 export * from '../common/events.js';
 export * from '../processing/message-processor.js';
 export * from '../resolution/index.js';

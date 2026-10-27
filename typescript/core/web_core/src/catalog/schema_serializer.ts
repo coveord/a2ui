@@ -271,9 +271,14 @@ function rewriteRefMarkers(
 }
 
 /**
- * Converts a Zod schema into an unbundled JSON Schema object.
+ * Converts a Zod schema into an unbundled JSON Schema object, as `toJson()`
+ * writes an entry defined in code without specification annotations.
+ *
+ * @param schema The Zod schema.
+ * @param localDefs Names of authored definitions that stay local references.
+ * @param commonTypesUri The URI of the common types document.
  */
-function zodToUnbundledJson(
+export function zodToUnbundledJson(
   schema: z.ZodTypeAny | undefined,
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,

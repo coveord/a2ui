@@ -19,5 +19,12 @@
 
 export * from './types.js';
 export * from './function_invoker.js';
+export {normalizeSchema, type A2uiSchema, type A2uiStandardSchema} from './a2ui_schema.js';
 export {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
+export {
+  createComponentApi,
+  createFunctionApi,
+  type ComponentApiOptions,
+  type FunctionApiOptions,
+} from './schema_entries.js';
 export {spec, specDef, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
