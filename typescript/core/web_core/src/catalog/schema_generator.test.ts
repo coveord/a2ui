@@ -24,6 +24,7 @@ import {CheckRuleSchema} from '../types/common-types.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
 import {cleanSchemaNode, generateValidationSchema} from './schema_generator.js';
+import {spec} from './spec_annotations.js';
 import {Catalog, ComponentApi, FunctionApi, FunctionImplementation} from './types.js';
 
 /** A standard definition as validationSchema bundles it: its catalog union ref localized. */
@@ -64,6 +65,29 @@ function assertRefsLocalAndResolvable(schema: Record<string, unknown>): void {
 }
 
 describe('Catalog.validationSchema & schema_generator', () => {
+  it('preserves nested spec keywords when a code catalog is reloaded from its document', () => {
+    const fn: FunctionApi = {
+      name: 'annotated',
+      returnType: 'void',
+      schema: z.object({
+        count: spec(z.number(), {keywords: {minimum: 0}}),
+        url: spec(z.string(), {keywords: {format: 'uri'}}),
+      }),
+    };
+    const catalog = new Catalog('https://example.com/annotated.json', '1.0', [], [fn]);
+    const codeArgs = (catalog.validationSchema['functions'] as Record<string, any>)['annotated']
+      .properties.args as Record<string, unknown>;
+    const reloadedArgs = (
+      Catalog.fromJson(catalog.toJson(), '1.0').validationSchema['functions'] as Record<string, any>
+    )['annotated'].properties.args as Record<string, unknown>;
+
+    assert.deepStrictEqual(codeArgs, reloadedArgs);
+    assert.deepStrictEqual(codeArgs['properties'], {
+      count: {type: 'number', minimum: 0},
+      url: {type: 'string', format: 'uri'},
+    });
+  });
+
   it('generates standard JSON Schema from a Catalog with native Zod components and functions', () => {
     const textComp: ComponentApi = {
       name: 'Text',

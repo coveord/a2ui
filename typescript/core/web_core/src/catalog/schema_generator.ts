@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-import {zodToJsonSchema} from 'zod-to-json-schema';
-
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {CommonSchemas} from '../types/common-types.js';
-import {normalizeSchema, zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
-import {entrySchemaOverride} from './entry_json_override.js';
-import {exclusiveUnionOverride} from './exclusive_union.js';
+import {copyA2uiJsonSchemaOf} from './a2ui_json_schema.js';
+import {zod3SchemaOf, type EntrySchema} from './a2ui_schema.js';
 import {
   catalogDocumentModel,
   deepCopyJson,
@@ -119,6 +116,10 @@ function cleanSchemaProperties(
   obj: Record<string, unknown>,
   options: {stripAdditionalProperties?: boolean} = {},
 ): void {
+  // The JSON Schema view keeps the primitive type Zod inferred beside a
+  // REF-derived $ref. Catalog documents write the reference alone.
+  if (typeof obj['$ref'] === 'string') delete obj['type'];
+
   // A Zod schema piped from `z.any()` comes out as `allOf: [{}, <schema>]`.
   // The empty member constrains nothing.
   if (Array.isArray(obj.allOf)) {
@@ -517,7 +518,7 @@ function processTheme(
     return;
   }
 
-  const themeRaw = rawSchemaJson(catalog.themeSchema, exclusiveUnionOverride);
+  const themeRaw = rawSchemaJson(catalog.themeSchema);
   cleanSchemaNode(themeRaw);
   mergeGeneratedDefs(themeRaw, defs, generated);
 
@@ -562,21 +563,10 @@ function mergeGeneratedDefs(raw: JsonObject, defs: JsonObject, generated: unknow
 }
 
 /**
- * Returns the JSON Schema of an entry's or theme's schema before cleaning: a
- * Zod 3 schema converted with `zod-to-json-schema` and `override`, or any
- * other `A2uiSchema` as it writes itself as JSON Schema.
+ * Returns a mutable JSON Schema view of an entry or theme before cleaning.
  */
-export function rawSchemaJson(
-  schema: EntrySchema,
-  override: typeof entrySchemaOverride,
-): JsonObject {
-  const zod3 = zod3SchemaOf(schema);
-  if (!zod3) return deepCopyJson(normalizeSchema(schema as A2uiSchema)) as JsonObject;
-  return zodToJsonSchema(zod3, {
-    target: 'jsonSchema2019-09',
-    $refStrategy: 'none',
-    override,
-  }) as JsonObject;
+export function rawSchemaJson(schema: EntrySchema): JsonObject {
+  return copyA2uiJsonSchemaOf(schema) as JsonObject;
 }
 
 /**
@@ -594,7 +584,7 @@ function extractZodComponentSchema(
   if (!comp.schema || typeof comp.schema !== 'object') {
     return {props: {}, reqList: [], additionalProps: undefined};
   }
-  const rawZod = rawSchemaJson(comp.schema, entrySchemaOverride);
+  const rawZod = rawSchemaJson(comp.schema);
   cleanSchemaNode(rawZod);
   mergeGeneratedDefs(rawZod, defs, generated);
 
@@ -763,7 +753,7 @@ function buildFunctionArgsSchema(
     paramSchemaObj = deepCopyJson(authored);
     restoreSourceRefs(paramSchemaObj, context.standardDefs, false);
   } else if (fn.schema && typeof fn.schema === 'object') {
-    const rawZod = rawSchemaJson(fn.schema, entrySchemaOverride);
+    const rawZod = rawSchemaJson(fn.schema);
     cleanSchemaNode(rawZod);
     mergeGeneratedDefs(rawZod, defs, generated);
     generated.push(rawZod);

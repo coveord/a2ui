@@ -29,13 +29,12 @@
  */
 
 import {z} from 'zod/v3';
-import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, normalizeVersionString, toCanonicalVersion} from '../common/semver.js';
 import {V08_STANDARD_DEFS} from '../v0_8/standard_defs.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
-import {entrySchemaOverride} from './entry_json_override.js';
+import {copyA2uiJsonSchemaOf} from './a2ui_json_schema.js';
 import {getSpecAnnotation, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
 
 type JsonObject = Record<string, unknown>;
@@ -804,14 +803,9 @@ function numberSchema(def: ZodDefLike): JsonObject {
   return result;
 }
 
-/** Converts a schema the shaper has no rule for with `zod-to-json-schema`. */
+/** Converts a schema the shaper has no rule for through its JSON Schema view. */
 function fallbackJson(schema: z.ZodTypeAny): JsonObject {
-  const json = zodToJsonSchema(schema, {
-    target: 'jsonSchema2019-09',
-    $refStrategy: 'none',
-    override: entrySchemaOverride,
-  }) as JsonObject;
-  delete json['$schema'];
+  const json = copyA2uiJsonSchemaOf(schema) as JsonObject;
   delete json['definitions'];
   delete json['$defs'];
   return json;
