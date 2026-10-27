@@ -32,14 +32,13 @@ import {A2uiCatalogError, A2uiExpressionError, A2uiValidationError} from '../err
 import {isAtLeastVersion} from '../common/semver.js';
 
 import {FunctionInvoker} from '../catalog/function_invoker.js';
+import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {resolveSurfaceCatalog} from '../state/resolve-surface-catalog.js';
 import {SurfaceModel} from '../state/surface-model.js';
 
 import {Catalog, CatalogInterface} from '../catalog/types.js';
 import {SpecVersion} from '../spec_versions.js';
 import {IndexApi, SYSTEM_FUNCTIONS} from '../functions/system_functions.js';
-
-const schemaKeysCache = new WeakMap<z.ZodTypeAny, Set<string> | null>();
 
 /** Identifier of the built-in catalog holding the v1.0 system functions. */
 const SYSTEM_FUNCTION_CATALOG_ID = 'a2ui:system-functions';
@@ -72,73 +71,14 @@ function getSystemFunctionCatalog(): Catalog<any> {
  * @param schema Zod schema to inspect.
  * @returns Set of allowed property names, or `null` if arbitrary keys are permitted or undetermined.
  */
-export function getKnownSchemaKeys(schema: z.ZodTypeAny): Set<string> | null {
-  if (schemaKeysCache.has(schema)) {
-    return schemaKeysCache.get(schema) as Set<string> | null;
+export function getKnownSchemaKeys(schema: unknown): Set<string> | null {
+  const getKeys = getCatalogSchemaAdapter()?.getKnownSchemaKeys;
+  if (!getKeys) {
+    throw new A2uiCatalogError(
+      'Function argument validation requires an installed schema adapter.',
+    );
   }
-
-  const result = ((): Set<string> | null => {
-    let current: any = schema;
-    while (current) {
-      if (current instanceof z.ZodObject || current._def?.typeName === 'ZodObject') {
-        // If passthrough is enabled, arbitrary keys are allowed.
-        if (current._def?.unknownKeys === 'passthrough') {
-          return null;
-        }
-        const shape = typeof current.shape === 'function' ? current.shape() : current.shape;
-        if (shape && typeof shape === 'object') {
-          return new Set(Object.keys(shape));
-        }
-        return null;
-      }
-      if (current instanceof z.ZodEffects || current._def?.typeName === 'ZodEffects') {
-        current = current._def.schema;
-        continue;
-      }
-      if (
-        current instanceof z.ZodOptional ||
-        current instanceof z.ZodNullable ||
-        current._def?.typeName === 'ZodOptional' ||
-        current._def?.typeName === 'ZodNullable'
-      ) {
-        current = current._def.innerType;
-        continue;
-      }
-      if (current instanceof z.ZodDefault || current._def?.typeName === 'ZodDefault') {
-        current = current._def.innerType;
-        continue;
-      }
-      if (current instanceof z.ZodCatch || current._def?.typeName === 'ZodCatch') {
-        current = current._def.innerType;
-        continue;
-      }
-      if (current instanceof z.ZodIntersection || current._def?.typeName === 'ZodIntersection') {
-        const leftKeys = getKnownSchemaKeys(current._def.left);
-        const rightKeys = getKnownSchemaKeys(current._def.right);
-        if (!leftKeys || !rightKeys) {
-          return null;
-        }
-        return new Set([...leftKeys, ...rightKeys]);
-      }
-      if (current instanceof z.ZodUnion || current._def?.typeName === 'ZodUnion') {
-        const options: z.ZodTypeAny[] = current._def.options;
-        const allKeys = new Set<string>();
-        for (const opt of options) {
-          const k = getKnownSchemaKeys(opt);
-          if (!k) return null; // If any union branch allows arbitrary keys, do not filter.
-          for (const key of k) {
-            allKeys.add(key);
-          }
-        }
-        return allKeys;
-      }
-      return null;
-    }
-    return null;
-  })();
-
-  schemaKeysCache.set(schema, result);
-  return result;
+  return getKeys(schema);
 }
 
 /**

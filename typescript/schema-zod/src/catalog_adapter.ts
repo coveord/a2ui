@@ -39,6 +39,7 @@ import {
   isChildOrChildListSchema,
   isChildSchema,
 } from './catalog/reference-map.js';
+import {getZodKnownSchemaKeys} from './resolution/known_schema_keys.js';
 import {extractRefFields} from './resolution/ref-fields.js';
 import {getZodSchemaBehavior} from './resolution/schema_behavior.js';
 
@@ -75,6 +76,7 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
   extractRefFields: schema => extractRefFields(schema as never),
   extractRefDefName,
   getSchemaBehavior: getZodSchemaBehavior,
+  getKnownSchemaKeys: getZodKnownSchemaKeys,
   cleanSchemaNode,
 };
 

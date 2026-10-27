@@ -92,6 +92,8 @@ export interface CatalogSchemaAdapter {
   readonly extractRefDefName?: (ref: string) => string;
   /** Classifies component-property runtime behavior from a schema implementation. */
   readonly getSchemaBehavior?: (schema: unknown) => SchemaBehavior;
+  /** Extracts statically declared object keys for strict function argument validation. */
+  readonly getKnownSchemaKeys?: (schema: unknown) => Set<string> | null;
   /** Converts a schema implementation to JSON Schema for legacy inline catalogs. */
   readonly schemaToJson?: (
     schema: unknown,
