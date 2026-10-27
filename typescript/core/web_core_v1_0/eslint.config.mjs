@@ -30,6 +30,18 @@ export default [
               message:
                 'Use relative imports within @a2ui/web_core_v1_0 instead of self-importing the package.',
             },
+            {
+              group: [
+                'zod',
+                'zod/*',
+                'zod-to-json-schema',
+                'json-schema-to-zod',
+                '@a2ui/schema-zod',
+                '@a2ui/schema-zod/*',
+              ],
+              message:
+                '@a2ui/web_core_v1_0 is schema-library neutral: reach Zod through a catalog schema adapter, and test Zod behavior in @a2ui/schema-zod.',
+            },
           ],
         },
       ],
