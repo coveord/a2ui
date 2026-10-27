@@ -19,7 +19,7 @@ import {ComponentModel} from '../state/component-model.js';
 import type {SurfaceModel} from '../state/surface-model.js';
 import type {SurfaceComponentsModel} from '../state/surface-components-model.js';
 import type {ComponentApi} from '../catalog/types.js';
-import type {Action} from '../types/common-types.js';
+import type {Action} from '../protocol_values.js';
 import {A2uiStateError} from '../errors.js';
 
 /**

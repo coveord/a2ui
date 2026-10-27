@@ -15,7 +15,7 @@
  */
 
 import {ComponentContext} from './component-context.js';
-import {Action, type ChildList, DataBinding, FunctionCall} from '../types/common-types.js';
+import type {Action, ChildList, DataBinding, FunctionCall} from '../protocol_values.js';
 import type {Action as V1Action} from '../schema/common-types.js';
 import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';

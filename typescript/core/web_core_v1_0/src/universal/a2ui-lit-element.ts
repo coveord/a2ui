@@ -23,7 +23,7 @@ import {peekValue} from '../reactivity/signals.js';
 import {Catalog, ComponentApi, type InferredComponentApiSchemaType} from '../catalog/types.js';
 import type {ResolveA2uiProps} from '../resolution/generic-binder.js';
 import type {WebComponentImplementation} from './web_component_implementation.js';
-import {type ComponentId} from '../types/common-types.js';
+import type {ComponentId} from '../protocol_values.js';
 import {renderA2uiNode} from './render-a2ui-node.js';
 import {A2uiController} from './a2ui-controller.js';
 
