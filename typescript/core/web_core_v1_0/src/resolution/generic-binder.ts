@@ -16,7 +16,6 @@
 
 import {ComponentContext} from './component-context.js';
 import type {Action, ChildList, DataBinding, FunctionCall} from '../protocol_values.js';
-import type {Action as V1Action} from '../schema/common-types.js';
 import {getCatalogSchemaAdapter} from '../catalog/schema_adapter.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
@@ -77,9 +76,6 @@ type DynamicTypes =
 /** Types recognized as user actions or function call events. */
 type ActionLike =
   | Action
-  // The v1.0 `FunctionCall` schema infers as `any`, so its action variant is
-  // `{functionCall?: any}` and needs its own entry.
-  | V1Action
   | {event: {name: string; context?: Record<string, unknown>}}
   | {functionCall: {call: string; catalogId?: string; args?: Record<string, unknown>}}
   | {functionCall: {'@call': string; catalogId?: string; args?: Record<string, unknown>}};
