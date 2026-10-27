@@ -23,27 +23,27 @@ import {requireSchemaAdapter} from './schema_adapter.js';
 
 describe('requireSchemaAdapter', () => {
   it("returns the catalog's adapter when it implements the operation", () => {
-    const schemaAdapter = testSchemaAdapter({getSchemaBehavior: () => ({type: 'STATIC'})});
+    const schemaAdapter = testSchemaAdapter({serializeCatalog: () => ({})});
 
     assert.strictEqual(
-      requireSchemaAdapter({id: 'c', schemaAdapter}, 'getSchemaBehavior'),
+      requireSchemaAdapter({id: 'c', schemaAdapter}, 'serializeCatalog'),
       schemaAdapter,
     );
   });
 
   it('names the catalog and the operation when the catalog has no adapter', () => {
     assert.throws(
-      () => requireSchemaAdapter({id: 'c'}, 'extractRefFields'),
+      () => requireSchemaAdapter({id: 'c'}, 'serializeCatalog'),
       (err: unknown) =>
         err instanceof A2uiCatalogError &&
         err.message.includes("Catalog 'c'") &&
-        err.message.includes("'extractRefFields'"),
+        err.message.includes("'serializeCatalog'"),
     );
   });
 
   it('rejects an adapter that lacks the operation', () => {
     assert.throws(
-      () => requireSchemaAdapter({id: 'c', schemaAdapter: testSchemaAdapter()}, 'extractRefFields'),
+      () => requireSchemaAdapter({id: 'c', schemaAdapter: testSchemaAdapter()}, 'serializeCatalog'),
       A2uiCatalogError,
     );
   });

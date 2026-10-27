@@ -33,14 +33,45 @@ export type DynamicFieldKind = Extract<
 /**
  * Catalog-provided schema information required by the core at runtime.
  *
- * Catalog adapters derive this from their schema implementation. Core consumes
- * the data without depending on a schema library's private representation.
+ * A catalog either ships it with each component, as generated catalogs do, or
+ * has its schema adapter derive it once per component (see
+ * `Catalog.getComponentMetadata`). Core reads this data instead of inspecting
+ * a schema library's private representation.
+ *
+ * Absent `childRefs`, `childLists` and `nestedChildRefs` mean the component
+ * has no such properties.
  */
 export interface ComponentSchemaMetadata {
+  /** Properties holding a single child component id. */
   readonly childRefs?: readonly string[];
+  /** Properties holding a child list or template, including those in `nestedChildRefs`. */
   readonly childLists?: readonly string[];
+  /** Keys of the list items that hold child component ids, by list property. */
   readonly nestedChildRefs?: Readonly<Record<string, readonly string[]>>;
+  /** Behavior of top-level properties, overriding `behavior`. */
   readonly dynamicFields?: Readonly<Record<string, DynamicFieldKind>>;
-  /** Complete behavior tree for catalogs that need nested metadata. */
+  /** Complete behavior tree of the component's properties. */
   readonly behavior?: SchemaBehavior;
+  /**
+   * Property names the component schema declares, or `null` when it accepts
+   * any property.
+   */
+  readonly propertyKeys?: readonly string[] | null;
+}
+
+/** Component metadata with every field core reads at runtime. */
+export interface CompleteComponentSchemaMetadata extends ComponentSchemaMetadata {
+  readonly behavior: SchemaBehavior;
+  readonly propertyKeys: readonly string[] | null;
+}
+
+/**
+ * Whether metadata holds every field core reads at runtime.
+ *
+ * @param metadata The metadata to check.
+ */
+export function isCompleteComponentMetadata(
+  metadata: ComponentSchemaMetadata | undefined,
+): metadata is CompleteComponentSchemaMetadata {
+  return metadata?.behavior !== undefined && metadata.propertyKeys !== undefined;
 }

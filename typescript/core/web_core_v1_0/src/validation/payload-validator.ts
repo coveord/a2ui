@@ -21,7 +21,6 @@ import {isValidUax31Identifier} from '../common/uax31.js';
 import {A2uiValidationError} from '../errors.js';
 import {formatValidationIssue} from './format-validation-issue.js';
 import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
-import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../protocol_values.js';
 import {IndexApi} from '../functions/system_functions.js';
 import type {ValidationConfig} from './integrity-checker.js';
@@ -213,7 +212,8 @@ export class PayloadValidator {
       return;
     }
 
-    const knownKeys = getKnownSchemaKeys(componentApi.schema, this.catalog);
+    const {propertyKeys} = this.catalog.getComponentMetadata(componentType)!;
+    const knownKeys = propertyKeys ? new Set(propertyKeys) : null;
     this.validateCommonEnvelopeFields(properties, knownKeys, componentType, id, componentCatalogId);
 
     const result = validateStandardSchema(componentApi.schema, properties);

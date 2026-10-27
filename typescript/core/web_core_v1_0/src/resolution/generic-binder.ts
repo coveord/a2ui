@@ -16,8 +16,7 @@
 
 import {ComponentContext} from './component-context.js';
 import type {Action, ChildList, DataBinding, FunctionCall} from '../protocol_values.js';
-import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
-import type {CatalogInterface} from '../catalog/types.js';
+import {describeComponentSchema, type CatalogInterface} from '../catalog/types.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import type {ComponentSchemaMetadata, SchemaBehavior} from '../catalog/schema_metadata.js';
@@ -33,28 +32,12 @@ import type {StandardSchema} from '../catalog/standard_schema.js';
  */
 export type BehaviorNode = SchemaBehavior;
 
-/**
- * Returns runtime behavior for a schema through the schema adapter of the
- * catalog that owns it.
- *
- * @param schema Schema to classify.
- * @param catalog Catalog whose adapter reads `schema`.
- * @returns The schema's behavior tree.
- * @throws {A2uiCatalogError} If the catalog has no adapter that classifies schemas.
- */
-export function scrapeSchemaBehavior(
-  schema: unknown,
-  catalog: Pick<CatalogInterface<any, any>, 'id' | 'schemaAdapter'>,
-): BehaviorNode {
-  return requireSchemaAdapter(catalog, 'getSchemaBehavior').getSchemaBehavior!(schema);
-}
-
 function behaviorFromMetadata(
   schema: StandardSchema,
   catalog: Pick<CatalogInterface<any, any>, 'id' | 'schemaAdapter'>,
   metadata?: ComponentSchemaMetadata,
 ): BehaviorNode {
-  const behavior = metadata?.behavior ?? scrapeSchemaBehavior(schema, catalog);
+  const behavior = metadata?.behavior ?? describeComponentSchema(schema, catalog).behavior;
   if (!metadata?.dynamicFields || behavior.type !== 'OBJECT') return behavior;
 
   return {

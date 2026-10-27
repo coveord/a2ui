@@ -34,17 +34,8 @@ import {AgentToRendererMessageSchema} from './schema/agent-to-renderer.js';
 import {AccessibilityAttributesSchema, ComponentCommonSchema} from './types/common-types.js';
 import {exclusiveUnionOverride} from './catalog/exclusive_union.js';
 import {retainedDefs, serializeCatalogDocument} from './catalog/schema_serializer.js';
-import {
-  analyzeChildRefSchema,
-  buildComponentRefMap,
-  extractRefDefName,
-  isChildListSchema,
-  isChildOrChildListSchema,
-  isChildSchema,
-} from './catalog/reference-map.js';
+import {describeZodComponent} from './resolution/describe_component.js';
 import {getZodKnownSchemaKeys} from './resolution/known_schema_keys.js';
-import {extractRefFields} from './resolution/ref-fields.js';
-import {getZodSchemaBehavior} from './resolution/schema_behavior.js';
 
 /**
  * Zod implementation of the catalog schema adapter.
@@ -79,15 +70,7 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
   linkEntry,
   hasCrossDocumentRefs,
   retainedDefs,
-  buildComponentRefMap: (catalog, options) =>
-    buildComponentRefMap(catalog as Catalog<any, any>, options),
-  analyzeChildRefSchema,
-  isChildSchema,
-  isChildListSchema,
-  isChildOrChildListSchema,
-  extractRefFields: schema => extractRefFields(schema as never),
-  extractRefDefName,
-  getSchemaBehavior: getZodSchemaBehavior,
+  describeComponent: describeZodComponent,
   getKnownSchemaKeys: getZodKnownSchemaKeys,
   getProtocolSchema: version =>
     version === 'v1.0' || version === '1.0' ? AgentToRendererMessageSchema : undefined,

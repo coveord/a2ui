@@ -19,12 +19,7 @@ import {ComponentModel} from '../state/component-model.js';
 import {Catalog, ComponentApi, FunctionImplementation} from '../catalog/types.js';
 import {ComponentContext} from './component-context.js';
 import {DataContext} from './data-context.js';
-import {
-  BehaviorNode,
-  GenericBinder,
-  getSafeChildList,
-  scrapeSchemaBehavior,
-} from './generic-binder.js';
+import {BehaviorNode, GenericBinder, getSafeChildList} from './generic-binder.js';
 import {
   ComponentNode,
   isComponentNode,
@@ -32,8 +27,8 @@ import {
   NodeProps,
   PLACEHOLDER_TYPE,
 } from './component-node.js';
-import type {RefFields} from '../catalog/component_references.js';
-import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
+import type {RefFields, RefKind} from '../catalog/component_references.js';
+import type {CompleteComponentSchemaMetadata} from '../catalog/schema_metadata.js';
 import {ResolvedBinding, WritableBinding, sameBinding} from './resolved-binding.js';
 import {Signal, signal, setValue, peekValue} from '../reactivity/signals.js';
 import {Subscription} from '../common/events.js';
@@ -44,8 +39,27 @@ const ROOT_DATA_PATH = '/';
 
 const EMPTY_REF_FIELDS: RefFields = new Map();
 
-function requireRefFields(schema: unknown, catalog: Catalog<any, any>): RefFields {
-  return requireSchemaAdapter(catalog, 'extractRefFields').extractRefFields!(schema);
+const refFieldsByMetadata = new WeakMap<CompleteComponentSchemaMetadata, RefFields>();
+
+/**
+ * Returns the child-referencing properties that component metadata declares.
+ *
+ * A property listed in `nestedChildRefs` is nested, even though it is also
+ * listed in `childLists`.
+ */
+function refFieldsFrom(metadata: CompleteComponentSchemaMetadata): RefFields {
+  let fields = refFieldsByMetadata.get(metadata);
+  if (!fields) {
+    const map = new Map<string, RefKind>();
+    for (const key of metadata.childRefs ?? []) map.set(key, {kind: 'single'});
+    for (const key of metadata.childLists ?? []) map.set(key, {kind: 'list'});
+    for (const [key, keys] of Object.entries(metadata.nestedChildRefs ?? {})) {
+      map.set(key, {kind: 'nested', keys: new Set(keys)});
+    }
+    fields = map;
+    refFieldsByMetadata.set(metadata, fields);
+  }
+  return fields;
 }
 
 interface NodeRecord {
@@ -352,7 +366,8 @@ export class NodeResolver<
       dataPath,
       parent?.context?.dataContext,
     );
-    const binder = new GenericBinder<NodeProps>(context, api.schema, api.schemaMetadata);
+    const metadata = compCatalog.getComponentMetadata(model.type)!;
+    const binder = new GenericBinder<NodeProps>(context, api.schema, metadata);
     const record = this.registerNode(
       new MutableComponentNode(
         instanceIdFor(componentId, dataPath, occurrence),
@@ -367,8 +382,8 @@ export class NodeResolver<
         edgeKey,
         parent,
         occurrence,
-        refFields: requireRefFields(api.schema, compCatalog),
-        behavior: api.schemaMetadata?.behavior ?? scrapeSchemaBehavior(api.schema, compCatalog),
+        refFields: refFieldsFrom(metadata),
+        behavior: metadata.behavior,
         componentModel: model,
         binder,
       },

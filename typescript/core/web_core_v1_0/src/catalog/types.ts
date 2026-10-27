@@ -24,14 +24,17 @@ import type {JsonSchemaObject} from './schema_annotations.js';
 import {deepCopyJson, frozenJson} from './json.js';
 import {type ComponentChildRefs, type ComponentRefMap} from './component_references.js';
 import {IndexImplementation} from '../functions/system_functions.js';
-import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 import {
   isStandardSchema,
   type StandardSchema,
   type StandardSchemaOutput,
   validateStandardSchema,
 } from './standard_schema.js';
-import type {ComponentSchemaMetadata} from './schema_metadata.js';
+import {
+  isCompleteComponentMetadata,
+  type CompleteComponentSchemaMetadata,
+  type ComponentSchemaMetadata,
+} from './schema_metadata.js';
 import {requireSchemaAdapter, type CatalogSchemaAdapter} from './schema_adapter.js';
 
 export type {ComponentChildRefs};
@@ -394,6 +397,8 @@ export declare interface CatalogInterface<
   toJson(): Record<string, unknown>;
   /** Component reference map for child reference extraction and topology validation. */
   readonly componentRefMap: ComponentRefMap;
+  /** See {@link Catalog.getComponentMetadata}. */
+  getComponentMetadata(name: string): CompleteComponentSchemaMetadata | undefined;
   /** Peer catalogs available for resolving cross-catalog `$ref`s. */
   readonly peerCatalogs?: readonly CatalogInterface<ComponentApi, FunctionApi>[];
   /**
@@ -592,6 +597,7 @@ export class Catalog<
       invoker: createCatalogInvoker(this.id, this.protocolVersion, functions),
       cachedValidationSchema: undefined,
       _componentRefMap: undefined,
+      _componentMetadata: new Map(),
       _peerCatalogs: Object.freeze(linked),
       _linkedFrom: origin,
     });
@@ -723,16 +729,52 @@ export class Catalog<
    * Lazily computed component reference map for child reference extraction and topology validation.
    */
   get componentRefMap(): ComponentRefMap {
-    if (!this._componentRefMap && this.components.size === 0) {
-      // A catalog without components references nothing, so it needs no
-      // schema adapter to say so.
-      this._componentRefMap = {};
-    } else if (!this._componentRefMap) {
-      const options = V10_CHILD_REF_OPTIONS;
-      this._componentRefMap = requireSchemaAdapter(this, 'buildComponentRefMap')
-        .buildComponentRefMap!(this, options);
+    if (!this._componentRefMap) {
+      const refMap: ComponentRefMap = {};
+      for (const name of this.components.keys()) {
+        const metadata = this.getComponentMetadata(name)!;
+        refMap[name] = {
+          singleRefs: new Set(metadata.childRefs ?? []),
+          listRefs: new Set(metadata.childLists ?? []),
+          nestedRefs: Object.fromEntries(
+            Object.entries(metadata.nestedChildRefs ?? {}).map(([key, keys]) => [
+              key,
+              new Set(keys),
+            ]),
+          ),
+        };
+      }
+      this._componentRefMap = refMap;
     }
     return this._componentRefMap;
+  }
+
+  /** Runtime metadata of the components resolved so far, by name. */
+  private _componentMetadata = new Map<string, CompleteComponentSchemaMetadata>();
+
+  /**
+   * Returns the runtime metadata of one of the catalog's components.
+   *
+   * Complete `schemaMetadata` that the component carries is used as is.
+   * Otherwise the catalog's schema adapter describes the component's schema,
+   * once, and the fields the component does carry take precedence.
+   *
+   * @param name Name of the component.
+   * @returns The metadata, or `undefined` if the catalog has no such component.
+   * @throws {A2uiCatalogError} If the component's metadata is incomplete and
+   *   the catalog has no adapter that describes components.
+   */
+  getComponentMetadata(name: string): CompleteComponentSchemaMetadata | undefined {
+    let metadata = this._componentMetadata.get(name);
+    if (!metadata) {
+      const api = this.components.get(name);
+      if (!api) return undefined;
+      metadata = isCompleteComponentMetadata(api.schemaMetadata)
+        ? api.schemaMetadata
+        : {...describeComponentSchema(api.schema, this, api.name), ...api.schemaMetadata};
+      this._componentMetadata.set(name, metadata);
+    }
+    return metadata;
   }
 
   /**
@@ -832,6 +874,33 @@ export class Catalog<
     }
     return schemaAdapter.parseCatalog({json, protocolVersion, catalogId});
   }
+}
+
+/**
+ * Describes a component schema with a catalog's schema adapter.
+ *
+ * @param schema The component schema.
+ * @param catalog The catalog whose adapter reads `schema`.
+ * @param componentName Name of the component, for the error message.
+ * @returns The schema's complete runtime metadata.
+ * @throws {A2uiCatalogError} If the catalog has no adapter that describes components.
+ */
+export function describeComponentSchema(
+  schema: unknown,
+  catalog: Pick<CatalogInterface<any, any>, 'id' | 'schemaAdapter'>,
+  componentName?: string,
+): CompleteComponentSchemaMetadata {
+  const describe = catalog.schemaAdapter?.describeComponent;
+  if (!describe) {
+    const subject = componentName ? `Component '${componentName}'` : 'A component';
+    throw new A2uiCatalogError(
+      `${subject} in catalog '${catalog.id}' has no complete schemaMetadata ` +
+        '(behavior and propertyKeys), and the catalog has no schema adapter that implements ' +
+        "'describeComponent'. Add the metadata to the component, or pass " +
+        'CatalogOptions.schemaAdapter.',
+    );
+  }
+  return describe(schema);
 }
 
 /** Options for `Catalog.fromJson`. */

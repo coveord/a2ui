@@ -18,9 +18,8 @@ import {childRefKindOf} from '../types/child-ref-helpers.js';
 import type {
   ChildRefAnalysis,
   ChildRefAnalysisOptions,
-  ComponentRefMap,
+  ComponentChildRefs,
 } from '@a2ui/web_core_v1_0/catalog';
-import type {Catalog, ComponentApi} from '@a2ui/web_core_v1_0/catalog';
 
 export type {
   ChildRefAnalysis,
@@ -364,43 +363,6 @@ export function analyzeChildRefSchema(
   return {isChild: false, isChildList: false};
 }
 
-/**
- * Returns whether the schema represents a single child ComponentId reference.
- *
- * @param schema The schema to evaluate.
- * @param options The child reference analysis options.
- * @returns Whether the schema is a single child reference.
- */
-export function isChildSchema(schema: unknown, options: ChildRefAnalysisOptions): boolean {
-  return analyzeChildRefSchema(schema, options).isChild;
-}
-
-/**
- * Returns whether the schema represents a child list or dynamic child template (ChildList).
- *
- * @param schema The schema to evaluate.
- * @param options The child reference analysis options.
- * @returns Whether the schema is a child list reference.
- */
-export function isChildListSchema(schema: unknown, options: ChildRefAnalysisOptions): boolean {
-  return analyzeChildRefSchema(schema, options).isChildList;
-}
-
-/**
- * Returns whether the schema represents either a single child or a child list.
- *
- * @param schema The schema to evaluate.
- * @param options The child reference analysis options.
- * @returns Whether the schema is any child or child list reference.
- */
-export function isChildOrChildListSchema(
-  schema: unknown,
-  options: ChildRefAnalysisOptions,
-): boolean {
-  const res = analyzeChildRefSchema(schema, options);
-  return res.isChild || res.isChildList;
-}
-
 /** Mutable collector threaded through schema inspection. */
 interface ChildRefAccumulator {
   readonly singleRefs: Set<string>;
@@ -549,54 +511,22 @@ function inspectComponentSchema(
 }
 
 /**
- * Builds a ComponentRefMap dynamically by inspecting component Zod schemas.
+ * Returns the child references a component schema declares, as the integrity
+ * checks read them: by marker, `REF:` pointer, or definition name.
  *
- * @param catalogOrComponents Catalog instance, array of ComponentApi objects, or Map of ComponentApis.
- * @param options Required configuration specifying recognized child definition names.
- * @returns ComponentRefMap containing single, list, and nested reference properties.
+ * @param schema The component schema.
+ * @param options The child reference analysis options.
+ * @returns The schema's child reference properties.
  */
-export function buildComponentRefMap(
-  catalogOrComponents: Catalog<any, any> | ComponentApi[] | Map<string, ComponentApi>,
+export function inspectComponentChildRefs(
+  schema: unknown,
   options: ChildRefAnalysisOptions,
-): ComponentRefMap {
-  const refMap: ComponentRefMap = {};
-  const componentApis: ComponentApi[] =
-    typeof (catalogOrComponents as any)?.components?.values === 'function'
-      ? Array.from((catalogOrComponents as any).components.values())
-      : Array.isArray(catalogOrComponents)
-        ? catalogOrComponents
-        : Array.from((catalogOrComponents as Map<string, ComponentApi>).values());
-
-  for (const compApi of componentApis) {
-    const metadata = compApi.schemaMetadata;
-    if (metadata) {
-      refMap[compApi.name] = {
-        singleRefs: new Set(metadata.childRefs ?? []),
-        listRefs: new Set(metadata.childLists ?? []),
-        nestedRefs: Object.fromEntries(
-          Object.entries(metadata.nestedChildRefs ?? {}).map(([key, values]) => [
-            key,
-            new Set(values),
-          ]),
-        ),
-      };
-      continue;
-    }
-
-    const acc: ChildRefAccumulator = {
-      singleRefs: new Set<string>(),
-      listRefs: new Set<string>(),
-      nestedRefs: {},
-    };
-
-    inspectComponentSchema(compApi.schema, acc, options);
-
-    refMap[compApi.name] = {
-      singleRefs: acc.singleRefs,
-      listRefs: acc.listRefs,
-      nestedRefs: acc.nestedRefs,
-    };
-  }
-
-  return refMap;
+): ComponentChildRefs {
+  const acc: ChildRefAccumulator = {
+    singleRefs: new Set<string>(),
+    listRefs: new Set<string>(),
+    nestedRefs: {},
+  };
+  inspectComponentSchema(schema, acc, options);
+  return acc;
 }

@@ -55,7 +55,14 @@ export class A2uiController<
     private host: A2uiLitElement<any, any>,
     api: Api,
   ) {
-    this.binder = new GenericBinder(this.host.context, api.schema, api.schemaMetadata);
+    // The catalog holds this component's metadata, derived at most once, when
+    // `api` is the entry it registered.
+    const catalog = this.host.context.componentModel.catalog;
+    const metadata =
+      catalog.components.get(api.name)?.schema === api.schema
+        ? catalog.getComponentMetadata(api.name)
+        : api.schemaMetadata;
+    this.binder = new GenericBinder(this.host.context, api.schema, metadata);
     this._props = this.binder.snapshot as Props;
     this.host.addController(this);
     if (this.host.isConnected) {

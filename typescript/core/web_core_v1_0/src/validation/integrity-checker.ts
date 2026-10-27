@@ -33,28 +33,9 @@ import type {
   ChildRefAnalysisOptions,
   ComponentRefMap,
 } from '../catalog/component_references.js';
-import {requireSchemaAdapter} from '../catalog/schema_adapter.js';
 import {V10_CHILD_REF_OPTIONS} from '../standard_defs.js';
 
 import {isValidUax31Identifier, assertUax31Identifier} from '../common/uax31.js';
-
-/**
- * Builds a catalog's component reference map with the catalog's schema adapter.
- *
- * @param catalog The catalog to map.
- * @param options Child reference conventions of the catalog's protocol version.
- * @returns The catalog's component reference map.
- * @throws {A2uiCatalogError} If the catalog has no adapter that builds reference maps.
- */
-export function buildComponentRefMap(
-  catalog: Catalog<ComponentApi>,
-  options: ChildRefAnalysisOptions,
-): ComponentRefMap {
-  return requireSchemaAdapter(catalog, 'buildComponentRefMap').buildComponentRefMap!(
-    catalog,
-    options,
-  );
-}
 
 export type {ChildRefAnalysis, ChildRefAnalysisOptions, ComponentRefMap};
 export {assertUax31Identifier, isValidUax31Identifier, V10_CHILD_REF_OPTIONS};
