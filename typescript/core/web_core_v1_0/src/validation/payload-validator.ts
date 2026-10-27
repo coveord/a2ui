@@ -216,12 +216,12 @@ export class PayloadValidator {
     const knownKeys = getKnownSchemaKeys(componentApi.schema);
     this.validateCommonEnvelopeFields(properties, knownKeys, componentType, id, componentCatalogId);
 
-    const result = componentApi.schema.safeParse(properties);
-    if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatValidationIssue).join(', ');
+    const result = validateStandardSchema(componentApi.schema, properties);
+    if (result.issues) {
+      const formattedErrors = result.issues.map(formatValidationIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
-        result.error.issues,
+        result.issues,
       );
     }
 
@@ -419,15 +419,15 @@ export class PayloadValidator {
       return (args ?? {}) as Record<string, unknown>;
     }
 
-    const result = fn.schema.safeParse(args ?? {});
-    if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatValidationIssue).join(', ');
+    const result = validateStandardSchema(fn.schema, args ?? {});
+    if (result.issues) {
+      const formattedErrors = result.issues.map(formatValidationIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for function '${name}': ${formattedErrors}`,
-        result.error.issues,
+        result.issues,
       );
     }
-    return result.data as Record<string, unknown>;
+    return result.value as Record<string, unknown>;
   }
 
   /**
