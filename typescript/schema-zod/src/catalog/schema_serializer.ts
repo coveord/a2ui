@@ -313,7 +313,7 @@ function serializeComponentModel(
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): JsonObject {
-  const json = zodToUnbundledJson(comp.schema, localDefs, commonTypesUri);
+  const json = zodToUnbundledJson(comp.schema as never, localDefs, commonTypesUri);
   const {
     component: _component,
     id: _id,
@@ -351,7 +351,7 @@ function serializeFunctionModel(
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
   defs?: Readonly<JsonObject>,
 ): JsonObject {
-  const args = zodToUnbundledJson(fn.schema, localDefs, commonTypesUri);
+  const args = zodToUnbundledJson(fn.schema as never, localDefs, commonTypesUri);
   if (asListItem) {
     return {
       name,
@@ -480,7 +480,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
     if (loadedDefinition(comp) || !isSpecComponentSchema(comp.schema)) continue;
     const {schema, catalogDefs} = shaper.componentSchema(
       name,
-      comp.schema,
+      comp.schema as never,
       comp.allowedParents,
       comp.allowedChildren,
     );
@@ -516,7 +516,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
       name,
       loaded ??
         (!loadedDefinition(fn) && isSpecFunctionSchema(fn.schema)
-          ? deepFreeze(shaper.functionSchema(name, fn, defs))
+          ? deepFreeze(shaper.functionSchema(name, fn as never, defs))
           : undefined),
     );
   }

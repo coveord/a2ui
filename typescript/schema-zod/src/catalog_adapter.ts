@@ -40,6 +40,7 @@ import {
   isChildSchema,
 } from './catalog/reference-map.js';
 import {extractRefFields} from './resolution/ref-fields.js';
+import {getZodSchemaBehavior} from './resolution/schema_behavior.js';
 
 /** Zod implementation of the optional catalog compiler adapter. */
 export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
@@ -54,8 +55,8 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
     } = parseCatalogSchema(json, protocolVersion, catalogId);
     return new Catalog(id, resolvedVersion, components, functions, options);
   },
-  serializeCatalog: catalog => serializeCatalogDocument(catalog),
-  generateValidationSchema: catalog => generateValidationSchema(catalog),
+  serializeCatalog: catalog => serializeCatalogDocument(catalog as never),
+  generateValidationSchema: catalog => generateValidationSchema(catalog as never),
   schemaToJson: (schema, options) =>
     zodToJsonSchema(schema as never, {
       target: 'jsonSchema2019-09',
@@ -73,6 +74,7 @@ export const zodCatalogSchemaAdapter: CatalogSchemaAdapter = {
   isChildOrChildListSchema,
   extractRefFields: schema => extractRefFields(schema as never),
   extractRefDefName,
+  getSchemaBehavior: getZodSchemaBehavior,
   cleanSchemaNode,
 };
 

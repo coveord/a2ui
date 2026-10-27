@@ -533,7 +533,7 @@ function processTheme(
     return;
   }
 
-  const themeRaw = zodToJsonSchema(catalog.themeSchema, {
+  const themeRaw = zodToJsonSchema(catalog.themeSchema as never, {
     target: 'jsonSchema2019-09',
     $refStrategy: 'none',
     override: exclusiveUnionOverride,
@@ -596,7 +596,7 @@ function extractZodComponentSchema(
   if (!comp.schema || typeof comp.schema !== 'object' || !('safeParse' in comp.schema)) {
     return {props: {}, reqList: [], additionalProps: undefined};
   }
-  const rawZod = zodToJsonSchema(comp.schema, {
+  const rawZod = zodToJsonSchema(comp.schema as never, {
     target: 'jsonSchema2019-09',
     $refStrategy: 'none',
     override: exclusiveUnionOverride,
@@ -773,7 +773,7 @@ function buildFunctionArgsSchema(
     ) as JsonObject;
     restoreSourceRefs(paramSchemaObj, context.standardDefs, false);
   } else if (fn.schema && typeof fn.schema === 'object' && 'safeParse' in fn.schema) {
-    const rawZod = zodToJsonSchema(fn.schema, {
+    const rawZod = zodToJsonSchema(fn.schema as never, {
       target: 'jsonSchema2019-09',
       $refStrategy: 'none',
       override: exclusiveUnionOverride,
@@ -1029,7 +1029,7 @@ export function generateValidationSchema<
 
   const standardDefs = getStandardDefsForCatalog(catalog, options);
   const version = options?.protocolVersion ?? catalog.protocolVersion;
-  const model = catalogDocumentModel(catalog);
+  const model = catalogDocumentModel(catalog as never);
   const authoredDefs: Readonly<JsonObject> = model.defs;
   const context: SourceContext = {
     standardDefs,

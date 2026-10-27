@@ -22,6 +22,7 @@
  * operations to this contract as their Zod implementations move here.
  */
 import type {CatalogApi, CatalogInterface, ComponentApi, FunctionApi} from './types.js';
+import type {SchemaBehavior} from './schema_metadata.js';
 import type {
   ChildRefAnalysis,
   ChildRefAnalysisOptions,
@@ -89,6 +90,8 @@ export interface CatalogSchemaAdapter {
   readonly extractRefFields?: (schema: unknown) => RefFields;
   /** Extracts a referenced definition name from a schema-library marker. */
   readonly extractRefDefName?: (ref: string) => string;
+  /** Classifies component-property runtime behavior from a schema implementation. */
+  readonly getSchemaBehavior?: (schema: unknown) => SchemaBehavior;
   /** Converts a schema implementation to JSON Schema for legacy inline catalogs. */
   readonly schemaToJson?: (
     schema: unknown,

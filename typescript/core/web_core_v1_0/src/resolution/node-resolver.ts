@@ -372,7 +372,7 @@ export class NodeResolver<
         parent,
         occurrence,
         refFields: requireRefFields(api.schema),
-        behavior: api.schemaMetadata?.behavior ?? scrapeSchemaBehavior(api.schema as never),
+        behavior: api.schemaMetadata?.behavior ?? scrapeSchemaBehavior(api.schema),
         componentModel: model,
         binder,
       },
