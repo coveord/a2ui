@@ -54,6 +54,7 @@ export const TextApi = {
       },
     },
     dynamicFields: {text: 'DYNAMIC'},
+    propertyKeys: ['text', 'variant', 'weight'],
   },
   schema: spec(
     z
@@ -102,6 +103,7 @@ export const ImageApi = {
       },
     },
     dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'},
+    propertyKeys: ['url', 'description', 'fit', 'variant', 'weight'],
   },
   schema: spec(
     z
@@ -157,6 +159,7 @@ export const IconApi = {
       },
     },
     dynamicFields: {name: 'DYNAMIC'},
+    propertyKeys: ['name', 'weight'],
   },
   schema: spec(
     z
@@ -267,6 +270,7 @@ export const VideoApi = {
       },
     },
     dynamicFields: {url: 'DYNAMIC', posterUrl: 'DYNAMIC'},
+    propertyKeys: ['url', 'posterUrl', 'weight'],
   },
   schema: spec(
     z
@@ -311,6 +315,7 @@ export const AudioPlayerApi = {
       },
     },
     dynamicFields: {url: 'DYNAMIC', description: 'DYNAMIC'},
+    propertyKeys: ['url', 'description', 'weight'],
   },
   schema: spec(
     z
@@ -357,6 +362,7 @@ export const RowApi = {
     },
     childLists: ['children'],
     dynamicFields: {children: 'STRUCTURAL'},
+    propertyKeys: ['children', 'justify', 'align', 'weight'],
   },
   schema: spec(
     z
@@ -417,6 +423,7 @@ export const ColumnApi = {
     },
     childLists: ['children'],
     dynamicFields: {children: 'STRUCTURAL'},
+    propertyKeys: ['children', 'justify', 'align', 'weight'],
   },
   schema: spec(
     z
@@ -477,6 +484,7 @@ export const ListApi = {
     },
     childLists: ['children'],
     dynamicFields: {children: 'STRUCTURAL'},
+    propertyKeys: ['children', 'direction', 'align', 'weight'],
   },
   schema: spec(
     z
@@ -527,6 +535,7 @@ export const CardApi = {
       },
     },
     childRefs: ['child'],
+    propertyKeys: ['child', 'weight'],
   },
   schema: spec(
     z
@@ -571,6 +580,7 @@ export const TabsApi = {
     },
     childLists: ['tabs'],
     nestedChildRefs: {tabs: ['child']},
+    propertyKeys: ['tabs', 'weight'],
   },
   schema: spec(
     z
@@ -623,6 +633,7 @@ export const ModalApi = {
       },
     },
     childRefs: ['trigger', 'content'],
+    propertyKeys: ['trigger', 'content', 'weight'],
   },
   schema: spec(
     z
@@ -665,6 +676,7 @@ export const DividerApi = {
         },
       },
     },
+    propertyKeys: ['axis', 'weight'],
   },
   schema: spec(
     z
@@ -711,6 +723,7 @@ export const ButtonApi = {
     },
     childRefs: ['child'],
     dynamicFields: {checks: 'CHECKABLE', action: 'ACTION'},
+    propertyKeys: ['checks', 'child', 'variant', 'action', 'weight'],
   },
   schema: spec(
     z
@@ -772,6 +785,7 @@ export const TextFieldApi = {
       value: 'DYNAMIC',
       placeholder: 'DYNAMIC',
     },
+    propertyKeys: ['checks', 'label', 'value', 'placeholder', 'variant', 'weight'],
   },
   schema: spec(
     z
@@ -829,6 +843,7 @@ export const CheckBoxApi = {
       },
     },
     dynamicFields: {checks: 'CHECKABLE', label: 'DYNAMIC', value: 'DYNAMIC'},
+    propertyKeys: ['checks', 'label', 'value', 'weight'],
   },
   schema: spec(
     z
@@ -885,6 +900,16 @@ export const ChoicePickerApi = {
       },
     },
     dynamicFields: {checks: 'CHECKABLE', label: 'DYNAMIC', value: 'DYNAMIC'},
+    propertyKeys: [
+      'checks',
+      'label',
+      'variant',
+      'options',
+      'value',
+      'displayStyle',
+      'filterable',
+      'weight',
+    ],
   },
   schema: spec(
     z
@@ -966,6 +991,7 @@ export const SliderApi = {
       },
     },
     dynamicFields: {checks: 'CHECKABLE', label: 'DYNAMIC', value: 'DYNAMIC'},
+    propertyKeys: ['checks', 'label', 'min', 'max', 'value', 'steps', 'weight'],
   },
   schema: spec(
     z
@@ -1036,6 +1062,7 @@ export const DateTimeInputApi = {
       max: 'DYNAMIC',
       label: 'DYNAMIC',
     },
+    propertyKeys: ['checks', 'value', 'enableDate', 'enableTime', 'min', 'max', 'label', 'weight'],
   },
   schema: spec(
     z

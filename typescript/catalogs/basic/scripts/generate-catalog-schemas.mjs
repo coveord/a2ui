@@ -645,7 +645,15 @@ function behaviorForSchema(schema, catalogDefs, commonDefs, seen = new Set()) {
   return {type: 'STATIC'};
 }
 
-function componentRuntimeMetadata(properties, catalogDefs, commonDefs) {
+/**
+ * Computes the runtime metadata core reads instead of inspecting the schema.
+ *
+ * @param properties The component's flattened properties.
+ * @param catalogDefs The catalog document's `$defs`.
+ * @param commonDefs The common types' `$defs`.
+ * @param propertyKeys The properties the generated Zod object declares.
+ */
+function componentRuntimeMetadata(properties, catalogDefs, commonDefs, propertyKeys) {
   const childRefs = [];
   const childLists = [];
   const nestedChildRefs = {};
@@ -696,6 +704,7 @@ function componentRuntimeMetadata(properties, catalogDefs, commonDefs) {
     ...(childLists.length ? {childLists: [...new Set(childLists)]} : {}),
     ...(Object.keys(nestedChildRefs).length ? {nestedChildRefs} : {}),
     ...(Object.keys(dynamicFields).length ? {dynamicFields} : {}),
+    propertyKeys,
   };
 }
 
@@ -752,7 +761,10 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
 
     bodyCode += `export const ${apiName} = {\n`;
     bodyCode += `  name: '${compName}',\n`;
-    const metadata = componentRuntimeMetadata(properties, catalogDefs, commonDefs);
+    const propertyKeys = Object.keys(properties).filter(
+      name => name !== discriminatorProp && name !== idProp,
+    );
+    const metadata = componentRuntimeMetadata(properties, catalogDefs, commonDefs, propertyKeys);
     if (Object.keys(metadata).length > 0) {
       bodyCode += `  schemaMetadata: ${literal(metadata)},\n`;
     }
