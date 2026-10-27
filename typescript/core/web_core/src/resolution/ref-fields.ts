@@ -14,21 +14,25 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import {
+  a2uiJsonSchemaOf,
+  arrayItems,
+  CHILD_LIST_DEF_NAMES,
+  COMPONENT_ID_DEF_NAMES,
+  coreJsonSchema,
+  objectProperties,
+  refDefName,
+  unionBranches,
+} from '../catalog/a2ui_json_schema.js';
 import type {EntrySchema} from '../catalog/a2ui_schema.js';
-import {zodSchemaFor} from '../catalog/entry_schema.js';
-import {childRefKindOf, type ChildRefKind} from '../types/child-ref-helpers.js';
+import type {JsonSchemaObject} from '../catalog/spec_annotations.js';
 
 /**
- * Classification reads the child-reference marker `ComponentIdSchema` and
- * `ChildListSchema` carry in their zod metadata, which survives
- * `.describe()` and other schema-rebuilding methods. The `REF:` description
- * pointers below are recognized as well, for schemas that author the
- * pointer by hand rather than deriving from those two.
+ * Classification reads the JSON Schema view of a component's schema, in
+ * which a property holding a child reference refers to the `ComponentId` or
+ * `ChildList` definition, or to an alias of one, such as `Child`. `ComponentIdSchema` and `ChildListSchema` carry
+ * such a reference even when described anew.
  */
-const COMPONENT_ID_REF = 'REF:common_types.json#/$defs/ComponentId';
-const CHILD_LIST_REF = 'REF:common_types.json#/$defs/ChildList';
-
 /**
  * Describes how a component schema property references child components.
  */
@@ -55,63 +59,55 @@ export type RefFields = ReadonlyMap<string, RefKind>;
 
 const EMPTY_REF_FIELDS: RefFields = new Map();
 
-const refFieldsCache = new WeakMap<z.ZodTypeAny, RefFields>();
+const refFieldsCache = new WeakMap<object, RefFields>();
 
 /**
- * Extracts the child-referencing properties and their kinds from a component Zod schema.
+ * Extracts the child-referencing properties and their kinds from a component schema.
  *
- * @param input Component schema to inspect: a Zod 3 schema, or any other
- *   `EntrySchema`, read as JSON Schema.
+ * @param schema Component schema to inspect.
  * @returns Map of child-referencing property names to their reference kinds.
  */
-export function extractRefFields(input: EntrySchema): RefFields {
-  const schema = zodSchemaFor(input);
+export function extractRefFields(schema: EntrySchema): RefFields {
   const cached = refFieldsCache.get(schema);
   if (cached) {
     return cached;
   }
 
-  const unwrapped = unwrap(schema);
-  if (unwrapped.schema._def.typeName !== 'ZodObject') {
+  const shape = objectProperties(coreJsonSchema(a2uiJsonSchemaOf(schema)));
+  if (!shape) {
     refFieldsCache.set(schema, EMPTY_REF_FIELDS);
     return EMPTY_REF_FIELDS;
   }
 
   const fields = new Map<string, RefKind>();
-
-  const shape = (unwrapped.schema as z.AnyZodObject).shape as Record<string, z.ZodTypeAny>;
   for (const [key, value] of Object.entries(shape)) {
-    const field = unwrap(value);
-    if (marksChildList(field) || isChildListUnion(field.schema)) {
+    const field = coreJsonSchema(value);
+    if (refersTo(value, CHILD_LIST_DEF_NAMES) || isChildListUnion(field)) {
       fields.set(key, {kind: 'list'});
       continue;
     }
-    if (marksComponentId(field)) {
+    if (refersTo(value, COMPONENT_ID_DEF_NAMES)) {
       fields.set(key, {kind: 'single'});
       continue;
     }
-    if (field.schema._def.typeName === 'ZodArray') {
-      const element = unwrap(field.schema._def.type as z.ZodTypeAny);
-      // A plain array of component ids: the marker sits on the element
-      // rather than the property (z.array(ComponentIdSchema)).
-      if (marksComponentId(element)) {
-        fields.set(key, {kind: 'list'});
-        continue;
+    const element = arrayItems(field);
+    if (element === undefined) continue;
+    // A plain array of component ids: the reference sits on the element
+    // rather than the property (z.array(ComponentIdSchema)).
+    if (refersTo(element, COMPONENT_ID_DEF_NAMES)) {
+      fields.set(key, {kind: 'list'});
+      continue;
+    }
+    const elementShape = objectProperties(coreJsonSchema(element));
+    if (elementShape) {
+      const subKeys = new Set<string>();
+      for (const [subKey, subValue] of Object.entries(elementShape)) {
+        if (refersTo(subValue, COMPONENT_ID_DEF_NAMES)) {
+          subKeys.add(subKey);
+        }
       }
-      if (element.schema._def.typeName === 'ZodObject') {
-        const subKeys = new Set<string>();
-        const elementShape = (element.schema as z.AnyZodObject).shape as Record<
-          string,
-          z.ZodTypeAny
-        >;
-        for (const [subKey, subValue] of Object.entries(elementShape)) {
-          if (marksComponentId(unwrap(subValue))) {
-            subKeys.add(subKey);
-          }
-        }
-        if (subKeys.size > 0) {
-          fields.set(key, {kind: 'nested', keys: subKeys});
-        }
+      if (subKeys.size > 0) {
+        fields.set(key, {kind: 'nested', keys: subKeys});
       }
     }
   }
@@ -121,63 +117,17 @@ export function extractRefFields(input: EntrySchema): RefFields {
   return result;
 }
 
-/**
- * Unwraps optional/nullable/default/effects wrappers, collecting every
- * description seen along the way (a pointer may sit on the wrapper or on the
- * inner type).
- */
-interface UnwrappedField {
-  schema: z.ZodTypeAny;
-  descriptions: string[];
-  refs: Set<ChildRefKind>;
-}
-
-function unwrap(schema: z.ZodTypeAny): UnwrappedField {
-  const descriptions: string[] = [];
-  const refs = new Set<ChildRefKind>();
-  let current = schema;
-  for (;;) {
-    if (current.description) {
-      descriptions.push(current.description);
-    }
-    const ref = childRefKindOf(current);
-    if (ref) {
-      refs.add(ref);
-    }
-    const typeName = current._def.typeName;
-    if (typeName === 'ZodOptional' || typeName === 'ZodNullable' || typeName === 'ZodDefault') {
-      current = current._def.innerType;
-    } else if (typeName === 'ZodEffects') {
-      current = current._def.schema;
-    } else {
-      return {schema: current, descriptions, refs};
-    }
-  }
-}
-
-function marksComponentId(field: UnwrappedField): boolean {
-  return field.refs.has('component-id') || hasPointer(field.descriptions, COMPONENT_ID_REF);
-}
-
-function marksChildList(field: UnwrappedField): boolean {
-  return field.refs.has('child-list') || hasPointer(field.descriptions, CHILD_LIST_REF);
-}
-
-function hasPointer(descriptions: string[], pointer: string): boolean {
-  return descriptions.some(d => d.startsWith(pointer));
+/** Whether a node, or the schema it wraps, refers to one of the definitions `defNames`. */
+function refersTo(node: JsonSchemaObject, defNames: ReadonlySet<string>): boolean {
+  return defNames.has(refDefName(node)) || defNames.has(refDefName(coreJsonSchema(node)));
 }
 
 /** Matches the binder's STRUCTURAL detection for `ChildList`-shaped unions. */
-function isChildListUnion(schema: z.ZodTypeAny): boolean {
-  if (schema._def.typeName !== 'ZodUnion') {
-    return false;
-  }
-  const options = schema._def.options as z.ZodTypeAny[];
-  return options.some(o => {
-    if (o._def.typeName !== 'ZodObject') {
-      return false;
-    }
-    const shape = (o as z.AnyZodObject).shape;
-    return shape.componentId && shape.path;
-  });
+function isChildListUnion(node: JsonSchemaObject): boolean {
+  return (
+    unionBranches(node)?.some(branch => {
+      const shape = objectProperties(branch);
+      return Boolean(shape?.['componentId'] && shape['path']);
+    }) ?? false
+  );
 }

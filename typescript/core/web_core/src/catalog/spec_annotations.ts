@@ -85,6 +85,12 @@ function cloneWithDefAnnotation<T extends z.ZodTypeAny>(
 }
 
 /**
+ * The annotations by the definition of the annotated schema, for converters
+ * such as `zod-to-json-schema` that see definitions only.
+ */
+const annotationsByDef = new WeakMap<object, SpecAnnotation>();
+
+/**
  * Returns a copy of a Zod schema that carries what a catalog document writes
  * about it beyond the schema itself.
  *
@@ -98,7 +104,9 @@ function cloneWithDefAnnotation<T extends z.ZodTypeAny>(
  */
 export function spec<T extends z.ZodTypeAny>(schema: T, annotation: SpecAnnotation): T {
   const copy = z.ZodType.prototype.describe.call(schema, schema.description as string) as T;
-  annotations.set(copy, {...annotations.get(schema), ...annotation});
+  const merged = {...annotations.get(schema), ...annotation};
+  annotations.set(copy, merged);
+  annotationsByDef.set(copy._def, merged);
   return copy;
 }
 
@@ -137,4 +145,14 @@ export function specDef<T extends z.ZodTypeAny>(
  */
 export function getSpecAnnotation(schema: unknown): SpecAnnotation | undefined {
   return typeof schema === 'object' && schema !== null ? annotations.get(schema) : undefined;
+}
+
+/**
+ * Returns the annotation of the Zod schema a definition belongs to, if any.
+ *
+ * @internal
+ * @param def The definition (`_def`) of a Zod schema.
+ */
+export function getSpecAnnotationOfDef(def: object): SpecAnnotation | undefined {
+  return annotationsByDef.get(def);
 }
