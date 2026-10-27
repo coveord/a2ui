@@ -23,6 +23,7 @@ export {
   normalizeSchema,
   type A2uiSchema,
   type A2uiStandardSchema,
+  type A2uiValidator,
   type EntrySchema,
   type InferEntrySchema,
 } from './a2ui_schema.js';

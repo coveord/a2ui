@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type {A2uiValidator} from '../../catalog/a2ui_schema.js';
 import {BaseVersionAdapter, ProtocolVersion} from './base.js';
 import {
   InternalComponentPayload,
@@ -27,7 +28,10 @@ import {AgentToRendererMessageSchema} from '../../v1_0/schema/agent-to-renderer.
  */
 export class V1Point0Adapter extends BaseVersionAdapter {
   readonly version: ProtocolVersion = '1.0';
-  protected readonly schema = AgentToRendererMessageSchema;
+
+  constructor(schema: A2uiValidator | null = AgentToRendererMessageSchema) {
+    super(schema);
+  }
 
   protected getNativeActionKeys(): string[] {
     return [...INTERNAL_OPERATION_TYPES];

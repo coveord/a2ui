@@ -18,6 +18,7 @@ import type {StandardJSONSchemaV1, StandardSchemaV1, StandardTypedV1} from '@sta
 import type {z} from 'zod/v3';
 
 import {A2uiCatalogError} from '../errors.js';
+import {formatZodIssue} from '../processing/format-zod-issue.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
 
 /**
@@ -66,6 +67,61 @@ export type InferEntrySchema<S> = S extends StandardTypedV1
     ? any // eslint-disable-line @typescript-eslint/no-explicit-any
     : StandardTypedV1.InferOutput<S>
   : Record<string, unknown>;
+
+/** A schema whose Standard Schema validator can validate a protocol payload. */
+export type A2uiValidator<Output = unknown> = StandardSchemaV1<unknown, Output>;
+
+/** A validation issue emitted by a synchronous Standard Schema validator. */
+export interface A2uiSchemaIssue {
+  readonly message: string;
+  readonly path?: readonly unknown[];
+}
+
+/** The result emitted by a synchronous Standard Schema validator. */
+export interface A2uiSchemaResult<Output> {
+  readonly value?: Output;
+  readonly issues?: readonly A2uiSchemaIssue[];
+}
+
+/**
+ * Validates a value against a schema synchronously.
+ *
+ * @throws {A2uiCatalogError} If the schema validates asynchronously, which
+ *     A2UI does not support because protocol payloads are processed synchronously.
+ */
+export function validateA2uiSchema<Output>(
+  schema: A2uiValidator<Output>,
+  value: unknown,
+): A2uiSchemaResult<Output> {
+  const result = schema['~standard'].validate(value);
+  if (result instanceof Promise) {
+    throw new A2uiCatalogError(
+      `Schema from '${schema['~standard'].vendor}' validated asynchronously, which A2UI does not support.`,
+    );
+  }
+  return result as A2uiSchemaResult<Output>;
+}
+
+/**
+ * Formats a validation issue as `<path>: <message>`, with `root` for an
+ * issue without a path.
+ */
+export function formatA2uiSchemaIssue(issue: A2uiSchemaIssue): string {
+  if (isZodIssue(issue)) return formatZodIssue(issue);
+  const path = issue.path?.map(issuePathSegment) ?? [];
+  return `${path.join('.') || 'root'}: ${issue.message}`;
+}
+
+function issuePathSegment(segment: unknown): string {
+  if (typeof segment === 'object' && segment !== null && 'key' in segment) {
+    return String((segment as {key: unknown}).key);
+  }
+  return String(segment);
+}
+
+function isZodIssue(issue: A2uiSchemaIssue): issue is A2uiSchemaIssue & z.ZodIssue {
+  return typeof (issue as {code?: unknown}).code === 'string' && Array.isArray(issue.path);
+}
 
 /**
  * The key under which `fromZod3` keeps the Zod 3 schema it presents, so that

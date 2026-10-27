@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type {A2uiValidator} from '../../catalog/a2ui_schema.js';
 import {BaseVersionAdapter, ProtocolVersion} from './base.js';
 import {InternalComponentPayload, InternalOperation} from '../operations.js';
 import {A2uiMessageSchema} from '../../v0_8/schema/server-to-client.js';
@@ -61,7 +62,10 @@ function normalizeV08Component(comp: unknown): InternalComponentPayload {
  */
 export class V0Point8Adapter extends BaseVersionAdapter {
   readonly version: ProtocolVersion = 'v0.8';
-  protected readonly schema = A2uiMessageSchema;
+
+  constructor(schema: A2uiValidator | null = A2uiMessageSchema) {
+    super(schema);
+  }
 
   protected getNativeActionKeys(): string[] {
     return ['beginRendering', 'surfaceUpdate', 'dataModelUpdate', 'deleteSurface'];
