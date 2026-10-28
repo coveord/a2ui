@@ -30,9 +30,10 @@ generateCatalogApi({
   commonTypesPath: join(rootDir, 'specification', 'v1_0', 'json', 'common_types.json'),
   componentsOutPath: join(v1CatalogDir, 'components', 'basic_components.ts'),
   functionsOutPath: join(v1CatalogDir, 'functions', 'basic_functions_api.ts'),
-  commonTypesImportPath: '../../../../v1_0/schema/common-types.js',
+  commonTypesImportPath: '../../../../v1_0/zod4/common-types.js',
   typesImportPath: '../../../../catalog/types.js',
   specImportPath: '../../../../catalog/spec_annotations.js',
+  zod: 'v4',
 });
 
 console.log('Successfully generated Basic Catalog v1 APIs.');

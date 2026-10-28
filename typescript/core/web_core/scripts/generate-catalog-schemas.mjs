@@ -182,7 +182,7 @@ function primitivePrediction(propSchema) {
  * and, when the generated models must reproduce the document, how the
  * document writes the common types document in references.
  *
- * @typedef {{commonDefs: object, usedImports: Set<string>, commonTypesUri?: string}} GenContext
+ * @typedef {{commonDefs: object, usedImports: Set<string>, commonTypesUri?: string, zod4?: boolean}} GenContext
  */
 
 /**
@@ -204,9 +204,8 @@ function generateNode(schema, ctx, isRequired = true) {
   const defName = findReferencedDefName(schema, commonDefs);
   if (defName) {
     usedImports.add(`${defName}Schema`);
-    const marker = desc ? `REF:#/$defs/${defName}|${escapeStr(desc)}` : `REF:#/$defs/${defName}`;
     return {
-      code: `${defName}Schema.describe('${marker}')`,
+      code: referenceCode(defName, desc, ctx.zod4),
       prediction: describe({$ref: `${ctx.commonTypesUri}#/$defs/${defName}`}),
     };
   }
@@ -311,7 +310,10 @@ function generateArrayNode(schema, ctx) {
  */
 export function generateObjectNode(schema, ctx, indent = '      ') {
   if (!schema.properties) {
-    return {code: 'z.record(z.any())', prediction: {type: 'object', additionalProperties: {}}};
+    return {
+      code: ctx.zod4 ? 'z.record(z.string(), z.any())' : 'z.record(z.any())',
+      prediction: {type: 'object', additionalProperties: {}},
+    };
   }
   const objProps = [];
   const properties = {};
@@ -402,7 +404,7 @@ function annotatedNode(schema, ctx, generated = generateNode(schema, ctx)) {
   if (ctx.commonTypesUri === undefined) return {code: generated.code, prediction: schema};
   const annotation = annotationFor(schema, generated.prediction);
   if (!annotation) return {code: generated.code, prediction: schema};
-  return {code: `spec(${generated.code}, ${literal(annotation)})`, prediction: schema};
+  return {code: annotatedCode(generated.code, literal(annotation), ctx.zod4), prediction: schema};
 }
 
 /**
@@ -421,9 +423,40 @@ export function generateArrayZod(propSchema, commonDefs, usedImports) {
 
 export function generateRefPropertyZod(defName, desc, isRequired, usedImports) {
   usedImports.add(`${defName}Schema`);
-  const marker = desc ? `REF:#/$defs/${defName}|${escapeStr(desc)}` : `REF:#/$defs/${defName}`;
-  const code = `${defName}Schema.describe('${marker}')`;
+  const code = referenceCode(defName, desc);
   return isRequired ? code : `${code}.optional()`;
+}
+
+/**
+ * Returns the code of a reference to a common type: a Zod 3 schema described
+ * with a `REF:` marker, or a Zod 4 schema whose metadata names the
+ * definition with a `$ref`.
+ *
+ * @param {string} defName The common type's name.
+ * @param {string} [desc] The reference's own description.
+ * @param {boolean} [zod4] Whether the code is Zod 4.
+ */
+function referenceCode(defName, desc, zod4 = false) {
+  if (zod4) {
+    // Zod 4 metadata is inherited, so a reference without a description of
+    // its own clears the common type's.
+    const description = desc ? `'${escapeStr(desc)}'` : 'undefined';
+    return `${defName}Schema.meta({$ref: '#/$defs/${defName}', description: ${description}})`;
+  }
+  const marker = desc ? `REF:#/$defs/${defName}|${escapeStr(desc)}` : `REF:#/$defs/${defName}`;
+  return `${defName}Schema.describe('${marker}')`;
+}
+
+/**
+ * Returns `code` annotated with `annotation`: a Zod 3 `spec()` call, or a
+ * Zod 4 `.meta(specMeta())` call.
+ *
+ * @param {string} code The schema's code.
+ * @param {string} annotation The annotation's code.
+ * @param {boolean} [zod4] Whether the code is Zod 4.
+ */
+function annotatedCode(code, annotation, zod4 = false) {
+  return zod4 ? `${code}.meta(specMeta(${annotation}))` : `spec(${code}, ${annotation})`;
 }
 
 /**
@@ -436,6 +469,7 @@ export function generateRefPropertyZod(defName, desc, isRequired, usedImports) {
  * @param {Set<string>} usedImports The imports used so far.
  * @param {string} [commonTypesUri] How the document writes the common types
  *     document; when set, the code is annotated to reproduce `propSchema`.
+ * @param {boolean} [zod4] Whether to generate Zod 4 code.
  */
 export function generatePropertyZod(
   propName,
@@ -444,9 +478,10 @@ export function generatePropertyZod(
   commonDefs,
   usedImports,
   commonTypesUri,
+  zod4 = false,
 ) {
   const isRequired = requiredList.includes(propName);
-  const ctx = {commonDefs, usedImports, commonTypesUri};
+  const ctx = {commonDefs, usedImports, commonTypesUri, zod4};
   const {code} = annotatedNode(propSchema, ctx, generateNode(propSchema, ctx, isRequired));
   return isRequired ? code : `${code}.optional()`;
 }
@@ -593,7 +628,8 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
   const typesImportPath = options.typesImportPath || '../../../catalog/types.js';
   const specImportPath = typesImportPath.replace(/types\.js$/, 'spec_annotations.js');
   const commonTypesUri = options.reproduceDocument ? commonTypesUriOf(catalogJson) : undefined;
-  const ctx = {commonDefs, usedImports, commonTypesUri};
+  const zod4 = options.zod === 'v4';
+  const ctx = {commonDefs, usedImports, commonTypesUri, zod4};
   const reproduce = commonTypesUri !== undefined;
 
   const compNames = Object.keys(catalogJson.components || {});
@@ -633,8 +669,8 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
 
     bodyCode += `export const ${apiName} = {\n`;
     bodyCode += `  name: '${compName}',\n`;
-    bodyCode += `  schema: ${reproduce ? 'spec(' : ''}z\n`;
-    bodyCode += `    .object({\n`;
+    bodyCode += `  schema: ${reproduce && !zod4 ? 'spec(' : ''}z\n`;
+    bodyCode += zod4 ? `    .strictObject({\n` : `    .object({\n`;
     if (reproduce) {
       for (const name of spreads) bodyCode += `      ...${defModelName(name)}.shape,\n`;
     }
@@ -652,6 +688,7 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
         commonDefs,
         usedImports,
         reproduce && ownKeys.has(propName) ? commonTypesUri : undefined,
+        zod4,
       );
       bodyCode += `      '${propName}': ${zodCode},\n`;
       if (ownKeys.has(propName) && required.includes(propName)) ownRequired.push(propName);
@@ -661,8 +698,11 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
     if (reproduce && description) {
       bodyCode += `    .describe('${escapeStr(description)}')\n`;
     }
-    bodyCode += `    .strict()`;
+    if (!zod4) bodyCode += `    .strict()`;
     if (reproduce) {
+      if (zod4 && spreads.length > 0) {
+        throw new Error(`Zod 4 cannot name the catalog mixins of '${compName}'.`);
+      }
       const annotation = [`mixins: [${mixins.join(', ')}]`];
       const authoredRequired = (own.required || []).filter(
         name => name !== discriminatorProp && name !== idProp,
@@ -670,7 +710,11 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
       if (authoredRequired.join() !== ownRequired.join()) {
         annotation.push(`required: ${literal(authoredRequired)}`);
       }
-      bodyCode += `, {${annotation.join(', ')}})`;
+      bodyCode += zod4
+        ? `    .meta(specMeta({${annotation.join(', ')}}))`
+        : `, {${annotation.join(', ')}})`;
+    } else if (zod4) {
+      bodyCode = bodyCode.replace(/\n$/, '');
     }
     bodyCode += `,\n`;
     bodyCode += `} satisfies ComponentApi;\n\n`;
@@ -687,10 +731,11 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
     }
   }
 
+  const specImports = zod4 ? 'specMeta' : defsCode ? 'spec, specDef' : 'spec';
   let out = HEADER;
-  out += `import {z} from 'zod/v3';
+  out += `import {z} from 'zod/${zod4 ? 'v4' : 'v3'}';
 
-${reproduce ? `import {${defsCode ? 'spec, specDef' : 'spec'}} from '${specImportPath}';\n` : ''}import {${reproduce ? 'CatalogDocumentOptions, ' : ''}ComponentApi} from '${typesImportPath}';
+${reproduce ? `import {${specImports}} from '${specImportPath}';\n` : ''}import {${reproduce ? 'CatalogDocumentOptions, ' : ''}ComponentApi} from '${typesImportPath}';
 import {
   ${Array.from(usedImports).sort().join(',\n  ')},
 } from '${commonTypesImportPath}';
@@ -750,6 +795,7 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
   const specImportPath = options.specImportPath || '../../../catalog/spec_annotations.js';
   const commonTypesUri = options.reproduceDocument ? commonTypesUriOf(catalogJson) : undefined;
   const reproduce = commonTypesUri !== undefined;
+  const zod4 = options.zod === 'v4';
   let bodyCode = '';
 
   for (const funcName of funcNames) {
@@ -773,7 +819,7 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
     if (reproduce && description) {
       bodyCode += `  description: '${escapeStr(description)}',\n`;
     }
-    bodyCode += `  schema: ${reproduce ? 'spec(' : ''}z.object({\n`;
+    bodyCode += `  schema: ${reproduce && !zod4 ? 'spec(' : ''}z.object({\n`;
 
     const prediction = {type: 'object', properties: {}};
     for (const [argName, argDef] of Object.entries(argsProps)) {
@@ -784,6 +830,7 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
         commonDefs,
         usedImports,
         commonTypesUri,
+        zod4,
       );
       bodyCode += `    '${argName}': ${zodCode},\n`;
       prediction.properties[argName] = argDef;
@@ -796,19 +843,20 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
       // Every argument model is annotated, which marks it as one whose call
       // schema `toJson` computes.
       const annotation = annotationFor(argsSchema ?? {type: 'object', properties: {}}, prediction);
-      bodyCode += `, ${literal(annotation ?? {closure: 'none'})})`;
+      const annotationCode = literal(annotation ?? {closure: 'none'});
+      bodyCode += zod4 ? `.meta(specMeta(${annotationCode}))` : `, ${annotationCode})`;
     }
     bodyCode += `,\n`;
     bodyCode += `};\n\n`;
   }
 
   let out = HEADER;
-  out += `import {z} from 'zod/v3';\n`;
+  out += `import {z} from 'zod/${zod4 ? 'v4' : 'v3'}';\n`;
   if (reproduce || usedImports.size > 0) {
     out += '\n';
   }
   if (reproduce) {
-    out += `import {spec} from '${specImportPath}';\n`;
+    out += `import {${zod4 ? 'specMeta' : 'spec'}} from '${specImportPath}';\n`;
   }
   if (usedImports.size > 0) {
     out += `import {
@@ -844,6 +892,7 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
  * @param {string} [options.typesImportPath] Relative import path for catalog types.
  * @param {string} [options.specImportPath] Relative import path for spec annotations,
  *     from the functions file.
+ * @param {'v3' | 'v4'} [options.zod] The Zod version to generate, Zod 3 by default.
  */
 export function generateCatalogApi({
   version,
@@ -854,6 +903,7 @@ export function generateCatalogApi({
   commonTypesImportPath,
   typesImportPath,
   specImportPath,
+  zod,
 }) {
   const commonJson = JSON.parse(readFileSync(commonTypesPath, 'utf8'));
   const catalogJson = JSON.parse(readFileSync(catalogPath, 'utf8'));
@@ -864,6 +914,7 @@ export function generateCatalogApi({
       commonTypesImportPath,
       typesImportPath,
       reproduceDocument: true,
+      zod,
     });
     writeFileSync(componentsOutPath, componentsTs);
   }
@@ -873,6 +924,7 @@ export function generateCatalogApi({
       commonTypesImportPath,
       specImportPath,
       reproduceDocument: true,
+      zod,
     });
     writeFileSync(functionsOutPath, functionsTs);
   }
