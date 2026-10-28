@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type {A2uiStandardSchema, A2uiValidator} from './a2ui_schema.js';
 import {
   PeerScope,
   resolveDefinition,
@@ -45,6 +46,13 @@ export type ObjectPiece =
 export interface ResolvedObjectDefinition {
   /** The definition with its references resolved and bundled. */
   readonly definition: ResolvedDefinition;
+  /**
+   * Resolves the definition again together with `references` into its
+   * catalog, in one pass, so that the bundle also holds what they reach under
+   * the same names. The protocol's common types refer into the catalog this
+   * way, such as a `FunctionCall` to the catalog's `anyFunction`.
+   */
+  readonly bundleWith: (references: readonly string[]) => ResolvedDefinition;
   /** The document the pieces' references resolve in: the bundled `$defs`. */
   readonly document: Readonly<Record<string, unknown>>;
   /**
@@ -160,14 +168,35 @@ function bundle(
   schema: Record<string, unknown>,
   rootDoc: Record<string, unknown>,
   options: ResolveObjectOptions,
-): {definition: ResolvedDefinition; document: Record<string, unknown>; scope: PeerScope} {
-  const definition = resolveDefinition(schema as JsonSchemaObject, rootDoc, options.peers ?? [], {
+): {
+  definition: ResolvedDefinition;
+  bundleWith: (references: readonly string[]) => ResolvedDefinition;
+  document: Record<string, unknown>;
+  scope: PeerScope;
+} {
+  const resolveOptions = {
     stripLocalComponentEnvelopes: false,
     isCommonTypeName: options.isCommonTypeName,
-  });
+  };
+  const definition = resolveDefinition(
+    schema as JsonSchemaObject,
+    rootDoc,
+    options.peers ?? [],
+    resolveOptions,
+  );
+  const bundleWith = (references: readonly string[]): ResolvedDefinition => {
+    // The entry is resolved first, so it keeps the names it has alone.
+    const combined = resolveDefinition(
+      {entry: schema, references: references.map($ref => ({$ref}))},
+      rootDoc,
+      options.peers ?? [],
+      resolveOptions,
+    );
+    return {...combined, schema: combined.schema['entry'] as JsonSchemaObject};
+  };
   // Every reference into a peer now points into the bundle, so the scope has
   // no peers: a reference left outside it is a common type or unresolvable.
-  return {definition, document: {$defs: definition.defs}, scope: new PeerScope()};
+  return {definition, bundleWith, document: {$defs: definition.defs}, scope: new PeerScope()};
 }
 
 /**
@@ -253,7 +282,7 @@ export function resolveComponentDefinition(
   rootDoc: Record<string, unknown>,
   options: ResolveObjectOptions & {readonly isAtLeastV10: boolean},
 ): ResolvedObjectDefinition {
-  const {definition, document, scope} = bundle(schema, rootDoc, options);
+  const {definition, bundleWith, document, scope} = bundle(schema, rootDoc, options);
   const collected = collectObjectPieces(
     definition.schema as Record<string, unknown>,
     document,
@@ -263,6 +292,7 @@ export function resolveComponentDefinition(
   );
   return {
     definition,
+    bundleWith,
     document,
     pieces: collected.map(({piece}) => piece),
     required: new Set(collected.flatMap(({required}) => required)),
@@ -285,7 +315,7 @@ export function resolveThemeDefinition(
   rootDoc: Record<string, unknown>,
   options: ResolveObjectOptions,
 ): ResolvedObjectDefinition {
-  const {definition, document, scope} = bundle(schema, rootDoc, options);
+  const {definition, bundleWith, document, scope} = bundle(schema, rootDoc, options);
   const collected = collectObjectPieces(
     definition.schema as Record<string, unknown>,
     document,
@@ -295,6 +325,7 @@ export function resolveThemeDefinition(
   );
   return {
     definition,
+    bundleWith,
     document,
     pieces: collected.map(({piece}) => piece),
     required: new Set(collected.flatMap(({required}) => required)),
@@ -383,7 +414,7 @@ export function resolveFunctionArgumentsDefinition(
   rootDoc: Record<string, unknown>,
   options: ResolveObjectOptions,
 ): ResolvedObjectDefinition {
-  const {definition, document, scope} = bundle(schema, rootDoc, options);
+  const {definition, bundleWith, document, scope} = bundle(schema, rootDoc, options);
   const collection: ArgumentsCollection = {schemas: [], hasUnresolvable: false};
   collectArgumentSchemas(
     definition.schema as Record<string, unknown>,
@@ -399,6 +430,7 @@ export function resolveFunctionArgumentsDefinition(
   }
   return {
     definition,
+    bundleWith,
     document,
     pieces,
     required: new Set(collection.schemas.flatMap(requiredNames)),
@@ -550,4 +582,170 @@ export function objectDefinitionView(
     ...(required.length > 0 ? {required} : {}),
     additionalProperties: model.open,
   };
+}
+
+/** What a `CatalogSchemaCompiler` compiles a schema for. */
+export interface CatalogSchemaCompileContext {
+  /**
+   * `'component'` for a component's properties, without its envelope fields
+   * (`id`, `component`, `catalogId`); `'functionArgs'` for a function's
+   * arguments; `'theme'` for the catalog's theme.
+   */
+  readonly kind: 'component' | 'functionArgs' | 'theme';
+  /** The component's or function's name, or `'theme'`. */
+  readonly name: string;
+  /** The protocol version the catalog is loaded at. */
+  readonly protocolVersion: string;
+}
+
+/**
+ * Compiles the schemas of a catalog `Catalog.fromJson` loads into validators,
+ * in place of the built-in Zod 3 compiler.
+ *
+ * A2UI resolves each entry's definition first: its references, including
+ * those into peer catalogs, its mixins and `allOf` members, and the closure
+ * rules of its protocol version. The compiler receives the result as one
+ * self-contained JSON Schema draft 2020-12 object, with the protocol's common
+ * types and every definition it reaches under `$defs`, and returns a
+ * synchronous Standard Schema validator. A2UI binds and inspects the entry
+ * through its definition, so the validator only validates.
+ */
+export interface CatalogSchemaCompiler {
+  /**
+   * Compiles `schema` into a validator. Called on an entry's first use, and
+   * again for each set of peer catalogs the entry is linked to.
+   *
+   * @param schema The JSON Schema of the object to validate, which the
+   *     compiler may keep.
+   * @param context What the schema is for.
+   * @returns A validator whose `validate` returns synchronously.
+   */
+  compile(schema: JsonSchemaObject, context: CatalogSchemaCompileContext): A2uiValidator;
+}
+
+/**
+ * Returns the self-contained JSON Schema of a resolved object definition, as
+ * a `CatalogSchemaCompiler` compiles it: its pieces' properties merged in
+ * order, without its omitted properties, with the names it requires, closed
+ * unless open, and with `$defs` holding its bundled definitions and the
+ * protocol's common types. A reference to a common type, wherever its
+ * definition is written, points at the common type, and a reference into the
+ * root catalog document at the bundled definition.
+ *
+ * @param model The resolved object definition.
+ * @param commonTypes The JSON Schema definitions of the protocol's common types.
+ * @param isCommonTypeName Whether a definition name stands for a common type.
+ * @throws {A2uiCatalogError} If the definition refers into a catalog
+ *     document that is not available.
+ */
+export function objectValidationSchema(
+  model: ResolvedObjectDefinition,
+  commonTypes: Readonly<Record<string, unknown>>,
+  isCommonTypeName: (name: string) => boolean,
+): JsonSchemaObject {
+  const scope = new PeerScope();
+  const localize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(localize);
+    if (!isRecord(value)) return value;
+    const result: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) result[key] = localize(child);
+    const ref = value['$ref'];
+    if (typeof ref === 'string') {
+      const name = definitionNameOf(ref);
+      if (name !== undefined && isCommonTypeName(name)) {
+        result['$ref'] = `#/$defs/${name}`;
+      } else {
+        const target = scope.resolve(ref, {});
+        if (target) result['$ref'] = target.pointer;
+        else scope.assertResolvable(ref);
+      }
+    }
+    return result;
+  };
+
+  const properties: Record<string, unknown> = {};
+  for (const piece of model.pieces) {
+    const source =
+      piece.kind === 'commonType' ? commonTypes[piece.name] : {properties: piece.properties};
+    const declared = isRecord(source) ? source['properties'] : undefined;
+    if (!isRecord(declared)) continue;
+    const names =
+      piece.kind === 'commonType'
+        ? (piece.properties ?? Object.keys(declared))
+        : Object.keys(declared);
+    for (const name of names) {
+      if (model.omittedProperties.has(name) || declared[name] === undefined) continue;
+      properties[name] = localize(declared[name]);
+    }
+  }
+  const required = [...model.required].filter(name => name in properties);
+  const catalogReferences = referencesOutside(commonTypes, isCommonTypeName);
+  const bundled =
+    catalogReferences.length > 0 ? model.bundleWith(catalogReferences) : model.definition;
+  const defs: Record<string, unknown> = {};
+  for (const [name, definition] of Object.entries(bundled.defs)) {
+    defs[name] = localize(definition);
+  }
+  // A definition named after a common type stands for the common type.
+  for (const [name, definition] of Object.entries(commonTypes)) {
+    defs[name] = localize(definition);
+  }
+  return {
+    type: 'object',
+    properties,
+    ...(required.length > 0 ? {required} : {}),
+    additionalProperties: model.open,
+    $defs: defs,
+  };
+}
+
+/**
+ * Returns the references the common types make outside themselves, into the
+ * catalog that uses them, such as a `FunctionCall` to the catalog's
+ * `anyFunction`.
+ */
+function referencesOutside(
+  commonTypes: Readonly<Record<string, unknown>>,
+  isCommonTypeName: (name: string) => boolean,
+): string[] {
+  const references = new Set<string>();
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+    } else if (isRecord(value)) {
+      const ref = value['$ref'];
+      if (typeof ref === 'string') {
+        const name = definitionNameOf(ref);
+        if (!ref.startsWith('#/') && !(name !== undefined && isCommonTypeName(name))) {
+          references.add(ref);
+        }
+      }
+      Object.values(value).forEach(visit);
+    }
+  };
+  visit(commonTypes);
+  return [...references];
+}
+
+/**
+ * Returns a schema that validates with `validator` and writes `jsonSchema`
+ * as its Standard JSON Schema: a compiled catalog entry, which A2UI reads as
+ * any library schema.
+ *
+ * @param validator The validator a `CatalogSchemaCompiler` returned.
+ * @param jsonSchema The JSON Schema it was compiled from.
+ */
+export function compiledEntrySchema(
+  validator: A2uiValidator,
+  jsonSchema: JsonSchemaObject,
+): A2uiStandardSchema {
+  const write = () => structuredClone(jsonSchema) as Record<string, unknown>;
+  return Object.freeze({
+    '~standard': Object.freeze({
+      version: 1 as const,
+      vendor: validator['~standard'].vendor,
+      validate: (value: unknown) => validator['~standard'].validate(value),
+      jsonSchema: Object.freeze({input: write, output: write}),
+    }),
+  });
 }

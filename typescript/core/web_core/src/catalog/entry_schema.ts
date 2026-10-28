@@ -16,6 +16,7 @@
 
 import {z} from 'zod/v3';
 
+import {hasDefinitionView} from './a2ui_json_schema.js';
 import {
   validateA2uiSchema,
   zod3SchemaOf,
@@ -65,7 +66,7 @@ function reloadedEntries(catalog: CatalogInterface<ComponentApi, FunctionApi>): 
     entries = {
       components: new Map(parsed.components.map(link)),
       functions: new Map(parsed.functions.map(link)),
-      themeSchema: parsed.themeSchema,
+      themeSchema: parsed.themeSchema as z.ZodTypeAny | undefined,
     };
     reloaded.set(catalog, entries);
   }
@@ -187,6 +188,8 @@ export function themeSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi>,
 ): A2uiValidator | undefined {
   if (!catalog.themeSchema) return undefined;
+  // A theme the catalog loader compiled is already read through its definition.
+  if (hasDefinitionView(catalog.themeSchema)) return catalog.themeSchema as A2uiValidator;
   const zod3 = zod3SchemaOf(catalog.themeSchema);
   if (zod3) return zod3;
   return typeof catalog.toJson === 'function' ? reloadedEntries(catalog).themeSchema : undefined;

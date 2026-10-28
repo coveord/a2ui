@@ -409,12 +409,16 @@ export function resolveDefinition(
   const pointerSegment = (pointer: string): string =>
     pointer.split('/').filter(Boolean).at(-1)?.replace(/~1/g, '/').replace(/~0/g, '~') ?? 'target';
   // Names a bundled target that is not a root `$defs` entry: a peer target
-  // after its peer, and a root component after the component, never reusing a
-  // root definition name or another bundled name.
+  // after its peer, and a root component or function after its section,
+  // never reusing a root definition name or another bundled name.
+  const rootPrefixes: Readonly<Record<string, string>> = {
+    components: 'component',
+    functions: 'function',
+  };
   const bundledName = (target: RefTarget): string => {
     const prefix =
       target.doc === rootDoc
-        ? 'component'
+        ? (rootPrefixes[target.pointer.split('/')[1] ?? ''] ?? 'root')
         : `peer_${peers.findIndex(peer => scope.documentOf(peer) === target.doc)}`;
     const base = `${prefix}_${pointerSegment(target.pointer)}`;
     let name = base;
