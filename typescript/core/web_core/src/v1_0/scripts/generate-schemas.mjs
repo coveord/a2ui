@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-import {execFileSync} from 'node:child_process';
 import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
-import {createRequire} from 'node:module';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
@@ -24,6 +22,7 @@ import {
   analyzeDependencies,
   compileDefToZod,
   toZod4Code,
+  writeFormattedZod4,
   writeIndexFile,
 } from '../../../scripts/zod-generator-core.mjs';
 
@@ -213,16 +212,7 @@ export type FunctionResponse = z.infer<typeof FunctionResponseSchema>;`;
   writeFileSync(join(destDir, 'common-types.ts'), commonTs);
   // The same common types in Zod 4, which catalogs written with Zod 4, such
   // as the basic catalog, build on. The protocol's own schemas keep Zod 3.
-  const zod4Dir = join(v10Dir, 'zod4');
-  mkdirSync(zod4Dir, {recursive: true});
-  const zod4Path = join(zod4Dir, 'common-types.ts');
-  writeFileSync(zod4Path, toZod4Code(commonTs));
-  // Prettier formats the rewritten method chains in two passes, so they are
-  // formatted to a fixed point here, which the build's single pass keeps.
-  const prettier = createRequire(import.meta.url).resolve('prettier/bin/prettier.cjs');
-  for (let pass = 0; pass < 2; pass++) {
-    execFileSync(process.execPath, [prettier, '--write', '--log-level', 'warn', zod4Path]);
-  }
+  writeFormattedZod4(join(v10Dir, 'zod4', 'common-types.ts'), toZod4Code(commonTs));
 
   const pureCommonNames = new Set(Object.keys(commonJson.$defs));
   const helperNames = new Set();

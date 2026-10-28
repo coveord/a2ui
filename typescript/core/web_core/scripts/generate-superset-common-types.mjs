@@ -18,6 +18,8 @@ import {readFileSync, writeFileSync, readdirSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import {toZod4Code, writeFormattedZod4} from './zod-generator-core.mjs';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 const defaultSpecDir = join(rootDir, '..', '..', '..', 'specification');
@@ -636,6 +638,11 @@ export const CommonSchemas = {
   outTs += `};\n\n`;
 
   writeFileSync(destinationFile, outTs);
+  // The same common types in Zod 4, which the catalog loader builds on.
+  writeFormattedZod4(
+    join(dirname(destinationFile), 'zod4', 'common-types.ts'),
+    toZod4Code(outTs).replace("'../common/uax31.js'", "'../../common/uax31.js'"),
+  );
   console.log(`Successfully generated superset common types in ${destinationFile}`);
 }
 
