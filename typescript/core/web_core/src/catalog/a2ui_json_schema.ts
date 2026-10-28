@@ -100,13 +100,18 @@ export function zod3ToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> 
 }
 
 /**
- * The definitions whose name alone tells what a value referring to them is,
- * so that the JSON Schema view of a reference to one of them is the bare
- * `$ref`. Expanding them would also recurse: a `FunctionCall`'s arguments are
- * dynamic values, which may be function calls.
+ * The local definitions whose name alone tells what a value referring to them
+ * is, so that the JSON Schema view is the bare `$ref`. Expanding them would
+ * also recurse: a `FunctionCall`'s arguments are dynamic values, which may
+ * be function calls.
  */
 const OPAQUE_DEFS =
   /^(Dynamic.*|DataBinding|FunctionCall|ComponentId|ChildList|Action|CheckRule|Checkable)$/;
+
+/** Whether a `REF:` marker points to a definition in a common types document. */
+function isCommonTypeRef(ref: string): boolean {
+  return ref.includes('common_types.json#/$defs/');
+}
 
 /** The Zod 3 types that wrap another schema. */
 const WRAPPERS = new Set([
@@ -140,7 +145,9 @@ const a2uiOverride: OverrideCallback = (def, refs, seen, forceResolution) => {
   // own keywords, such as `default`.
   const isWrapper = WRAPPERS.has((def as {typeName?: string}).typeName ?? '');
   if (ref !== undefined) {
-    if (!isWrapper && OPAQUE_DEFS.test(refDefName({$ref: ref}))) return {description};
+    if (!isWrapper && (isCommonTypeRef(ref) || OPAQUE_DEFS.test(refDefName({$ref: ref})))) {
+      return {description};
+    }
   } else {
     const childRef = (def as {a2uiChildRef?: string}).a2uiChildRef;
     const target = childRef === undefined ? undefined : CHILD_REF_TARGETS[childRef];
