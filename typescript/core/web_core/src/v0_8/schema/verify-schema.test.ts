@@ -16,7 +16,8 @@
 
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
-import {zodToJsonSchema} from 'zod-to-json-schema';
+
+import {z} from 'zod/v4';
 import {readFileSync} from 'fs';
 import {resolve, join, dirname} from 'path';
 import {fileURLToPath} from 'url';
@@ -36,8 +37,6 @@ function compareDefinitions(zodDefs: any, jsonDefs: any): Record<string, any> {
   const keys = new Set([...Object.keys(zodDefs || {}), ...Object.keys(jsonDefs || {})]);
 
   for (const key of keys) {
-    if (key === 'A2uiMessage') continue; // Zod wrapper artifact
-
     if (!zodDefs[key]) diff[key] = {error: 'Missing in Zod schema'};
     else if (!jsonDefs[key]) diff[key] = {error: 'Missing in JSON schema'};
     else {
@@ -130,6 +129,26 @@ function getObjectDiff(obj1: any, obj2: any, path = ''): Record<string, any> {
   return diff;
 }
 
+// Zod moves recursive schemas into generated `$defs`, which the JSON spec
+// writes inline: inline them again, stopping where a schema recurses.
+function inlineGeneratedRefs(
+  node: unknown,
+  defs: Record<string, unknown>,
+  seen = new Set<string>(),
+): unknown {
+  if (Array.isArray(node)) return node.map(child => inlineGeneratedRefs(child, defs, seen));
+  if (!node || typeof node !== 'object') return node;
+  const ref = (node as {$ref?: unknown}).$ref;
+  if (typeof ref === 'string' && ref.startsWith('#/$defs/__schema')) {
+    const name = ref.slice('#/$defs/'.length);
+    if (seen.has(name)) return node;
+    return inlineGeneratedRefs(defs[name], defs, new Set([...seen, name]));
+  }
+  return Object.fromEntries(
+    Object.entries(node).map(([key, value]) => [key, inlineGeneratedRefs(value, defs, seen)]),
+  );
+}
+
 function verifySchema(
   version: string,
   zodSchemaSpec: any,
@@ -137,13 +156,13 @@ function verifySchema(
   definitionsMap?: Record<string, any>,
 ) {
   console.log(`\nVerifying Zod schema for ${version}...`);
-  // Generate JSON Schema from Zod
+  // Generate JSON Schema from Zod, with the named schemas as definitions
+  const definitions = z.registry<{id: string}>();
+  for (const [id, schema] of Object.entries(definitionsMap || {})) {
+    definitions.add(schema, {id});
+  }
   const jsonSchemaString = JSON.stringify(
-    zodToJsonSchema(zodSchemaSpec, {
-      target: 'jsonSchema2019-09', // Better matches draft 2020-12
-      definitions: definitionsMap || {},
-      name: 'A2uiMessage',
-    }),
+    z.toJSONSchema(zodSchemaSpec, {metadata: definitions}),
     null,
     2,
   );
@@ -170,22 +189,15 @@ function verifySchema(
     }
   }
 
-  const rootZodSchema =
-    (generatedSchema.definitions || generatedSchema.$defs || {})['A2uiMessage'] || {};
+  const rootZodSchema = inlineGeneratedRefs(generatedSchema, generatedSchema.$defs || {}) as {
+    anyOf?: unknown[];
+    oneOf?: unknown[];
+    properties?: Record<string, unknown>;
+  };
 
   if (officialSchema.oneOf || officialSchema.anyOf) {
     const zodOneOf = rootZodSchema.anyOf || rootZodSchema.oneOf || [];
-    const normalizedGeneratedOneOf = zodOneOf.map((schema: any) => {
-      if (schema.$ref && schema.$ref.startsWith('#/definitions/')) {
-        return {$ref: schema.$ref.replace('#/definitions/', '#/$defs/')};
-      }
-      return schema;
-    });
-
-    const topLevelDiff = getObjectDiff(
-      normalizedGeneratedOneOf,
-      officialSchema.oneOf || officialSchema.anyOf,
-    );
+    const topLevelDiff = getObjectDiff(zodOneOf, officialSchema.oneOf || officialSchema.anyOf);
     if (Object.keys(topLevelDiff).length > 0) {
       assert.deepStrictEqual(
         topLevelDiff,

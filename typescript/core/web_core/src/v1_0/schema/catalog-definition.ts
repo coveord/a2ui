@@ -16,8 +16,8 @@
 
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated from specification/v1.0/json/ via src/v1_0/scripts/generate-schemas.mjs
-import {z} from 'zod/v3';
-import {ExtensionsSchema} from './common-types.js';
+import {z} from 'zod/v4';
+import {ExtensionsSchema} from '../zod4/common-types.js';
 
 export const FunctionCallValidationSchemaSchema = z
   .object({
@@ -73,7 +73,7 @@ export const FunctionDefinitionSchema = z
   .superRefine((val, ctx) => {
     if (val && val.requiresUserActivation && val.allowedCallers !== 'rendererOnly') {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: "requiresUserActivation=true must have allowedCallers='rendererOnly'.",
         path: ['allowedCallers'],
       });

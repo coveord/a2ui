@@ -42,7 +42,7 @@ import {
   Video,
 } from './components';
 
-import type {z} from 'zod/v3';
+import type {z} from 'zod/v4';
 import type {
   A2uiMessageSchema,
   BeginRenderingMessageSchema,

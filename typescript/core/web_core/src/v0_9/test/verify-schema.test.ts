@@ -16,7 +16,8 @@
 
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
-import {zodToJsonSchema} from 'zod-to-json-schema';
+
+import {z} from 'zod/v4';
 import {readFileSync, existsSync} from 'fs';
 import {resolve, join} from 'path';
 import {
@@ -51,8 +52,6 @@ function compareDefinitions(zodDefs: any, jsonDefs: any): Record<string, any> {
   const keys = new Set([...Object.keys(zodDefs || {}), ...Object.keys(jsonDefs || {})]);
 
   for (const key of keys) {
-    if (key === 'A2uiMessage') continue; // Zod wrapper artifact
-
     if (!zodDefs[key]) diff[key] = {error: 'Missing in Zod schema'};
     else if (!jsonDefs[key]) diff[key] = {error: 'Missing in JSON schema'};
     else {
@@ -141,13 +140,13 @@ function verifySchema(
   definitionsMap?: Record<string, any>,
 ) {
   console.log(`\nVerifying Zod schema for ${version}...`);
-  // Generate JSON Schema from Zod
+  // Generate JSON Schema from Zod, with the named schemas as definitions
+  const definitions = z.registry<{id: string}>();
+  for (const [id, schema] of Object.entries(definitionsMap || {})) {
+    definitions.add(schema, {id});
+  }
   const jsonSchemaString = JSON.stringify(
-    zodToJsonSchema(zodSchemaSpec, {
-      target: 'jsonSchema2019-09', // Better matches draft 2020-12
-      definitions: definitionsMap || {},
-      name: 'A2uiMessage',
-    }),
+    z.toJSONSchema(zodSchemaSpec, {metadata: definitions}),
     null,
     2,
   );
@@ -174,22 +173,11 @@ function verifySchema(
     }
   }
 
-  const rootZodSchema =
-    (generatedSchema.definitions || generatedSchema.$defs || {})['A2uiMessage'] || {};
+  const rootZodSchema = generatedSchema;
 
   if (officialSchema.oneOf || officialSchema.anyOf) {
     const zodOneOf = rootZodSchema.anyOf || rootZodSchema.oneOf || [];
-    const normalizedGeneratedOneOf = zodOneOf.map((schema: any) => {
-      if (schema.$ref && schema.$ref.startsWith('#/definitions/')) {
-        return {$ref: schema.$ref.replace('#/definitions/', '#/$defs/')};
-      }
-      return schema;
-    });
-
-    const topLevelDiff = getObjectDiff(
-      normalizedGeneratedOneOf,
-      officialSchema.oneOf || officialSchema.anyOf,
-    );
+    const topLevelDiff = getObjectDiff(zodOneOf, officialSchema.oneOf || officialSchema.anyOf);
     if (Object.keys(topLevelDiff).length > 0) {
       assert.deepStrictEqual(
         topLevelDiff,
