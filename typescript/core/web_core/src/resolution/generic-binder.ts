@@ -71,6 +71,7 @@ export type BehaviorNode =
   | {type: 'ARRAY'; element: BehaviorNode};
 
 const behaviorCache = new WeakMap<object, BehaviorNode>();
+const accessibilityBehaviorSchema = AccessibilityAttributesSchema.describe('');
 
 /**
  * Returns the schema a binder reads with: the component's catalog-document
@@ -106,7 +107,7 @@ export function scrapeSchemaBehavior(schema: EntrySchema): BehaviorNode {
           ...behavior,
           shape: {
             ...behavior.shape,
-            accessibility: getFieldBehavior(a2uiJsonSchemaOf(AccessibilityAttributesSchema)),
+            accessibility: getFieldBehavior(a2uiJsonSchemaOf(accessibilityBehaviorSchema)),
           },
         }
       : behavior;

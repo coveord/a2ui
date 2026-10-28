@@ -25,7 +25,12 @@ import {MessageProcessor} from '../processing/message-processor.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
 import {extractRefFields} from '../resolution/ref-fields.js';
-import {ChildListSchema, ComponentIdSchema} from '../types/common-types.js';
+import {
+  AccessibilityAttributesSchema,
+  ChildListSchema,
+  ComponentIdSchema,
+} from '../types/common-types.js';
+import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {a2uiJsonSchemaOf} from './a2ui_json_schema.js';
 import type {A2uiSchema, StandardJSONSchemaV1} from './a2ui_schema.js';
 import {exclusiveUnion} from './exclusive_union.js';
@@ -92,6 +97,25 @@ describe('a2uiJsonSchemaOf', () => {
       ((view['properties'] as Record<string, Record<string, unknown>>)['many'] ?? {})['$ref'],
       'common_types.json#/$defs/ChildList',
     );
+  });
+
+  it('writes common-type references without converted constraints', () => {
+    assert.deepStrictEqual(a2uiJsonSchemaOf(AccessibilityAttributesSchema), {
+      $ref: 'common_types.json#/$defs/AccessibilityAttributes',
+      description:
+        'Attributes to enhance accessibility when using assistive technologies like screen readers or model understanding.',
+    });
+  });
+
+  it('writes v0.9 Divider accessibility as a bare local reference', () => {
+    const components = v09BasicCatalog.validationSchema['components'] as Record<string, unknown>;
+    const divider = components['Divider'] as Record<string, unknown>;
+    const properties = divider['properties'] as Record<string, unknown>;
+    assert.deepStrictEqual(properties['accessibility'], {
+      $ref: '#/$defs/AccessibilityAttributes',
+      description:
+        'Attributes to enhance accessibility when using assistive technologies like screen readers.',
+    });
   });
 
   it('writes a Zod 3 exclusive union as oneOf', () => {
