@@ -139,6 +139,18 @@ export function linkEntry<E extends ComponentApi | FunctionApi>(
 /**
  * Returns a copy of `node` with local `#/...` and peer catalog `<doc>#/...`
  * references resolved inline, preserving references to standard common types.
+ *
+ * Documents are matched with the peer matching rule: a reference to a bare
+ * `catalog.json`, or to a document ending in `/catalog.json` that no peer
+ * matches exactly, points into `rootDoc`. References inside an inlined peer
+ * document resolve against the same `peers`, and its local pointers against
+ * that peer's document.
+ *
+ * @param node The schema to inline references in.
+ * @param rootDoc The document `node` belongs to.
+ * @param peers The peer catalogs, in matching order.
+ * @param options `inlineLocalDefs`: whether to keep all local `#/$defs/...`
+ *     references named; `visited`: reference identities already inlined.
  */
 export function inlinePeerAndLocalRefs(
   node: unknown,
@@ -147,8 +159,9 @@ export function inlinePeerAndLocalRefs(
   options: {inlineLocalDefs?: boolean; visited?: Set<string>} = {},
 ): unknown {
   return inlineSchemaReferences(node, rootDoc, peers, {
-    ...options,
-    preserveLocalDefinition: name => Object.hasOwn(CommonSchemas, name),
+    visited: options.visited,
+    keepLocalDefinition:
+      options.inlineLocalDefs === false ? () => true : name => Object.hasOwn(CommonSchemas, name),
   });
 }
 

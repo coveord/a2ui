@@ -241,6 +241,11 @@ function isEnvelopeField(propertyName: string): boolean {
   return propertyName === 'id' || propertyName === 'component' || propertyName === 'catalogId';
 }
 
+/**
+ * Removes a referenced component's envelope fields and closure keywords.
+ * Component-specific `allOf` members stay before inherited members so an
+ * inlined component retains the same property precedence as its source.
+ */
 function stripEnvelopeFromSubschema(node: Record<string, unknown>): Record<string, unknown> {
   const cleaned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(node)) {
@@ -297,7 +302,16 @@ function stripReferencedComponentEnvelope(
   return parts.length === 2 ? stripEnvelopeFromSubschema(node) : node;
 }
 
-/** Resolves a JSON Pointer within a root JSON document. */
+/**
+ * Resolves a JSON Pointer within a root JSON document.
+ *
+ * Follows RFC 6901 pointer unescaping (`~1` to `/`, `~0` to `~`).
+ *
+ * @param rootDoc Root JSON document containing the pointer target.
+ * @param pointer RFC 6901 JSON pointer starting with `#/`.
+ * @returns The target JSON object, or `undefined` when the pointer is invalid
+ *     or resolves to a non-object value.
+ */
 export function resolveJsonPointer(
   rootDoc: Record<string, unknown>,
   pointer: string,
@@ -332,12 +346,10 @@ export function resolvePeerTarget(
 
 /** Options for resolving references inline in a JSON Schema definition. */
 export interface InlineReferenceOptions {
-  /** Whether local `$defs` references are inlined. Defaults to `true`. */
-  readonly inlineLocalDefs?: boolean;
   /** Reference identities already being resolved, used to stop recursive loops. */
   readonly visited?: Set<string>;
-  /** Whether a local `$defs` name stays a named reference rather than being inlined. */
-  readonly preserveLocalDefinition?: (name: string) => boolean;
+  /** Whether a local `$defs` name remains a named reference rather than being inlined. */
+  readonly keepLocalDefinition?: (name: string) => boolean;
 }
 
 /**
@@ -354,9 +366,8 @@ export function inlineSchemaReferences(
     node,
     rootDoc,
     new PeerScope(peers),
-    options.inlineLocalDefs ?? true,
     options.visited ?? new Set<string>(),
-    options.preserveLocalDefinition ?? (() => false),
+    options.keepLocalDefinition ?? (() => false),
   );
 }
 
@@ -364,14 +375,11 @@ function inlineReferences(
   node: unknown,
   rootDoc: Readonly<Record<string, unknown>>,
   scope: PeerScope,
-  inlineLocalDefs: boolean,
   visited: Set<string>,
-  preserveLocalDefinition: (name: string) => boolean,
+  keepLocalDefinition: (name: string) => boolean,
 ): unknown {
   if (Array.isArray(node)) {
-    return node.map(item =>
-      inlineReferences(item, rootDoc, scope, inlineLocalDefs, visited, preserveLocalDefinition),
-    );
+    return node.map(item => inlineReferences(item, rootDoc, scope, visited, keepLocalDefinition));
   }
   if (!node || typeof node !== 'object') return node;
 
@@ -380,10 +388,7 @@ function inlineReferences(
     let target = scope.resolve(object.$ref, rootDoc);
     if (target && !target.isPeer) {
       const definitionName = target.pointer.split('/').pop() ?? '';
-      if (
-        (target.pointer.startsWith('#/$defs/') && preserveLocalDefinition(definitionName)) ||
-        (!inlineLocalDefs && target.pointer.startsWith('#/$defs/'))
-      ) {
+      if (target.pointer.startsWith('#/$defs/') && keepLocalDefinition(definitionName)) {
         target = undefined;
       }
     }
@@ -396,9 +401,8 @@ function inlineReferences(
           resolved,
           target.doc,
           scope,
-          target.isPeer ? true : inlineLocalDefs,
           nextVisited,
-          preserveLocalDefinition,
+          keepLocalDefinition,
         );
         if (inlined && typeof inlined === 'object' && !Array.isArray(inlined)) {
           const result: Record<string, unknown> = {
@@ -410,9 +414,8 @@ function inlineReferences(
               value,
               rootDoc,
               scope,
-              inlineLocalDefs,
               visited,
-              preserveLocalDefinition,
+              keepLocalDefinition,
             );
             if (
               key in result &&
@@ -444,7 +447,7 @@ function inlineReferences(
   return Object.fromEntries(
     Object.entries(object).map(([key, value]) => [
       key,
-      inlineReferences(value, rootDoc, scope, inlineLocalDefs, visited, preserveLocalDefinition),
+      inlineReferences(value, rootDoc, scope, visited, keepLocalDefinition),
     ]),
   );
 }

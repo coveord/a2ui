@@ -18,7 +18,13 @@ import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
 import {A2uiCatalogError} from '../errors.js';
-import {hasCrossDocumentRefs, PeerScope} from './catalog_references.js';
+import {
+  hasCrossDocumentRefs,
+  inlineSchemaReferences,
+  PeerScope,
+  resolveJsonPointer,
+  resolvePeerTarget,
+} from './catalog_references.js';
 
 describe('catalog references', () => {
   it('detects references into peer catalogs but not standard common types', () => {
@@ -31,6 +37,66 @@ describe('catalog references', () => {
       false,
     );
     assert.strictEqual(hasCrossDocumentRefs({$ref: 'catalog.json#/$defs/Local'}), false);
+  });
+
+  it('resolves escaped JSON Pointer segments', () => {
+    const document = {$defs: {'a/b': {'~key': {type: 'string'}}}};
+    assert.deepStrictEqual(resolveJsonPointer(document, '#/$defs/a~1b/~0key'), {type: 'string'});
+    assert.strictEqual(resolveJsonPointer(document, '#/$defs/missing'), undefined);
+  });
+
+  it('strips a referenced peer component envelope and preserves allOf precedence', () => {
+    const peer = {
+      catalogId: 'peer.json',
+      components: {
+        Field: {
+          allOf: [
+            {properties: {shared: {type: 'string'}}, required: ['shared']},
+            {
+              properties: {
+                component: {const: 'Field'},
+                id: {type: 'string'},
+                value: {type: 'string'},
+              },
+              required: ['component', 'id', 'value'],
+              additionalProperties: false,
+            },
+          ],
+        },
+      },
+    };
+    const target = new PeerScope([peer]).resolve('peer.json#/components/Field', {
+      catalogId: 'local',
+    });
+    assert.deepStrictEqual(resolvePeerTarget(target!), {
+      doc: peer,
+      target: {
+        allOf: [
+          {properties: {value: {type: 'string'}}, required: ['value']},
+          {properties: {shared: {type: 'string'}}, required: ['shared']},
+        ],
+      },
+    });
+  });
+
+  it('inlines peer-local references and leaves recursive local references finite', () => {
+    const peer = {
+      catalogId: 'peer.json',
+      $defs: {
+        Outer: {type: 'object', properties: {value: {$ref: '#/$defs/Inner'}}},
+        Inner: {type: 'string'},
+      },
+    };
+    assert.deepStrictEqual(
+      inlineSchemaReferences({$ref: 'peer.json#/$defs/Outer'}, {catalogId: 'local'}, [peer]),
+      {type: 'object', properties: {value: {type: 'string'}}},
+    );
+
+    const recursive = {$defs: {Node: {type: 'object', properties: {next: {$ref: '#/$defs/Node'}}}}};
+    assert.deepStrictEqual(inlineSchemaReferences({$ref: '#/$defs/Node'}, recursive), {
+      type: 'object',
+      properties: {next: {$ref: '#/$defs/Node'}},
+    });
   });
 
   it('resolves references using the documented peer matching rule', () => {
