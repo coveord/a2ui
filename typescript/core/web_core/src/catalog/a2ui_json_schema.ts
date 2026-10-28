@@ -40,6 +40,13 @@ const CHILD_REF_TARGETS: Readonly<Record<string, string>> = {
 };
 
 const views = new WeakMap<object, JsonSchemaObject>();
+const expandedReferenceViews = new WeakMap<object, JsonSchemaObject>();
+
+/** Options controlling how the JSON Schema view represents references. */
+export interface A2uiJsonSchemaOptions {
+  /** Whether Zod 3 `REF:` markers retain their converted constraints beside the `$ref`. */
+  readonly expandReferences?: boolean;
+}
 
 /**
  * Returns the JSON Schema view of a schema, computed once and deeply frozen.
@@ -50,29 +57,36 @@ const views = new WeakMap<object, JsonSchemaObject>();
  * `REF:<ref>|<description>` description markers and its `markChildRef` marks
  * become `$ref`s, and a union made with `exclusiveUnion` becomes a `oneOf`.
  * The keywords a `spec()` annotation adds to a schema are written with it. A
- * node with a `$ref` keeps the structure of the schema it was converted from,
- * except for a reference to a definition whose name says what it is, such as
- * `DynamicString` or `ChildList`.
+ * node with a `$ref` to a `$defs` entry is bare by default; callers that
+ * need the converted constraints for inspection can request
+ * `expandReferences` explicitly.
  *
  * @throws A2uiCatalogError when the schema can be converted neither way.
  */
-export function a2uiJsonSchemaOf(schema: EntrySchema): JsonSchemaObject {
-  let view = views.get(schema as object);
+export function a2uiJsonSchemaOf(
+  schema: EntrySchema,
+  options: A2uiJsonSchemaOptions = {},
+): JsonSchemaObject {
+  const cache = options.expandReferences ? expandedReferenceViews : views;
+  let view = cache.get(schema as object);
   if (!view) {
-    view = deepFreeze(convert(schema));
-    views.set(schema as object, view);
+    view = deepFreeze(convert(schema, options));
+    cache.set(schema as object, view);
   }
   return view;
 }
 
 /** Returns a mutable copy of the JSON Schema view of a schema. */
-export function copyA2uiJsonSchemaOf(schema: EntrySchema): Record<string, unknown> {
-  return structuredClone(a2uiJsonSchemaOf(schema)) as Record<string, unknown>;
+export function copyA2uiJsonSchemaOf(
+  schema: EntrySchema,
+  options: A2uiJsonSchemaOptions = {},
+): Record<string, unknown> {
+  return structuredClone(a2uiJsonSchemaOf(schema, options)) as Record<string, unknown>;
 }
 
-function convert(schema: EntrySchema): Record<string, unknown> {
+function convert(schema: EntrySchema, options: A2uiJsonSchemaOptions): Record<string, unknown> {
   const zod3 = zod3SchemaOf(schema);
-  if (zod3) return zod3ToJsonSchema(zod3);
+  if (zod3) return zod3ToJsonSchema(zod3, options);
   // A schema implementing Standard JSON Schema, or a JSON Schema object, is
   // read through `normalizeSchema`, which throws for a Standard Schema that
   // implements no JSON Schema conversion.
@@ -84,11 +98,14 @@ function convert(schema: EntrySchema): Record<string, unknown> {
  *
  * @internal
  */
-export function zod3ToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
+export function zod3ToJsonSchema(
+  schema: z.ZodTypeAny,
+  options: A2uiJsonSchemaOptions = {},
+): Record<string, unknown> {
   const json = zodToJsonSchema(schema, {
     target: 'jsonSchema2019-09',
     $refStrategy: 'none',
-    override: a2uiOverride,
+    override: createA2uiOverride(options),
     postProcess: (json, def) => {
       const keywords = getSpecAnnotationOfDef(def)?.keywords;
       return json && keywords ? ({...json, ...keywords} as typeof json) : json;
@@ -108,9 +125,9 @@ export function zod3ToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> 
 const OPAQUE_DEFS =
   /^(Dynamic.*|DataBinding|FunctionCall|ComponentId|ChildList|Action|CheckRule|Checkable)$/;
 
-/** Whether a `REF:` marker points to a definition in a common types document. */
-function isCommonTypeRef(ref: string): boolean {
-  return ref.includes('common_types.json#/$defs/');
+/** Whether a `REF:` marker points to a named JSON Schema definition. */
+function isDefinitionRef(ref: string): boolean {
+  return ref.includes('#/$defs/');
 }
 
 /** The Zod 3 types that wrap another schema. */
@@ -137,26 +154,32 @@ function markerRef(description: unknown): string | undefined {
  * or marked with `markChildRef`, and writes a union made with
  * `exclusiveUnion` as `oneOf`.
  */
-const a2uiOverride: OverrideCallback = (def, refs, seen, forceResolution) => {
-  const description = (def as {description?: string}).description;
-  const ref = markerRef(description);
-  // Wrappers such as `.optional()` and `.default()` copy the description of
-  // the schema they wrap, and are converted as usual so that they keep their
-  // own keywords, such as `default`.
-  const isWrapper = WRAPPERS.has((def as {typeName?: string}).typeName ?? '');
-  if (ref !== undefined) {
-    if (!isWrapper && (isCommonTypeRef(ref) || OPAQUE_DEFS.test(refDefName({$ref: ref})))) {
-      return {description};
+const createA2uiOverride =
+  ({expandReferences}: A2uiJsonSchemaOptions): OverrideCallback =>
+  (def, refs, seen, forceResolution) => {
+    const description = (def as {description?: string}).description;
+    const ref = markerRef(description);
+    // Wrappers such as `.optional()` and `.default()` copy the description of
+    // the schema they wrap, and are converted as usual so that they keep their
+    // own keywords, such as `default`.
+    const isWrapper = WRAPPERS.has((def as {typeName?: string}).typeName ?? '');
+    if (ref !== undefined) {
+      if (
+        !expandReferences &&
+        !isWrapper &&
+        (isDefinitionRef(ref) || OPAQUE_DEFS.test(refDefName({$ref: ref})))
+      ) {
+        return {description};
+      }
+    } else {
+      const childRef = (def as {a2uiChildRef?: string}).a2uiChildRef;
+      const target = childRef === undefined ? undefined : CHILD_REF_TARGETS[childRef];
+      if (target !== undefined && !isWrapper) {
+        return description === undefined ? {$ref: target} : {$ref: target, description};
+      }
     }
-  } else {
-    const childRef = (def as {a2uiChildRef?: string}).a2uiChildRef;
-    const target = childRef === undefined ? undefined : CHILD_REF_TARGETS[childRef];
-    if (target !== undefined && !isWrapper) {
-      return description === undefined ? {$ref: target} : {$ref: target, description};
-    }
-  }
-  return exclusiveUnionOverride(def, refs, seen, forceResolution);
-};
+    return exclusiveUnionOverride(def, refs, seen, forceResolution);
+  };
 
 /**
  * Replaces the `REF:<ref>|<description>` marker of each node with a `$ref` to
