@@ -149,8 +149,8 @@ export function linkEntry<E extends ComponentApi | FunctionApi>(
  * @param node The schema to inline references in.
  * @param rootDoc The document `node` belongs to.
  * @param peers The peer catalogs, in matching order.
- * @param options `inlineLocalDefs`: whether to keep all local `#/$defs/...`
- *     references named; `visited`: reference identities already inlined.
+ * @param options `inlineLocalDefs`: whether to inline local `#/$defs/...`
+ *     references; `visited`: reference identities already inlined.
  */
 export function inlinePeerAndLocalRefs(
   node: unknown,

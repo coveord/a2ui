@@ -413,32 +413,33 @@ export function resolveDefinition(
       return result;
     }
 
-    const localDefinition =
-      !target.isPeer && target.pointer.startsWith('#/$defs/')
+    const rootLocalDefinition =
+      target.doc === rootDoc && target.pointer.startsWith('#/$defs/')
         ? target.pointer
             .slice('#/$defs/'.length)
             .split('/')[0]
             ?.replace(/~1/g, '/')
             .replace(/~0/g, '~')
         : undefined;
-    const name = localDefinition ?? namesByTarget.get(target.key) ?? peerName(target);
-    if (localDefinition) localDefinitionNames.add(name);
+    const name =
+      rootLocalDefinition ??
+      namesByTarget.get(target.key) ??
+      (target.doc === rootDoc ? `component_${pointerSegment(target.pointer)}` : peerName(target));
+    if (rootLocalDefinition) localDefinitionNames.add(name);
     namesByTarget.set(target.key, name);
 
     if (!(name in defs)) {
       defs[name] = {};
-      const definition = target.isPeer
-        ? stripReferencedComponentEnvelope(resolved, target.pointer)
-        : localDefinition
-          ? (resolveJsonPointer(
-              target.doc as Record<string, unknown>,
-              `#/$defs/${localDefinition}`,
-            ) ?? resolved)
-          : stripReferencedComponentEnvelope(resolved, target.pointer);
+      const definition = rootLocalDefinition
+        ? (resolveJsonPointer(
+            target.doc as Record<string, unknown>,
+            `#/$defs/${rootLocalDefinition}`,
+          ) ?? resolved)
+        : stripReferencedComponentEnvelope(resolved, target.pointer);
       defs[name] = transform(definition, target.doc) as JsonSchemaObject;
     }
 
-    if (target.isPeer || !localDefinition) {
+    if (!rootLocalDefinition) {
       result['$ref'] = `#/$defs/${name.replace(/~/g, '~0').replace(/\//g, '~1')}`;
     }
     return result;

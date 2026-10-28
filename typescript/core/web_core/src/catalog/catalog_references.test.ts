@@ -20,13 +20,14 @@ import {describe, it} from 'node:test';
 import {A2uiCatalogError} from '../errors.js';
 import {
   hasCrossDocumentRefs,
+  inlineResolvedDefinition,
   inlineSchemaReferences,
   PeerScope,
   resolveDefinition,
   resolveJsonPointer,
   resolvePeerTarget,
-  inlineResolvedDefinition,
 } from './catalog_references.js';
+import {inlinePeerAndLocalRefs} from './schema_loader.js';
 
 describe('catalog references', () => {
   it('detects references into peer catalogs but not standard common types', () => {
@@ -99,6 +100,37 @@ describe('catalog references', () => {
       type: 'object',
       properties: {next: {$ref: '#/$defs/Node'}},
     });
+  });
+
+  it('keeps peer-local definitions separate from root-local definitions', () => {
+    const peer = {
+      catalogId: 'peer.json',
+      $defs: {
+        Outer: {type: 'object', properties: {value: {$ref: '#/$defs/Inner'}}},
+        Inner: {type: 'string'},
+      },
+    };
+    const root = {catalogId: 'local', $defs: {Inner: {type: 'number'}}};
+    const schema = {
+      properties: {
+        mine: {$ref: '#/$defs/Inner'},
+        theirs: {$ref: 'peer.json#/$defs/Outer'},
+      },
+    };
+
+    const resolved = resolveDefinition(schema, root, [peer]);
+    assert.deepStrictEqual(inlineResolvedDefinition(resolved), {
+      properties: {
+        mine: {type: 'number'},
+        theirs: {type: 'object', properties: {value: {type: 'string'}}},
+      },
+    });
+    assert.deepStrictEqual(
+      inlinePeerAndLocalRefs({$ref: 'peer.json#/$defs/Outer'}, root, [peer], {
+        inlineLocalDefs: false,
+      }),
+      {type: 'object', properties: {value: {type: 'string'}}},
+    );
   });
 
   it('bundles local and peer definitions while retaining named references', () => {
