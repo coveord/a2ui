@@ -17,6 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
+import {A2uiCatalogError} from '../errors.js';
 import {hasCrossDocumentRefs, PeerScope} from './catalog_references.js';
 
 describe('catalog references', () => {
@@ -32,19 +33,91 @@ describe('catalog references', () => {
     assert.strictEqual(hasCrossDocumentRefs({$ref: 'catalog.json#/$defs/Local'}), false);
   });
 
-  it('resolves a peer catalog by its catalog ID and reads its document once', () => {
-    const peer = {
-      catalogId: 'https://example.com/peer.json',
-      $defs: {Shared: {type: 'string'}},
-    };
-    const scope = new PeerScope([peer]);
-    const target = scope.resolve('peer.json#/$defs/Shared', {catalogId: 'local'});
+  it('resolves references using the documented peer matching rule', () => {
+    const local = {catalogId: 'https://example.com/local.json'};
+    const exact = {catalogId: 'exact.json'};
+    const nested = {catalogId: 'https://example.com/catalogs/nested.json'};
+    const short = {catalogId: 'short.json'};
+    const named = {$id: 'https://example.com/named.json'};
+    const catalogNamed = {$id: 'https://example.com/catalog.json'};
+    const cases = [
+      {
+        label: 'an empty document part resolves locally',
+        ref: '#/$defs/Local',
+        peers: [],
+        expected: local,
+      },
+      {
+        label: 'the bare common types document is not a catalog reference',
+        ref: 'common_types.json#/$defs/Value',
+        peers: [],
+        expected: undefined,
+      },
+      {
+        label: 'a common types path suffix is not a catalog reference',
+        ref: 'https://a2ui.org/v1/common_types.json#/$defs/Value',
+        peers: [],
+        expected: undefined,
+      },
+      {
+        label: 'a bare catalog document resolves locally before checking peers',
+        ref: 'catalog.json#/$defs/Local',
+        peers: [catalogNamed],
+        expected: local,
+      },
+      {
+        label: 'an exact catalog ID matches a peer',
+        ref: 'exact.json#/$defs/Shared',
+        peers: [exact],
+        expected: exact,
+      },
+      {
+        label: 'a peer catalog ID ending in the reference document matches',
+        ref: 'nested.json#/$defs/Shared',
+        peers: [nested],
+        expected: nested,
+      },
+      {
+        label: 'a reference document ending in the peer catalog ID matches',
+        ref: 'https://example.com/catalogs/short.json#/$defs/Shared',
+        peers: [short],
+        expected: short,
+      },
+      {
+        label: 'an unmatched path ending in catalog.json resolves locally',
+        ref: 'missing/catalog.json#/$defs/Local',
+        peers: [],
+        expected: local,
+      },
+      {
+        label: 'a matching final path segment resolves a peer',
+        ref: 'other/path/named.json#/$defs/Shared',
+        peers: [named],
+        expected: named,
+      },
+      {
+        label: 'an unknown catalog document is unresolved',
+        ref: 'missing.json#/$defs/Shared',
+        peers: [],
+        expected: undefined,
+        throws: true,
+      },
+    ] as const;
 
-    assert.deepStrictEqual(target, {
-      doc: peer,
-      pointer: '#/$defs/Shared',
-      key: 'peer.json#/$defs/Shared',
-      isPeer: true,
-    });
+    for (const testCase of cases) {
+      const {label, ref, peers, expected} = testCase;
+      const throws = 'throws' in testCase && testCase.throws;
+      const scope = new PeerScope(peers);
+      const target = scope.resolve(ref, local);
+      if (expected) {
+        assert.strictEqual(target?.doc, expected, label);
+        assert.strictEqual(target?.pointer, ref.slice(ref.indexOf('#')), label);
+        assert.strictEqual(target?.isPeer, expected !== local, label);
+      } else {
+        assert.strictEqual(target, undefined, label);
+      }
+      if (throws) assert.throws(() => scope.assertResolvable(ref), A2uiCatalogError, label);
+      else assert.doesNotThrow(() => scope.assertResolvable(ref), label);
+    }
   });
 });

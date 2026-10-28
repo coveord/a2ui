@@ -76,7 +76,19 @@ function peerIds(peer: PeerCatalogSource): {id?: string; schemaId?: string} {
 }
 
 /**
- * Resolves the document part `doc` of a `$ref` with the peer matching rule.
+ * Resolves the document part `doc` of a `$ref` with the peer matching rule:
+ *
+ * 1. An empty `doc` is the document that contains the reference.
+ * 2. `common_types.json`, bare or as a path suffix, is the common types
+ *    document.
+ * 3. A bare `catalog.json` is the document that contains the reference.
+ * 4. Otherwise, the first peer whose `catalogId` or `$id` equals `doc`, ends
+ *    with `/` + `doc`, or is a `/`-suffix of `doc`.
+ * 5. Otherwise, a `doc` ending in `/catalog.json` is the document that contains
+ *    the reference.
+ * 6. Otherwise, the first peer whose `$id` or `catalogId` has the same last
+ *    path segment as `doc`.
+ * 7. Otherwise, the reference is unresolved.
  */
 function resolveRefDocument(doc: string, peers: readonly PeerCatalogSource[]): RefDocument {
   if (!doc) return {kind: 'self'};
@@ -110,8 +122,11 @@ function resolveRefDocument(doc: string, peers: readonly PeerCatalogSource[]): R
 }
 
 /**
- * Whether a JSON document contains a `$ref` into another catalog document.
- * References into `common_types.json` and bare `catalog.json` stay local.
+ * Whether a JSON document contains a `$ref` into another catalog document: one
+ * whose document part is neither empty, nor the common types document, nor a
+ * bare `catalog.json`.
+ *
+ * @param node A catalog document or a part of one.
  */
 export function hasCrossDocumentRefs(node: unknown): boolean {
   if (Array.isArray(node)) return node.some(hasCrossDocumentRefs);
@@ -149,13 +164,20 @@ export interface RefTarget {
   readonly doc: Readonly<Record<string, unknown>>;
   /** The JSON pointer within `doc`, starting with `#/`. */
   readonly pointer: string;
-  /** Stable identifier used to detect a recursive reference. */
+  /**
+   * Key identifying the target for cycle detection and caching: the document's
+   * identity and pointer for a local reference, and the reference itself for a
+   * peer reference.
+   */
   readonly key: string;
   /** Whether the target is in a peer catalog rather than the current document. */
   readonly isPeer: boolean;
 }
 
-/** Resolves references against the catalog document and a fixed peer set. */
+/**
+ * The peer catalogs `$ref`s resolve against while loading or inlining a schema.
+ * Common-type mirrors remain in the Zod-specific conversion cache.
+ */
 export class PeerScope {
   private readonly documents = new Map<PeerCatalogSource, Readonly<Record<string, unknown>>>();
 
@@ -172,7 +194,11 @@ export class PeerScope {
     return document;
   }
 
-  /** Resolves a JSON Pointer reference, excluding common-types references. */
+  /**
+   * Resolves `ref`, written in `currentDoc`, to the document and pointer it
+   * targets, or returns `undefined` for a reference to the common types, to
+   * an unknown document, or without a JSON pointer fragment.
+   */
   resolve(ref: string, currentDoc: Readonly<Record<string, unknown>>): RefTarget | undefined {
     const {doc, fragment} = splitRef(ref);
     if (!fragment.startsWith('#/')) return undefined;
@@ -191,7 +217,13 @@ export class PeerScope {
     return undefined;
   }
 
-  /** Throws when a cross-catalog reference cannot be resolved through peers. */
+  /**
+   * Throws if `ref` points into another catalog document that no peer matches:
+   * an unresolved cross-catalog reference is a catalog error, never a schema
+   * that accepts any value.
+   *
+   * @throws {A2uiCatalogError} If `ref` cannot be resolved through peers.
+   */
   assertResolvable(ref: string): void {
     if (resolveRefDocument(splitRef(ref).doc, this.peers).kind === 'unresolved') {
       throwUnresolvableRef(ref);

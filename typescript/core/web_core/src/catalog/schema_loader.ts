@@ -20,15 +20,14 @@ import {isAtLeastVersion} from '../common/semver.js';
 import {assertUax31Identifier} from '../common/uax31.js';
 import {CommonSchemas} from '../types/common-types.js';
 import {CommonSchemas as V09CommonSchemas} from '../v0_9/schema/common-types.js';
-import {exclusiveUnion} from './exclusive_union.js';
-import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import {
   PeerScope,
   throwUnresolvableRef,
   type PeerCatalogSource,
   type RefTarget,
 } from './catalog_references.js';
-export {hasCrossDocumentRefs, type PeerCatalogSource} from './catalog_references.js';
+import {exclusiveUnion} from './exclusive_union.js';
+import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import {
   buildComponentUnion,
   buildFunctionUnion,
@@ -36,6 +35,8 @@ import {
   deepFreeze,
 } from './schema_serializer.js';
 import type {CatalogDocumentOptions, ComponentApi, FunctionApi} from './types.js';
+
+export {hasCrossDocumentRefs, type PeerCatalogSource} from './catalog_references.js';
 
 /**
  * The fields of a parsed catalog document: its ID, version and entries, and
