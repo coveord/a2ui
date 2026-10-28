@@ -93,4 +93,13 @@ describe('Client-to-Server Schema Verification', () => {
     const result = A2uiClientMessageSchema.safeParse(invalidAction);
     assert.strictEqual(result.success, false);
   });
+
+  it('fails on a generic error without a code', () => {
+    const missingCode = {
+      version: 'v0.9',
+      error: {surfaceId: 'main', message: 'Something went wrong'},
+    };
+    const result = A2uiClientMessageSchema.safeParse(missingCode);
+    assert.strictEqual(result.success, false);
+  });
 });

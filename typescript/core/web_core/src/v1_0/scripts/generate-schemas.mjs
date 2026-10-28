@@ -36,6 +36,20 @@ const VERSION_TAG = 'v1.0';
 const SCRIPT_SOURCE = 'src/v1_0/scripts/generate-schemas.mjs';
 
 /**
+ * Writes a generated message schema file in Zod 4, on the Zod 4 copies of the
+ * common types.
+ *
+ * @param {string} file The file name in the schema directory.
+ * @param {string} code The generated Zod 3 code.
+ */
+function writeMessageSchemas(file, code) {
+  const zod4 = toZod4Code(code)
+    .replace("from './helpers.js'", "from '../zod4/helpers.js'")
+    .replace("from './common-types.js'", "from '../zod4/common-types.js'");
+  writeFormattedZod4(join(destDir, file), zod4);
+}
+
+/**
  * Generates v1.0 common-types.ts.
  */
 function generateCommonTypes() {
@@ -275,7 +289,7 @@ function generateCatalogDefinition({pureCommonNames, helperNames}) {
   }
   catalogDefTs += '\n' + bodyCode;
 
-  writeFileSync(join(destDir, 'catalog-definition.ts'), catalogDefTs);
+  writeMessageSchemas('catalog-definition.ts', catalogDefTs);
 }
 
 /**
@@ -320,7 +334,7 @@ function generateIncomingMessageSchemas({pureCommonNames, helperNames}) {
   }
   a2rTs += '\n' + bodyCode;
 
-  writeFileSync(join(destDir, 'agent-to-renderer.ts'), a2rTs);
+  writeMessageSchemas('agent-to-renderer.ts', a2rTs);
 }
 
 /**
@@ -371,7 +385,7 @@ function generateOutgoingMessageSchemas({pureCommonNames, helperNames}) {
   }
   r2aTs += '\n' + bodyCode;
 
-  writeFileSync(join(destDir, 'renderer-to-agent.ts'), r2aTs);
+  writeMessageSchemas('renderer-to-agent.ts', r2aTs);
 }
 
 /**
@@ -387,7 +401,7 @@ function generateCapabilitiesSchemas() {
   rcTs += `/** Zod schema validating the strict v1.0 protocol renderer capabilities payload. */\n`;
   rcTs += v10Code + '\n';
 
-  writeFileSync(join(destDir, 'renderer-capabilities.ts'), rcTs);
+  writeMessageSchemas('renderer-capabilities.ts', rcTs);
 }
 
 export function generateSchemas() {

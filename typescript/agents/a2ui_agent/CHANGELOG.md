@@ -1,5 +1,7 @@
 ## Unreleased
 
+- Envelope validation uses web_core's Zod 4 protocol message schemas, so its messages use Zod 4's wording, such as `Invalid input: expected string, received number`. A missing property is still reported as `'<key>' is a required property`, now also when its schema accepts any value, such as `value` in a v1.0 `updateDataModel`.
+
 ## 0.0.2
 
 - Added `Skill`, `SkillSet`, and `SkillGenerator` to generate `SKILL.md` packages from inference formats and component catalogs.

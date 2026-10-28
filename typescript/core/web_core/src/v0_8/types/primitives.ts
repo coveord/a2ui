@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod/v3';
+import type {z} from 'zod/v4';
 import type {
   StringValueSchema,
   NumberValueSchema,
