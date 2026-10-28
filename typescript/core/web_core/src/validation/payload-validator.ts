@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+import {formatA2uiSchemaIssue} from '../catalog/a2ui_schema.js';
 import {
   componentSchemaOf,
   functionSchemaOf,
-  safeParseEntry,
   themeSchemaOf,
+  validateEntry,
 } from '../catalog/entry_schema.js';
 import {CatalogInterface} from '../catalog/types.js';
 import {isAtLeastVersion} from '../common/semver.js';
@@ -231,12 +232,12 @@ export class PayloadValidator {
     const knownKeys = getKnownSchemaKeys(schema);
     this.validateCommonEnvelopeFields(properties, knownKeys, componentType, id, componentCatalogId);
 
-    const result = safeParseEntry(schema, componentApi.schema, properties);
-    if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
+    const result = validateEntry(schema, componentApi.schema, properties);
+    if (result.issues) {
+      const formattedErrors = result.issues.map(formatA2uiSchemaIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
-        result.error.issues,
+        result.issues,
       );
     }
 
@@ -436,15 +437,15 @@ export class PayloadValidator {
       return (args ?? {}) as Record<string, unknown>;
     }
 
-    const result = safeParseEntry(functionSchemaOf(this.catalog, fn), fn.schema, args ?? {});
-    if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
+    const result = validateEntry(functionSchemaOf(this.catalog, fn), fn.schema, args ?? {});
+    if (result.issues) {
+      const formattedErrors = result.issues.map(formatA2uiSchemaIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for function '${name}': ${formattedErrors}`,
-        result.error.issues,
+        result.issues,
       );
     }
-    return result.data as Record<string, unknown>;
+    return result.value as Record<string, unknown>;
   }
 
   /**
@@ -461,15 +462,15 @@ export class PayloadValidator {
     const documentSchema = themeSchemaOf(this.catalog);
     if (!themeSchema || !documentSchema) return theme;
 
-    const result = safeParseEntry(documentSchema, themeSchema, theme);
-    if (!result.success) {
-      const formattedErrors = result.error.errors.map(formatZodIssue).join(', ');
+    const result = validateEntry(documentSchema, themeSchema, theme);
+    if (result.issues) {
+      const formattedErrors = result.issues.map(formatA2uiSchemaIssue).join(', ');
       throw new A2uiValidationError(
         `Validation failed for theme: ${formattedErrors}`,
-        result.error.issues,
+        result.issues,
       );
     }
-    return result.data;
+    return result.value;
   }
 
   /**

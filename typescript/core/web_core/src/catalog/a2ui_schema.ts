@@ -73,6 +73,13 @@ export type InferEntrySchema<S> = S extends StandardTypedV1
 /** A schema whose Standard Schema validator can validate a protocol payload. */
 export type A2uiValidator<Output = unknown> = StandardSchemaV1<unknown, Output>;
 
+/**
+ * A schema web_core inspects to bind properties and find child references:
+ * an entry's own `EntrySchema`, or a validator the catalog loader compiled
+ * from a definition, which web_core inspects through that definition.
+ */
+export type InspectableSchema = EntrySchema | A2uiValidator;
+
 /** A validation issue emitted by a synchronous Standard Schema validator. */
 export interface A2uiSchemaIssue {
   readonly message: string;

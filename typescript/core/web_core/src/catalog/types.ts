@@ -28,7 +28,7 @@ import {
   type EntrySchema,
   type InferEntrySchema,
 } from './a2ui_schema.js';
-import {functionSchemaOf, safeParseEntry} from './entry_schema.js';
+import {functionSchemaOf, validateEntry} from './entry_schema.js';
 import {parseCatalogSchema} from './schema_loader.js';
 import type {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
@@ -938,7 +938,7 @@ function isSchemaArgument(value: unknown): value is z.ZodTypeAny | A2uiStandardS
  * when called, so a linked copy can be given its invoker as it is assembled.
  *
  * Arguments are validated against the function's definition in the catalog's
- * document and against its own schema (see `safeParseEntry`), and the function
+ * document and against its own schema (see `validateEntry`), and the function
  * runs with them as its own schema parses them, so it receives the values,
  * such as defaults, its implementation is typed for.
  */
@@ -965,17 +965,26 @@ function createCatalogInvoker<F extends FunctionApi>(
     }
 
     const parseAndExecute = (resolvedArgs: unknown): unknown => {
-      try {
-        // From v1.0 a `DynamicBoolean` argument may resolve to the
-        // `ValidationResult` a validation function returns; it is read by its
-        // validity, as the specification defines the type.
-        const documentSchema = functionSchemaOf(catalog, fn);
-        const args = isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
-          ? coerceValidationResults(documentSchema, resolvedArgs)
+      // From v1.0 a `DynamicBoolean` argument may resolve to the
+      // `ValidationResult` a validation function returns; it is read by its
+      // validity, as the specification defines the type.
+      const documentSchema = functionSchemaOf(catalog, fn);
+      const zodArgs = zod3SchemaOf(fn.schema);
+      const args =
+        zodArgs && isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
+          ? coerceValidationResults(zodArgs, resolvedArgs)
           : resolvedArgs;
-        const parsed = safeParseEntry(documentSchema, fn.schema, args);
-        if (!parsed.success) throw parsed.error;
-        return execute.call(fn, parsed.data as Record<string, unknown>, ctx, abortSignal);
+      const parsed = validateEntry(documentSchema, fn.schema, args);
+      if (parsed.issues) {
+        // Written as a Zod error's message was, the issues as indented JSON.
+        throw new A2uiExpressionError(
+          `Validation failed for function '${name}': ${JSON.stringify(parsed.issues, null, 2)}`,
+          name,
+          parsed.issues,
+        );
+      }
+      try {
+        return execute.call(fn, parsed.value as Record<string, unknown>, ctx, abortSignal);
       } catch (e: any) {
         if (e?.name === 'ZodError' || e instanceof z.ZodError) {
           throw new A2uiExpressionError(

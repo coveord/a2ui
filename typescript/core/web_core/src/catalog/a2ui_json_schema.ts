@@ -29,7 +29,13 @@
 import type {z} from 'zod/v3';
 import {parseDef, zodToJsonSchema, type OverrideCallback} from 'zod-to-json-schema';
 
-import {normalizeSchema, zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
+import {
+  normalizeSchema,
+  zod3SchemaOf,
+  type A2uiSchema,
+  type EntrySchema,
+  type InspectableSchema,
+} from './a2ui_schema.js';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {
   getSpecAnnotationOfDef,
@@ -144,6 +150,11 @@ export function setDefinitionView(schema: object, computeView: () => JsonSchemaO
   definitionViews.set(schema, computeView);
 }
 
+/** Whether `schema` was compiled from a catalog definition web_core inspects it through. */
+export function hasDefinitionView(schema: object): boolean {
+  return definitionViews.has(schema);
+}
+
 /**
  * Returns the JSON Schema view web_core inspects a schema through, to bind
  * its properties and find its child references and known keys.
@@ -156,9 +167,9 @@ export function setDefinitionView(schema: object, computeView: () => JsonSchemaO
  * @param schema The schema to inspect.
  * @returns The view, computed once and deeply frozen.
  */
-export function inspectionSchemaOf(schema: EntrySchema): JsonSchemaObject {
+export function inspectionSchemaOf(schema: InspectableSchema): JsonSchemaObject {
   const computeView = definitionViews.get(schema as object);
-  if (!computeView) return a2uiJsonSchemaOf(schema);
+  if (!computeView) return a2uiJsonSchemaOf(schema as EntrySchema);
   let view = computedDefinitionViews.get(schema as object);
   if (!view) {
     view = deepFreeze(computeView());

@@ -439,7 +439,7 @@ function propertyView(
     if (name !== undefined && isCommonTypeName(name)) {
       return described({$ref: `common_types.json#/$defs/${name}`});
     }
-    const target = new PeerScope().resolve(ref, document);
+    const target = new RefScope().resolve(ref, document);
     const resolved = target ? resolveJsonPointer(document, target.pointer) : undefined;
     if (target && resolved) {
       if (visited.has(target.key)) return {};
