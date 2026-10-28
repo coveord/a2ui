@@ -35,7 +35,7 @@ import {a2uiJsonSchemaOf} from './a2ui_json_schema.js';
 import type {A2uiSchema, StandardJSONSchemaV1} from './a2ui_schema.js';
 import {exclusiveUnion} from './exclusive_union.js';
 import {basicCatalog} from '../catalogs/basic/v1/index.js';
-import {Catalog, type ComponentApi} from './types.js';
+import {Catalog, type ComponentApi, type FunctionApi} from './types.js';
 
 /**
  * Adds Standard JSON Schema to a Zod 4 schema, as Zod 4.2 and later implement
@@ -48,6 +48,11 @@ function withZod4JsonSchema<T extends z4.ZodType>(schema: T): T & StandardJSONSc
 }
 
 const ref = (name: string) => ({$ref: `common_types.json#/$defs/${name}`});
+
+function plain<E extends ComponentApi | FunctionApi>(entry: E): E {
+  const schema = entry.schema as z.ZodTypeAny;
+  return {...entry, schema: schema.describe(schema.description as string)};
+}
 
 /** A Zod 4 component using the A2UI `$ref` conventions. */
 const Zod4CardApi = {
@@ -78,7 +83,7 @@ describe('a2uiJsonSchemaOf', () => {
       type: 'object',
       properties: {
         label: {$ref: 'common_types.json#/$defs/DynamicString', description: 'The label.'},
-        size: {type: 'number', $ref: '#/$defs/Size', default: 1},
+        size: {$ref: '#/$defs/Size', default: 1},
       },
       required: ['label'],
       additionalProperties: false,
@@ -107,8 +112,21 @@ describe('a2uiJsonSchemaOf', () => {
     });
   });
 
-  it('writes v0.9 Divider accessibility as a bare local reference', () => {
-    const components = v09BasicCatalog.validationSchema['components'] as Record<string, unknown>;
+  it('expands a reference only when requested for inspection', () => {
+    const view = a2uiJsonSchemaOf(AccessibilityAttributesSchema, {expandReferences: true});
+    assert.strictEqual(view['type'], 'object');
+    assert.ok(view['properties']);
+  });
+
+  it('writes unannotated v0.9 Divider accessibility as a bare local reference', () => {
+    const plainCatalog = new Catalog(
+      'urn:plain-v09',
+      v09BasicCatalog.protocolVersion,
+      [...v09BasicCatalog.components.values()].map(plain),
+      [...v09BasicCatalog.functions.values()].map(plain),
+      {themeSchema: v09BasicCatalog.themeSchema},
+    );
+    const components = plainCatalog.validationSchema['components'] as Record<string, unknown>;
     const divider = components['Divider'] as Record<string, unknown>;
     const properties = divider['properties'] as Record<string, unknown>;
     assert.deepStrictEqual(properties['accessibility'], {
@@ -116,6 +134,39 @@ describe('a2uiJsonSchemaOf', () => {
       description:
         'Attributes to enhance accessibility when using assistive technologies like screen readers.',
     });
+  });
+
+  it('matches every unannotated basic component accessibility schema after a document reload', () => {
+    for (const builtin of [v09BasicCatalog, basicCatalog]) {
+      const plainCatalog = new Catalog(
+        `urn:plain-${builtin.protocolVersion}`,
+        builtin.protocolVersion,
+        [...builtin.components.values()].map(plain),
+        [...builtin.functions.values()].map(plain),
+        {themeSchema: builtin.themeSchema},
+      );
+      const reloaded = Catalog.fromJson(
+        plainCatalog.toJson(),
+        builtin.protocolVersion,
+        plainCatalog.id,
+      );
+      const codeComponents = plainCatalog.validationSchema['components'] as Record<string, unknown>;
+      const reloadedComponents = reloaded.validationSchema['components'] as Record<string, unknown>;
+      for (const [name, schema] of Object.entries(codeComponents)) {
+        const codeProperties = (schema as Record<string, unknown>)['properties'] as Record<
+          string,
+          unknown
+        >;
+        const reloadedProperties = (reloadedComponents[name] as Record<string, unknown>)[
+          'properties'
+        ] as Record<string, unknown>;
+        assert.deepStrictEqual(
+          codeProperties['accessibility'],
+          reloadedProperties['accessibility'],
+          `${builtin.protocolVersion} ${name}`,
+        );
+      }
+    }
   });
 
   it('writes a Zod 3 exclusive union as oneOf', () => {
