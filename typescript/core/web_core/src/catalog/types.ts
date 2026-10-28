@@ -27,7 +27,7 @@ import {
   type EntrySchema,
   type InferEntrySchema,
 } from './a2ui_schema.js';
-import {functionSchemaOf, safeParseEntry} from './entry_schema.js';
+import {functionSchemaOf, validateEntry} from './entry_schema.js';
 import {
   hasCrossDocumentRefs,
   inlinePeerAndLocalRefs,
@@ -944,7 +944,7 @@ function isSchemaArgument(value: unknown): value is z.ZodTypeAny | A2uiStandardS
  * when called, so a linked copy can be given its invoker as it is assembled.
  *
  * Arguments are validated against the function's definition in the catalog's
- * document and against its own schema (see `safeParseEntry`), and the function
+ * document and against its own schema (see `validateEntry`), and the function
  * runs with them as its own schema parses them, so it receives the values,
  * such as defaults, its implementation is typed for.
  */
@@ -970,10 +970,17 @@ function createCatalogInvoker<F extends FunctionApi>(
       );
     }
 
+    const parsed = validateEntry(functionSchemaOf(catalog, fn), fn.schema, rawArgs);
+    if (parsed.issues) {
+      // Written as a Zod error's message was, the issues as indented JSON.
+      throw new A2uiExpressionError(
+        `Validation failed for function '${name}': ${JSON.stringify(parsed.issues, null, 2)}`,
+        name,
+        parsed.issues,
+      );
+    }
     try {
-      const parsed = safeParseEntry(functionSchemaOf(catalog, fn), fn.schema, rawArgs);
-      if (!parsed.success) throw parsed.error;
-      return execute.call(fn, parsed.data as Record<string, unknown>, ctx, abortSignal);
+      return execute.call(fn, parsed.value as Record<string, unknown>, ctx, abortSignal);
     } catch (e: any) {
       if (e?.name === 'ZodError' || e instanceof z.ZodError) {
         throw new A2uiExpressionError(

@@ -24,7 +24,7 @@ import {
   refDefName,
   unionBranches,
 } from '../catalog/a2ui_json_schema.js';
-import type {EntrySchema} from '../catalog/a2ui_schema.js';
+import type {InspectableSchema} from '../catalog/a2ui_schema.js';
 import type {JsonSchemaObject} from '../catalog/spec_annotations.js';
 
 /**
@@ -67,7 +67,7 @@ const refFieldsCache = new WeakMap<object, RefFields>();
  * @param schema Component schema to inspect.
  * @returns Map of child-referencing property names to their reference kinds.
  */
-export function extractRefFields(schema: EntrySchema): RefFields {
+export function extractRefFields(schema: InspectableSchema): RefFields {
   const cached = refFieldsCache.get(schema);
   if (cached) {
     return cached;

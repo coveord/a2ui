@@ -19,7 +19,8 @@ import {describe, it} from 'node:test';
 
 import {z} from 'zod/v3';
 
-import {componentSchemaOf, functionSchemaOf, safeParseEntry} from './entry_schema.js';
+import {validateA2uiSchema, type A2uiValidator} from './a2ui_schema.js';
+import {componentSchemaOf, functionSchemaOf, validateEntry} from './entry_schema.js';
 import {Catalog, type ComponentApi, type FunctionApi} from './types.js';
 
 const PickerApi: ComponentApi = {
@@ -35,6 +36,11 @@ const RoundApi: FunctionApi = {
   schema: z.object({value: z.number()}).strict(),
 };
 
+/** Whether a schema accepts a value, read as a Standard Schema validator. */
+function accepts(schema: A2uiValidator, value: unknown): boolean {
+  return validateA2uiSchema(schema, value).issues === undefined;
+}
+
 const catalog = new Catalog<ComponentApi, FunctionApi>(
   'test-catalog',
   '0.9',
@@ -48,7 +54,7 @@ describe('componentSchemaOf', () => {
     assert.notStrictEqual(schema, PickerApi.schema);
     assert.strictEqual(componentSchemaOf(catalog, PickerApi), schema);
     // The document has no refinement, so the derived schema accepts it.
-    assert.strictEqual(schema.safeParse({choice: 'forbidden'}).success, true);
+    assert.strictEqual(accepts(schema, {choice: 'forbidden'}), true);
   });
 
   it('returns the schema of a component loaded with Catalog.fromJson as is', () => {
@@ -66,8 +72,8 @@ describe('functionSchemaOf', () => {
   it('reads a function defined in code through its catalog document', () => {
     const schema = functionSchemaOf(catalog, RoundApi);
     assert.notStrictEqual(schema, RoundApi.schema);
-    assert.strictEqual(schema.safeParse({value: 1}).success, true);
-    assert.strictEqual(schema.safeParse({value: 1, extra: true}).success, false);
+    assert.strictEqual(accepts(schema, {value: 1}), true);
+    assert.strictEqual(accepts(schema, {value: 1, extra: true}), false);
   });
 
   it('returns the own schema of a function the document does not define', () => {
@@ -76,22 +82,60 @@ describe('functionSchemaOf', () => {
   });
 });
 
-describe('safeParseEntry', () => {
+describe('validateEntry', () => {
   it('runs the checks only the own schema expresses', () => {
     const schema = componentSchemaOf(catalog, PickerApi);
-    assert.strictEqual(
-      safeParseEntry(schema, PickerApi.schema, {choice: 'forbidden'}).success,
-      false,
+    const rejected = validateEntry(schema, PickerApi.schema, {choice: 'forbidden'});
+    assert.deepStrictEqual(
+      rejected.issues?.map(issue => issue.message),
+      ['forbidden choice'],
     );
-    assert.strictEqual(safeParseEntry(schema, PickerApi.schema, {choice: 'ok'}).success, true);
+    assert.deepStrictEqual(validateEntry(schema, PickerApi.schema, {choice: 'ok'}), {
+      value: {choice: 'ok'},
+    });
   });
 
   it('reports the document schema failure first', () => {
-    const result = safeParseEntry(
+    const result = validateEntry(
       z.object({value: z.number()}).strict(),
-      z.object({value: z.number()}),
+      z.object({value: z.number().refine(() => false, 'own check')}),
       {value: 1, extra: true},
     );
-    assert.strictEqual(result.success, false);
+    assert.deepStrictEqual(
+      result.issues?.map(issue => issue.message),
+      ["Unrecognized key(s) in object: 'extra'"],
+    );
+  });
+
+  it('returns the value the own schema outputs, with its defaults', () => {
+    const document = z.object({size: z.number().optional()});
+    const own = z.object({size: z.number().default(3)});
+    assert.deepStrictEqual(validateEntry(document, own, {}), {value: {size: 3}});
+  });
+
+  it('validates with a library schema through Standard Schema', () => {
+    const own: A2uiValidator = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: value =>
+          (value as {size?: number}).size === 0
+            ? {issues: [{message: 'Too small', path: [{key: 'size'}]}]}
+            : {value},
+      },
+    };
+    const document = z.object({size: z.number()});
+    assert.deepStrictEqual(
+      validateEntry(document, own as never, {size: 0}).issues?.map(issue => issue.message),
+      ['Too small'],
+    );
+    assert.deepStrictEqual(validateEntry(document, own as never, {size: 1}), {value: {size: 1}});
+  });
+
+  it('adds nothing to the document check for a JSON Schema object', () => {
+    const document = z.object({size: z.number()});
+    assert.deepStrictEqual(validateEntry(document, {type: 'object'}, {size: 1}), {
+      value: {size: 1},
+    });
   });
 });
