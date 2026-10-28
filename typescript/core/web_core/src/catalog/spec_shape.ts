@@ -22,20 +22,20 @@
  * definition composes with `allOf` and anything else the catalog document
  * writes that Zod does not express. A function's model is the Zod object of
  * its arguments. This module turns such models back into the definitions a
- * catalog document writes. The layout rules depend only on the protocol
- * version, not on the catalog.
+ * catalog document writes, reading each model through its spec view (see
+ * `specJsonSchemaOf`) rather than through Zod. The layout rules depend only on
+ * the protocol version, not on the catalog.
  *
  * This module is internal to web_core and is not re-exported by any facade.
  */
-
-import {z} from 'zod/v3';
 
 import {isAtLeastVersion, normalizeVersionString, toCanonicalVersion} from '../common/semver.js';
 import {V08_STANDARD_DEFS} from '../v0_8/standard_defs.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
-import {copyA2uiJsonSchemaOf} from './a2ui_json_schema.js';
-import {getSpecAnnotation, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
+import {specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
+import type {EntrySchema} from './a2ui_schema.js';
+import type {SpecAnnotation, SpecMixin} from './spec_annotations.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -203,34 +203,33 @@ function provablyDisjoint(a: unknown, b: unknown, resolve: RefResolver, depth = 
   );
 }
 
-/** The Zod definition fields the shaper reads. */
-interface ZodDefLike {
-  readonly typeName?: string;
-  readonly description?: string;
-  readonly [key: string]: unknown;
-}
-
-function defOf(schema: z.ZodTypeAny): ZodDefLike {
-  return schema._def as ZodDefLike;
-}
-
 /** The properties of a component that the message envelope declares. */
 const ENVELOPE_PROPERTIES = new Set(['id', 'component']);
+
+/** Returns the spec view of a schema (see `specJsonSchemaOf`). */
+function viewOf(schema: EntrySchema): JsonObject {
+  return specJsonSchemaOf(schema) as JsonObject;
+}
+
+/** Returns the `spec()` annotation of a schema, read from its spec view. */
+function annotationOf(schema: EntrySchema): SpecAnnotation {
+  return specAnnotationOf(viewOf(schema)) ?? {};
+}
 
 /**
  * Returns whether a component's schema is a specification-shaped model: one
  * annotated with the mixins its definition composes.
  */
-export function isSpecComponentSchema(schema: unknown): boolean {
-  return collectAnnotation(schema as z.ZodTypeAny).mixins !== undefined;
+export function isSpecComponentSchema(schema: EntrySchema): boolean {
+  return annotationOf(schema).mixins !== undefined;
 }
 
 /**
  * Returns whether a function's argument schema is a specification-shaped
  * model: one with an annotation.
  */
-export function isSpecFunctionSchema(schema: unknown): boolean {
-  return Object.keys(collectAnnotation(schema as z.ZodTypeAny)).length > 0;
+export function isSpecFunctionSchema(schema: EntrySchema): boolean {
+  return Object.keys(annotationOf(schema)).length > 0;
 }
 
 /**
@@ -291,41 +290,6 @@ export function schemaRequiresArgs(
   return false;
 }
 
-/**
- * Returns the annotations of a schema and of the wrappers around its core
- * (`optional`, `default`, refinements), the outer ones winning.
- */
-function collectAnnotation(schema: z.ZodTypeAny | undefined): SpecAnnotation {
-  const chain: SpecAnnotation[] = [];
-  let node: z.ZodTypeAny | undefined = schema;
-  while (node && typeof node === 'object' && '_def' in node) {
-    const annotation = getSpecAnnotation(node);
-    if (annotation) chain.push(annotation);
-    const next = innerSchema(node);
-    if (!next) break;
-    node = next;
-  }
-  return chain.reduceRight<SpecAnnotation>((merged, a) => ({...merged, ...a}), {});
-}
-
-/** Returns the schema a wrapper (`optional`, `default`, ...) wraps. */
-function innerSchema(schema: z.ZodTypeAny): z.ZodTypeAny | undefined {
-  const def = defOf(schema);
-  switch (def.typeName) {
-    case 'ZodOptional':
-    case 'ZodDefault':
-    case 'ZodCatch':
-    case 'ZodReadonly':
-      return def['innerType'] as z.ZodTypeAny;
-    case 'ZodEffects':
-      return def['schema'] as z.ZodTypeAny;
-    case 'ZodBranded':
-      return def['type'] as z.ZodTypeAny;
-    default:
-      return undefined;
-  }
-}
-
 /** A definition and the catalog definitions it needs. */
 export interface SpecSchema {
   /** The definition. */
@@ -334,12 +298,14 @@ export interface SpecSchema {
    * The models of the catalog definitions the definition references, by
    * name, such as a component's `CatalogComponentCommon` mixin.
    */
-  readonly catalogDefs: ReadonlyMap<string, z.ZodTypeAny>;
+  readonly catalogDefs: ReadonlyMap<string, EntrySchema>;
 }
 
 /**
- * Builds specification-shaped definitions of Zod models for a protocol
- * version.
+ * Builds specification-shaped definitions of models for a protocol version.
+ *
+ * It reads a model through its spec view (see `specJsonSchemaOf`): its JSON
+ * Schema, and the `spec()` annotations its nodes hold.
  */
 export class SpecShaper {
   private readonly isV08: boolean;
@@ -371,11 +337,11 @@ export class SpecShaper {
    */
   componentSchema(
     name: string,
-    schema: z.ZodTypeAny,
+    schema: EntrySchema,
     allowedParents?: readonly string[],
     allowedChildren?: readonly string[],
   ): SpecSchema {
-    const catalogDefs = new Map<string, z.ZodTypeAny>();
+    const catalogDefs = new Map<string, EntrySchema>();
     let result: JsonObject;
     if (this.isV08) {
       // A v0.8 catalog document has no common types: the whole component is
@@ -391,7 +357,8 @@ export class SpecShaper {
         else delete result['required'];
       }
     } else {
-      const annotation = collectAnnotation(schema);
+      const view = viewOf(schema);
+      const annotation = specAnnotationOf(view) ?? {};
       const mixins = annotation.mixins ?? [];
       const inherited = new Set<string>(ENVELOPE_PROPERTIES);
       const refs: JsonObject[] = [];
@@ -399,9 +366,8 @@ export class SpecShaper {
         refs.push({$ref: this.mixinRef(mixin, catalogDefs)});
         for (const key of this.mixinProperties(mixin)) inherited.add(key);
       }
-      const object = coreSchema(schema);
-      const description = plainDescription(schema);
-      const own = this.objectSchema(object, annotation, key => !inherited.has(key));
+      const description = plainDescription(view);
+      const own = this.objectSchema(view, annotation, key => !inherited.has(key));
       const properties = {component: {const: name}, ...(own['properties'] as JsonObject)};
       const required = ['component', ...((own['required'] as string[] | undefined) ?? [])];
       const inner: JsonObject = {type: 'object'};
@@ -441,7 +407,7 @@ export class SpecShaper {
   functionSchema(
     name: string,
     fn: {
-      readonly schema: z.ZodTypeAny;
+      readonly schema: EntrySchema;
       readonly returnType: string;
       readonly description?: string;
       readonly allowedCallers?: string;
@@ -475,14 +441,14 @@ export class SpecShaper {
    *
    * @param schema The model.
    */
-  defSchema(schema: z.ZodTypeAny): JsonObject {
+  defSchema(schema: EntrySchema): JsonObject {
     return this.toJson(schema);
   }
 
   /** Returns the reference a component's definition makes to a mixin. */
-  private mixinRef(mixin: SpecMixin, catalogDefs: Map<string, z.ZodTypeAny>): string {
+  private mixinRef(mixin: SpecMixin, catalogDefs: Map<string, EntrySchema>): string {
     if (typeof mixin === 'string') return `${this.commonTypesUri}#/$defs/${mixin}`;
-    const name = collectAnnotation(mixin).defName;
+    const name = annotationOf(mixin).defName;
     if (name === undefined) {
       throw new Error('A component mixin model must be named with specDef().');
     }
@@ -493,10 +459,8 @@ export class SpecShaper {
   /** Returns the names of the properties a mixin declares. */
   private mixinProperties(mixin: SpecMixin): string[] {
     if (typeof mixin !== 'string') {
-      const core = coreSchema(mixin);
-      return defOf(core).typeName === 'ZodObject'
-        ? Object.keys((core as z.AnyZodObject).shape)
-        : [];
+      const properties = viewOf(mixin)['properties'];
+      return isObject(properties) ? Object.keys(properties) : [];
     }
     const names: string[] = [];
     const collect = (def: unknown, seen: Set<unknown>): void => {
@@ -517,31 +481,30 @@ export class SpecShaper {
   }
 
   /**
-   * Returns the JSON Schema a catalog document writes for a Zod schema.
+   * Returns the JSON Schema a catalog document writes for a schema.
    *
    * @param schema The schema.
    */
-  toJson(schema: z.ZodTypeAny): JsonObject {
-    const annotation = collectAnnotation(schema);
-    const description = schemaDescription(schema);
-    const defaultValue = schemaDefault(schema);
-    let core: JsonObject;
-    let ownDescription = description;
-    if (description !== undefined && description.startsWith('REF:')) {
-      const content = description.substring(4);
-      const pipe = content.indexOf('|');
-      const ref = pipe === -1 ? content : content.substring(0, pipe);
-      ownDescription = pipe === -1 ? undefined : content.substring(pipe + 1);
-      core = {$ref: this.refTarget(ref)};
-    } else {
-      core = this.coreJson(coreSchema(schema), annotation);
-    }
+  toJson(schema: EntrySchema): JsonObject {
+    return this.nodeJson(viewOf(schema));
+  }
+
+  /** Returns the JSON Schema a catalog document writes for a node of a spec view. */
+  private nodeJson(node: JsonObject): JsonObject {
+    const annotation = specAnnotationOf(node) ?? {};
+    const ref = node['$ref'];
+    // The keywords an annotation adds are written after what the schema
+    // itself says, so they are left out of what it says.
+    const own = annotation.keywords ? withoutKeys(node, Object.keys(annotation.keywords)) : node;
+    const core =
+      typeof ref === 'string' ? {$ref: this.refTarget(ref)} : this.coreJson(own, annotation);
     if (annotation.keywords) Object.assign(core, copyJson(annotation.keywords));
     const result: JsonObject = annotation.allOf
       ? {allOf: [core, ...annotation.allOf.map(s => copyJson(s))]}
       : core;
-    if (ownDescription) result['description'] = ownDescription;
-    if (defaultValue !== undefined) result['default'] = defaultValue;
+    const description = node['description'];
+    if (typeof description === 'string' && description) result['description'] = description;
+    if (node['default'] !== undefined) result['default'] = copyJson(node['default']);
     return result;
   }
 
@@ -593,172 +556,124 @@ export class SpecShaper {
     return `${this.commonTypesUri}${ref}`;
   }
 
-  /** Converts the core of a schema, below its wrappers. */
-  private coreJson(schema: z.ZodTypeAny, annotation: SpecAnnotation): JsonObject {
-    const def = defOf(schema);
-    switch (def.typeName) {
-      case 'ZodObject':
-        return this.objectSchema(schema as z.AnyZodObject, annotation, () => true);
-      case 'ZodString':
-        return stringSchema(def);
-      case 'ZodNumber':
-        return numberSchema(def);
-      case 'ZodBoolean':
+  /** Converts what a node of a spec view says of its value, below its wrappers. */
+  private coreJson(node: JsonObject, annotation: SpecAnnotation): JsonObject {
+    if (node['const'] !== undefined) return {const: copyJson(node['const'])};
+    if (Array.isArray(node['enum'])) return {type: 'string', enum: [...node['enum']]};
+    const branches = node['anyOf'] ?? node['oneOf'];
+    if (Array.isArray(branches)) {
+      // A union accepts a value any of its branches accepts, as `anyOf`
+      // does. It is written as `oneOf`, as the specification writes its
+      // unions, only when no value matches two branches, so that both
+      // keywords accept the same values.
+      const written = branches.filter(isObject).map(branch => this.nodeJson(branch));
+      const resolve = (ref: string) => this.resolveStandardRef(ref);
+      const disjoint = written.every((branch, i) =>
+        written.slice(i + 1).every(other => provablyDisjoint(branch, other, resolve)),
+      );
+      return {[disjoint ? 'oneOf' : 'anyOf']: written};
+    }
+    switch (node['type']) {
+      case 'object':
+        if (isObject(node['properties'])) return this.objectSchema(node, annotation, () => true);
+        return isObject(node['additionalProperties'])
+          ? {type: 'object', additionalProperties: this.nodeJson(node['additionalProperties'])}
+          : {type: 'object', properties: {}};
+      case 'string':
+        return pickKeywords(node, {type: 'string'}, STRING_KEYWORDS);
+      case 'integer':
+      case 'number':
+        return pickKeywords(node, {type: node['type']}, NUMBER_KEYWORDS);
+      case 'boolean':
         return {type: 'boolean'};
-      case 'ZodNull':
+      case 'null':
         return {type: 'null'};
-      case 'ZodEnum':
-        return {type: 'string', enum: [...(def['values'] as unknown[])]};
-      case 'ZodLiteral':
-        return {const: def['value']};
-      case 'ZodAny':
-      case 'ZodUnknown':
-        return {};
-      case 'ZodNever':
-        return {not: {}};
-      case 'ZodArray': {
+      case 'array': {
         const result: JsonObject = {
           type: 'array',
-          items: this.toJson(def['type'] as z.ZodTypeAny),
+          items: isObject(node['items']) ? this.nodeJson(node['items']) : {},
         };
-        const min = def['minLength'] as {value: number} | null;
-        const max = def['maxLength'] as {value: number} | null;
-        if (min) result['minItems'] = min.value;
-        if (max) result['maxItems'] = max.value;
+        if (node['minItems'] !== undefined) result['minItems'] = node['minItems'];
+        if (node['maxItems'] !== undefined) result['maxItems'] = node['maxItems'];
         return result;
       }
-      case 'ZodUnion':
-      case 'ZodDiscriminatedUnion': {
-        // A union accepts a value any of its branches accepts, as `anyOf`
-        // does. It is written as `oneOf`, as the specification writes its
-        // unions, only when no value matches two branches, so that both
-        // keywords accept the same values.
-        const options = def['options'] as Iterable<z.ZodTypeAny>;
-        const branches = [...options].map(option => this.toJson(option));
-        const resolve = (ref: string) => this.resolveStandardRef(ref);
-        const disjoint = branches.every((branch, i) =>
-          branches.slice(i + 1).every(other => provablyDisjoint(branch, other, resolve)),
-        );
-        return {[disjoint ? 'oneOf' : 'anyOf']: branches};
-      }
-      case 'ZodRecord':
-        return {
-          type: 'object',
-          additionalProperties: this.toJson(def['valueType'] as z.ZodTypeAny),
-        };
-      case 'ZodLazy':
-        return this.toJson((def['getter'] as () => z.ZodTypeAny)());
-      default:
-        return fallbackJson(schema);
     }
+    if (isObject(node['not']) && Object.keys(node['not']).length === 0) return {not: {}};
+    const rest = Object.keys(node).filter(key => key !== 'description' && key !== 'default');
+    if (rest.length === 0) return {};
+    return fallbackJson(node);
   }
 
   /**
-   * Converts an object schema, keeping the properties `keep` accepts. Its
-   * `required` list follows the annotation, or else the property order.
+   * Converts an object node, keeping the properties `keep` accepts. Its
+   * `required` list follows the annotation, or else the property order. It is
+   * closed with the annotation's keyword, or with `additionalProperties` when
+   * it rejects unknown keys.
    */
   private objectSchema(
-    schema: z.ZodTypeAny,
+    node: JsonObject,
     annotation: SpecAnnotation,
     keep: (key: string) => boolean,
   ): JsonObject {
-    const def = defOf(schema);
-    if (def.typeName !== 'ZodObject') return this.toJson(schema);
-    const shape = (schema as z.AnyZodObject).shape as Record<string, z.ZodTypeAny>;
+    const nodeProperties = node['properties'];
+    if (!isObject(nodeProperties)) return this.nodeJson(node);
+    const nodeRequired = new Set(Array.isArray(node['required']) ? node['required'] : []);
     const properties: JsonObject = {};
     const required: string[] = [];
-    for (const [key, value] of Object.entries(shape)) {
+    for (const [key, value] of Object.entries(nodeProperties)) {
       if (!keep(key)) continue;
-      properties[key] = this.toJson(value);
-      if (!value.isOptional()) required.push(key);
+      properties[key] = this.nodeJson(isObject(value) ? value : {});
+      if (nodeRequired.has(key)) required.push(key);
     }
     const result: JsonObject = {type: 'object', properties};
     const order = annotation.required?.filter(key => required.includes(key));
     const unordered = required.filter(key => !order?.includes(key));
     if (required.length > 0) result['required'] = order ? [...order, ...unordered] : required;
-    const unknownKeys = def['unknownKeys'];
-    const catchall = def['catchall'] as z.ZodTypeAny | undefined;
-    const keyword =
-      annotation.closure ?? (unknownKeys === 'strict' ? 'additionalProperties' : 'none');
-    if (catchall && defOf(catchall).typeName !== 'ZodNever') {
-      result[keyword === 'none' ? 'additionalProperties' : keyword] = this.toJson(catchall);
+    const additional = node['additionalProperties'];
+    const keyword = annotation.closure ?? (additional === false ? 'additionalProperties' : 'none');
+    if (isObject(additional)) {
+      result[keyword === 'none' ? 'additionalProperties' : keyword] = this.nodeJson(additional);
     } else if (keyword !== 'none') {
-      result[keyword] = unknownKeys === 'passthrough';
+      result[keyword] = additional === true;
     }
     return result;
   }
 }
 
-/** Returns the core of a schema, below its wrappers. */
-function coreSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
-  let node = schema;
-  for (let next = innerSchema(node); next; next = innerSchema(node)) node = next;
-  return node;
-}
+/** The keywords a catalog document writes for a string. */
+const STRING_KEYWORDS = new Set(['pattern', 'minLength', 'maxLength', 'format']);
 
-/** Returns the description of a schema's outermost node that has one. */
-function schemaDescription(schema: z.ZodTypeAny): string | undefined {
-  for (let node: z.ZodTypeAny | undefined = schema; node; node = innerSchema(node)) {
-    const description = defOf(node).description;
-    if (typeof description === 'string') return description;
-  }
-  return undefined;
-}
+/** The keywords a catalog document writes for a number. */
+const NUMBER_KEYWORDS = new Set(['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum']);
 
-/** Returns a schema's description, unless it is a `REF:` marker. */
-function plainDescription(schema: z.ZodTypeAny): string | undefined {
-  const description = schemaDescription(schema);
-  return description !== undefined && !description.startsWith('REF:') ? description : undefined;
-}
-
-/** Returns the default value of a schema's outermost `default` wrapper. */
-function schemaDefault(schema: z.ZodTypeAny): unknown {
-  for (let node: z.ZodTypeAny | undefined = schema; node; node = innerSchema(node)) {
-    const def = defOf(node);
-    if (def.typeName === 'ZodDefault') return (def['defaultValue'] as () => unknown)();
-  }
-  return undefined;
-}
-
-/** Formats that a Zod string check stands for. */
-const STRING_FORMATS: Readonly<Record<string, string>> = {
-  email: 'email',
-  url: 'uri',
-  uuid: 'uuid',
-  datetime: 'date-time',
-  date: 'date',
-  time: 'time',
-};
-
-function stringSchema(def: ZodDefLike): JsonObject {
-  const result: JsonObject = {type: 'string'};
-  for (const check of (def['checks'] as Array<{kind: string; [key: string]: unknown}>) ?? []) {
-    if (check.kind === 'regex') result['pattern'] = (check['regex'] as RegExp).source;
-    else if (check.kind === 'min') result['minLength'] = check['value'];
-    else if (check.kind === 'max') result['maxLength'] = check['value'];
-    else if (check.kind in STRING_FORMATS) result['format'] = STRING_FORMATS[check.kind];
+/** Copies `keywords` of `node` onto `result`, in the node's order. */
+function pickKeywords(
+  node: JsonObject,
+  result: JsonObject,
+  keywords: ReadonlySet<string>,
+): JsonObject {
+  for (const [key, value] of Object.entries(node)) {
+    if (keywords.has(key)) result[key] = value;
   }
   return result;
 }
 
-function numberSchema(def: ZodDefLike): JsonObject {
-  const checks = (def['checks'] as Array<{kind: string; [key: string]: unknown}>) ?? [];
-  const result: JsonObject = {
-    type: checks.some(check => check.kind === 'int') ? 'integer' : 'number',
-  };
-  for (const check of checks) {
-    if (check.kind === 'min') {
-      result[check['inclusive'] ? 'minimum' : 'exclusiveMinimum'] = check['value'];
-    } else if (check.kind === 'max') {
-      result[check['inclusive'] ? 'maximum' : 'exclusiveMaximum'] = check['value'];
-    }
-  }
-  return result;
+/** Returns a node without `keys`, keeping the annotation it holds. */
+function withoutKeys(node: JsonObject, keys: readonly string[]): JsonObject {
+  const result: Record<string | symbol, unknown> = {...node};
+  for (const key of keys) delete result[key];
+  return result as JsonObject;
 }
 
-/** Converts a schema the shaper has no rule for through its JSON Schema view. */
-function fallbackJson(schema: z.ZodTypeAny): JsonObject {
-  const json = copyA2uiJsonSchemaOf(schema) as JsonObject;
+/** Returns the description of a node, unless it has none. */
+function plainDescription(node: JsonObject): string | undefined {
+  const description = node['description'];
+  return typeof description === 'string' ? description : undefined;
+}
+
+/** Copies a node the shaper has no rule for, without its own definitions. */
+function fallbackJson(node: JsonObject): JsonObject {
+  const json = structuredClone(node) as JsonObject;
   delete json['definitions'];
   delete json['$defs'];
   return json;
