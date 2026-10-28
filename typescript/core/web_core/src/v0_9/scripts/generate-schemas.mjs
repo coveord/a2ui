@@ -18,9 +18,11 @@ import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
-  getHeader,
   analyzeDependencies,
   compileDefToZod,
+  getHeader,
+  toZod4Code,
+  writeFormattedZod4,
   writeIndexFile,
 } from '../../../scripts/zod-generator-core.mjs';
 
@@ -116,6 +118,8 @@ function generateCommonTypes() {
   commonTs += `export const CommonSchemas = {\n${commonEntries}\n};\n\n`;
 
   writeFileSync(join(destDir, 'common-types.ts'), commonTs);
+  // The same common types in Zod 4, which the catalog loader builds on.
+  writeFormattedZod4(join(v09Dir, 'zod4', 'common-types.ts'), toZod4Code(commonTs));
 
   const allExportNames = new Set(Object.keys(commonJson.$defs));
   const helpersPath = join(destDir, 'helpers.ts');

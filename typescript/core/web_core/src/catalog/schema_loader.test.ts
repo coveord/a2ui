@@ -18,7 +18,7 @@ import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {A2uiCatalogError} from '../errors.js';
 import {Catalog} from './types.js';
 import {analyzeChildRefSchema} from './reference-map.js';
@@ -50,7 +50,7 @@ describe('Catalog.fromJson & schema_loader', () => {
     assert.ok(textComp.schema instanceof z.ZodObject);
 
     // Verify envelope fields ('component', 'id') are omitted
-    const textShape = (textComp.schema as z.ZodObject<any>).shape;
+    const textShape = (textComp.schema as z.ZodObject).shape;
     assert.strictEqual(textShape.id, undefined);
     assert.strictEqual(textShape.component, undefined);
 
@@ -715,7 +715,7 @@ describe('Catalog.fromJson & schema_loader', () => {
 
   it('lets a component override a property its mixins and local definitions declare', () => {
     const schema = Catalog.fromJson(precedenceCatalog).components.get('Toggle')!
-      .schema as z.ZodObject<z.ZodRawShape>;
+      .schema as z.ZodObject;
     assert.ok(schema.safeParse({checks: 'strict', label: 3, size: 2}).success);
     assert.ok(!schema.safeParse({checks: [{condition: true, message: 'x'}]}).success);
     assert.ok(!schema.safeParse({label: 'text'}).success, 'inline beats the local definition');
@@ -741,7 +741,7 @@ describe('Catalog.fromJson & schema_loader', () => {
 
   it('treats catalogId as a component envelope field', () => {
     const catalog = Catalog.fromJson(precedenceCatalog);
-    const schema = catalog.components.get('Toggle')!.schema as z.ZodObject<z.ZodRawShape>;
+    const schema = catalog.components.get('Toggle')!.schema as z.ZodObject;
     assert.ok(!('catalogId' in schema.shape));
     assert.ok('metadata' in schema.shape);
     new PayloadValidator(catalog, STRICT_VALIDATION).validateComponent({

@@ -15,6 +15,7 @@
  */
 
 import {z} from 'zod/v3';
+import type {z as z4} from 'zod/v4';
 
 import {hasDefinitionView} from './a2ui_json_schema.js';
 import {
@@ -29,11 +30,17 @@ import {DEFAULT_PROTOCOL_VERSION, parseCatalogSchema} from './schema_loader.js';
 import {serializeCatalogDocument} from './schema_serializer.js';
 import type {CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 
+/**
+ * A Zod schema the core validates with: a Zod 3 schema an entry is written
+ * with, or the Zod 4 schema the catalog loader compiles from a definition.
+ */
+type ZodSchema = z.ZodTypeAny | z4.ZodType;
+
 /** The entries and theme of a catalog reloaded from its own document. */
 interface ReloadedEntries {
   readonly components: ReadonlyMap<string, ComponentApi>;
   readonly functions: ReadonlyMap<string, FunctionApi>;
-  readonly themeSchema?: z.ZodTypeAny;
+  readonly themeSchema?: A2uiValidator;
 }
 
 const reloaded = new WeakMap<object, ReloadedEntries>();
@@ -64,7 +71,7 @@ function reloadedEntries(catalog: CatalogInterface<ComponentApi, FunctionApi>): 
     entries = {
       components: new Map(parsed.components.map(byName)),
       functions: new Map(parsed.functions.map(byName)),
-      themeSchema: parsed.themeSchema as z.ZodTypeAny | undefined,
+      themeSchema: parsed.themeSchema as A2uiValidator | undefined,
     };
     reloaded.set(catalog, entries);
   }
@@ -73,8 +80,8 @@ function reloadedEntries(catalog: CatalogInterface<ComponentApi, FunctionApi>): 
 
 /** The schemas derived from schemas read without a catalog, by schema and kind. */
 const standalone = {
-  component: new WeakMap<object, z.ZodTypeAny>(),
-  function: new WeakMap<object, z.ZodTypeAny>(),
+  component: new WeakMap<object, ZodSchema>(),
+  function: new WeakMap<object, ZodSchema>(),
 };
 
 /**
@@ -90,9 +97,9 @@ function standaloneSchemaOf(
 
 /**
  * Returns the Zod schema the core reads an `EntrySchema` with when no catalog
- * document is at hand: a Zod 3 schema as is, or the one derived from a
- * document that holds an entry with that schema alone, at the default
- * protocol version.
+ * document is at hand: a Zod 3 schema, or one the catalog loader compiled, as
+ * is, or the one derived from a document that holds an entry with that
+ * schema alone, at the default protocol version.
  *
  * @param schema A component's or function's schema.
  * @param kind Whether the schema is a component's properties or a function's
@@ -101,9 +108,10 @@ function standaloneSchemaOf(
 export function zodSchemaFor(
   schema: EntrySchema,
   kind: 'component' | 'function' = 'component',
-): z.ZodTypeAny {
+): ZodSchema {
   const zod3 = zod3SchemaOf(schema);
   if (zod3) return zod3;
+  if (hasDefinitionView(schema as object)) return schema as z4.ZodType;
   let derivedSchema = standalone[kind].get(schema);
   if (!derivedSchema) {
     const id = 'urn:a2ui:standalone';
@@ -120,7 +128,7 @@ export function zodSchemaFor(
     });
     const parsed = parseCatalogSchema(document, DEFAULT_PROTOCOL_VERSION, id);
     const derived = kind === 'component' ? parsed.components[0] : parsed.functions[0];
-    derivedSchema = derived.schema as z.ZodTypeAny;
+    derivedSchema = derived.schema as z4.ZodType;
     standalone[kind].set(schema, derivedSchema);
   }
   return derivedSchema;

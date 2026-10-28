@@ -123,6 +123,15 @@ export function a2uiJsonSchemaOf(
   schema: EntrySchema,
   options: A2uiJsonSchemaOptions = {},
 ): JsonSchemaObject {
+  const computeJson = definitionJsons.get(schema as object);
+  if (computeJson) {
+    let json = computedDefinitionJsons.get(schema as object);
+    if (!json) {
+      json = deepFreeze(computeJson());
+      computedDefinitionJsons.set(schema as object, json);
+    }
+    return json;
+  }
   const cache = options.expandReferences ? expandedReferenceViews : views;
   let view = cache.get(schema as object);
   if (!view) {
@@ -140,15 +149,29 @@ const definitionViews = new WeakMap<object, () => JsonSchemaObject>();
 const computedDefinitionViews = new WeakMap<object, JsonSchemaObject>();
 
 /**
+ * The JSON Schema views of the schemas compiled from a catalog definition,
+ * computed from that definition on first use, by compiled schema.
+ */
+const definitionJsons = new WeakMap<object, () => JsonSchemaObject>();
+const computedDefinitionJsons = new WeakMap<object, JsonSchemaObject>();
+
+/**
  * Records that `schema` was compiled from a catalog definition, and how to
- * compute the view of that definition that `inspectionSchemaOf` returns for
- * it.
+ * compute the views of that definition: the one `inspectionSchemaOf` returns
+ * for it, and its JSON Schema view, which `a2uiJsonSchemaOf` returns for it
+ * instead of converting the compiled schema.
  *
  * @param schema The compiled schema.
- * @param computeView Computes the definition's view.
+ * @param computeView Computes the definition's inspection view.
+ * @param computeJson Computes the definition's JSON Schema view.
  */
-export function setDefinitionView(schema: object, computeView: () => JsonSchemaObject): void {
+export function setDefinitionView(
+  schema: object,
+  computeView: () => JsonSchemaObject,
+  computeJson?: () => JsonSchemaObject,
+): void {
   definitionViews.set(schema, computeView);
+  if (computeJson) definitionJsons.set(schema, computeJson);
 }
 
 /** Whether `schema` was compiled from a catalog definition web_core inspects it through. */
