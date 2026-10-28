@@ -233,7 +233,7 @@ export class PeerScope {
 }
 
 /** Reports a reference whose target cannot be found as a catalog error. */
-export function throwUnresolvableRef(ref: string): never {
+function throwUnresolvableRef(ref: string): never {
   throw new A2uiCatalogError(`Unresolvable schema reference: '${ref}'`);
 }
 
@@ -358,6 +358,28 @@ export interface ResolvedDefinition {
   readonly localDefinitionNames: ReadonlySet<string>;
 }
 
+/** Options for resolving an entry schema's references. */
+export interface ResolveDefinitionOptions {
+  /**
+   * Whether a referenced component written in the same document as its
+   * reference loses its envelope, as a component in a peer catalog always
+   * does. Defaults to `true`.
+   */
+  readonly stripLocalComponentEnvelopes?: boolean;
+  /**
+   * Whether a definition name stands for the protocol common type of that
+   * name. A reference to such a definition outside the root catalog's own
+   * `$defs` is written as a reference into `common_types.json` instead of
+   * being bundled. By default no name does.
+   */
+  readonly isCommonTypeName?: (name: string) => boolean;
+}
+
+/** Returns the definition name a `$ref` points at, or `undefined` for any other pointer. */
+function definitionNameOf(ref: string): string | undefined {
+  return ref.split(/#\/(?:\$defs|definitions)\//)[1];
+}
+
 /**
  * Resolves the references an entry schema reaches without flattening them.
  *
@@ -370,7 +392,9 @@ export function resolveDefinition(
   schema: JsonSchemaObject,
   rootDoc: Record<string, unknown>,
   peers: readonly PeerCatalogSource[] = [],
+  options: ResolveDefinitionOptions = {},
 ): ResolvedDefinition {
+  const {stripLocalComponentEnvelopes = true, isCommonTypeName = () => false} = options;
   const scope = new PeerScope(peers);
   const defs: Record<string, JsonSchemaObject> = {};
   const localDefinitionNames = new Set<string>();
@@ -427,6 +451,11 @@ export function resolveDefinition(
             ?.replace(/~1/g, '/')
             .replace(/~0/g, '~')
         : undefined;
+    const commonTypeName = definitionNameOf(ref as string);
+    if (!rootLocalDefinition && commonTypeName !== undefined && isCommonTypeName(commonTypeName)) {
+      result['$ref'] = `common_types.json#/$defs/${commonTypeName}`;
+      return result;
+    }
     const name = rootLocalDefinition ?? namesByTarget.get(target.key) ?? bundledName(target);
     if (rootLocalDefinition) localDefinitionNames.add(name);
     namesByTarget.set(target.key, name);
@@ -438,7 +467,9 @@ export function resolveDefinition(
             target.doc as Record<string, unknown>,
             `#/$defs/${rootLocalDefinition}`,
           ) ?? resolved)
-        : stripReferencedComponentEnvelope(resolved, target.pointer);
+        : target.isPeer || stripLocalComponentEnvelopes
+          ? stripReferencedComponentEnvelope(resolved, target.pointer)
+          : resolved;
       defs[name] = transform(definition, target.doc) as JsonSchemaObject;
     }
 
