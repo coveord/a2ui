@@ -28,6 +28,7 @@ import {
   type EntrySchema,
   type InferEntrySchema,
 } from './a2ui_schema.js';
+import type {CatalogSchemaCompiler} from './catalog_definitions.js';
 import {functionSchemaOf, validateEntry} from './entry_schema.js';
 import {parseCatalogSchema} from './schema_loader.js';
 import type {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
@@ -871,7 +872,13 @@ export class Catalog<
    *   catalog. It becomes the catalog's `id`, and replaces the document's own
    *   `catalogId` in `toJson`; a document that declares none still has none
    *   in `toJson`.
-   * @returns A new Catalog populated with component and function schemas.
+   * @param options `schemaCompiler` compiles the entries' and theme's schemas
+   *   instead of the built-in Zod 3 compiler, so that the loaded catalog
+   *   validates with the compiler's validators. It applies to this catalog,
+   *   and to the copies `withPeerCatalogs` links to peers.
+   * @returns A new Catalog populated with component and function schemas,
+   *   typed as Zod schemas without a compiler, and as the schemas the
+   *   compiler's validators back with one.
    * @throws {Error} If the catalog ID is missing or not a string.
    * @throws {A2uiCatalogError} If a v1.0 catalog has a `$ref` to a document
    *   other than itself or `common_types.json`, such as another catalog. Such
@@ -881,20 +888,33 @@ export class Catalog<
     json: Record<string, any>,
     protocolVersion?: string,
     catalogId?: string,
-  ): Catalog<JsonComponentApi, JsonFunctionApi> {
+  ): Catalog<JsonComponentApi, JsonFunctionApi>;
+  static fromJson(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the document type of the overload above
+    json: Record<string, any>,
+    protocolVersion: string | undefined,
+    catalogId: string | undefined,
+    options: {readonly schemaCompiler: CatalogSchemaCompiler},
+  ): Catalog<JsonComponentApi<A2uiStandardSchema>, JsonFunctionApi<A2uiStandardSchema>>;
+  static fromJson(
+    json: Record<string, unknown>,
+    protocolVersion?: string,
+    catalogId?: string,
+    options?: {readonly schemaCompiler?: CatalogSchemaCompiler},
+  ): Catalog<JsonComponentApi<EntrySchema>, JsonFunctionApi<EntrySchema>> {
     const {
       id,
       protocolVersion: resolvedVersion,
       components,
       functions,
-      ...options
-    } = parseCatalogSchema(json, protocolVersion, catalogId);
+      ...catalogOptions
+    } = parseCatalogSchema(json, protocolVersion, catalogId, options?.schemaCompiler);
     return new Catalog(
       id,
       resolvedVersion,
-      components as JsonComponentApi[],
-      functions as JsonFunctionApi[],
-      options,
+      components as JsonComponentApi<EntrySchema>[],
+      functions as JsonFunctionApi<EntrySchema>[],
+      catalogOptions,
     );
   }
 

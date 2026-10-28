@@ -24,13 +24,18 @@ import {CommonSchemas as V09CommonSchemas} from '../v0_9/schema/common-types.js'
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
 import {setDefinitionView} from './a2ui_json_schema.js';
+import type {EntrySchema} from './a2ui_schema.js';
 import {
+  compiledEntrySchema,
   isShorthandParameterMap,
   narrowedReference,
   objectDefinitionView,
+  objectValidationSchema,
   resolveComponentDefinition,
   resolveFunctionArgumentsDefinition,
   resolveThemeDefinition,
+  type CatalogSchemaCompileContext,
+  type CatalogSchemaCompiler,
   type ResolvedObjectDefinition,
 } from './catalog_definitions.js';
 import {RefScope, resolveJsonPointer} from './catalog_references.js';
@@ -56,7 +61,7 @@ export interface ParsedCatalogSchema extends CatalogDocumentOptions {
   protocolVersion: string;
   components: ComponentApi[];
   functions: FunctionApi[];
-  themeSchema?: z.ZodObject<z.ZodRawShape>;
+  themeSchema?: EntrySchema;
 }
 
 /**
@@ -669,6 +674,54 @@ function buildObjectZod(
 }
 
 /**
+ * How a catalog's entries are compiled: by `compiler` when one is given, to
+ * Zod 3 otherwise, at the catalog's protocol version.
+ */
+interface Compilation {
+  readonly compiler?: CatalogSchemaCompiler;
+  readonly protocolVersion: string;
+}
+
+/**
+ * Compiles a resolved object definition with the catalog's compiler, or
+ * builds its Zod object when it has none. A compiled schema validates with the
+ * compiler's validator and writes the JSON Schema it was compiled from, and
+ * the binder inspects it through its definition, as it does a Zod object.
+ */
+function compileObject(
+  model: ResolvedObjectDefinition,
+  defCache: ConversionCache,
+  compilation: Compilation,
+  context: Omit<CatalogSchemaCompileContext, 'protocolVersion'>,
+): EntrySchema {
+  const {compiler, protocolVersion} = compilation;
+  if (!compiler) return buildObjectZod(model, defCache);
+  const isCommonTypeName = (name: string) => Object.hasOwn(defCache.commonTypes, name);
+  const jsonSchema = objectValidationSchema(
+    model,
+    defCache.commonTypeDefinitions,
+    isCommonTypeName,
+  );
+  const validator = compiler.compile(structuredClone(jsonSchema), {...context, protocolVersion});
+  const schema = compiledEntrySchema(validator, jsonSchema);
+  setDefinitionView(schema, () =>
+    objectDefinitionView(model, defCache.commonTypeDefinitions, isCommonTypeName),
+  );
+  return schema;
+}
+
+/** The schema of a function that declares no arguments: any object. */
+function anyArguments(compilation: Compilation, name: string): EntrySchema {
+  const {compiler, protocolVersion} = compilation;
+  if (!compiler) return z.record(z.unknown());
+  const jsonSchema = {type: 'object'};
+  return compiledEntrySchema(
+    compiler.compile({type: 'object'}, {kind: 'functionArgs', name, protocolVersion}),
+    jsonSchema,
+  );
+}
+
+/**
  * Extracts declared parameter names from a function's argument schema.
  */
 function functionParameterNames(schema: unknown, rootDoc?: Record<string, unknown>): string[] {
@@ -732,6 +785,7 @@ function functionParameterNames(schema: unknown, rootDoc?: Record<string, unknow
  * filters against permitted function names, and converts parameter schemas to Zod validators.
  *
  * @param rawFunctions Raw function definitions from the catalog schema (array or dictionary).
+ * @param compilation How the functions' argument schemas are compiled.
  * @param rootDoc Optional root schema document for reference resolution.
  * @param permittedNames Optional set of allowed function names from `anyFunction.oneOf`.
  * @param atLeastV10 Whether the catalog targets protocol v1.0 or higher.
@@ -741,6 +795,7 @@ function functionParameterNames(schema: unknown, rootDoc?: Record<string, unknow
  */
 function parseFunctionDefinitions(
   rawFunctions: unknown,
+  compilation: Compilation,
   rootDoc?: Record<string, unknown>,
   permittedNames?: Set<string>,
   atLeastV10 = false,
@@ -758,13 +813,15 @@ function parseFunctionDefinitions(
     }
   };
 
-  /** Converts a function's arguments schema to Zod. */
-  const convertArguments = (argsSchema: Record<string, unknown>): z.ZodObject<z.ZodRawShape> =>
-    buildObjectZod(
+  /** Compiles a function's arguments schema. */
+  const convertArguments = (name: string, argsSchema: Record<string, unknown>): EntrySchema =>
+    compileObject(
       resolveFunctionArgumentsDefinition(argsSchema, rootDoc ?? {}, {
-        isCommonTypeName: name => Object.hasOwn(commonTypes, name),
+        isCommonTypeName: commonTypeName => Object.hasOwn(commonTypes, commonTypeName),
       }),
       new ConversionCache(commonTypes),
+      compilation,
+      {kind: 'functionArgs', name},
     );
 
   if (Array.isArray(rawFunctions)) {
@@ -776,10 +833,10 @@ function parseFunctionDefinitions(
           continue;
         }
         result.push(
-          new JsonFunctionApi(fn.name, fn as Record<string, unknown>, definition =>
+          new JsonFunctionApi<EntrySchema>(fn.name, fn as Record<string, unknown>, definition =>
             definition['parameters'] && typeof definition['parameters'] === 'object'
-              ? convertArguments(definition['parameters'] as Record<string, unknown>)
-              : z.record(z.unknown()),
+              ? convertArguments(fn.name, definition['parameters'] as Record<string, unknown>)
+              : anyArguments(compilation, fn.name),
           ),
         );
       }
@@ -798,9 +855,9 @@ function parseFunctionDefinitions(
       }
       if (!defn || typeof defn !== 'object') continue;
       result.push(
-        new JsonFunctionApi(name, defn as Record<string, unknown>, definition => {
+        new JsonFunctionApi<EntrySchema>(name, defn as Record<string, unknown>, definition => {
           const argsSchema = functionArgsSchema(definition);
-          return argsSchema ? convertArguments(argsSchema) : z.record(z.unknown());
+          return argsSchema ? convertArguments(name, argsSchema) : anyArguments(compilation, name);
         }),
       );
     }
@@ -874,6 +931,7 @@ function extractPermittedNames(oneOf: unknown, prefix: string): Set<string> | un
  *
  * @param componentsMap Mapping of component name to raw component schema definition.
  * @param catalogSchema Enclosing raw catalog schema for resolving local references.
+ * @param compilation How the components' schemas are compiled.
  * @param atLeastV10 Whether the catalog targets protocol v1.0 or higher.
  * @param permittedNames Optional set of allowed component names from anyComponent.oneOf.
  * @param commonTypes The common type schemas of the catalog's protocol version.
@@ -883,6 +941,7 @@ function extractPermittedNames(oneOf: unknown, prefix: string): Set<string> | un
 function parseCatalogComponents(
   componentsMap: Record<string, unknown>,
   catalogSchema: Record<string, unknown>,
+  compilation: Compilation,
   atLeastV10: boolean,
   permittedNames?: Set<string>,
   commonTypes: CommonTypeSchemas = CommonSchemas,
@@ -907,13 +966,15 @@ function parseCatalogComponents(
       continue;
     }
     components.push(
-      new JsonComponentApi(name, rawComp, definition =>
-        buildObjectZod(
+      new JsonComponentApi<EntrySchema>(name, rawComp, definition =>
+        compileObject(
           resolveComponentDefinition(definition as Record<string, unknown>, catalogSchema, {
             isCommonTypeName: commonTypeName => Object.hasOwn(commonTypes, commonTypeName),
             isAtLeastV10: atLeastV10,
           }),
           new ConversionCache(commonTypes),
+          compilation,
+          {kind: 'component', name},
         ),
       ),
     );
@@ -927,13 +988,15 @@ function parseCatalogComponents(
  * Checks top-level theme, themeSchema, styles, and $defs.theme definitions.
  *
  * @param catalogSchema Raw catalog schema or capabilities definition object.
+ * @param compilation How the theme's schema is compiled.
  * @param defs Optional $defs mapping from the root schema.
- * @returns Compiled Zod object schema for theme tokens, or undefined if not declared.
+ * @returns Compiled schema for theme tokens, or undefined if not declared.
  */
 function parseThemeSchema(
   catalogSchema: Record<string, unknown>,
+  compilation: Compilation,
   defs?: Record<string, unknown>,
-): z.ZodObject<z.ZodRawShape> | undefined {
+): EntrySchema | undefined {
   const rawTheme =
     catalogSchema.theme ??
     catalogSchema.themeSchema ??
@@ -946,11 +1009,13 @@ function parseThemeSchema(
         ? rawThemeObj
         : {type: 'object', properties: rawThemeObj};
     // A theme's common types are those of v1.0.
-    return buildObjectZod(
+    return compileObject(
       resolveThemeDefinition(normalizedThemeSchema, catalogSchema, {
         isCommonTypeName: name => Object.hasOwn(CommonSchemas, name),
       }),
       new ConversionCache(),
+      compilation,
+      {kind: 'theme', name: 'theme'},
     );
   }
   return undefined;
@@ -1027,6 +1092,8 @@ function assertSupportedV10Refs(node: unknown, pointer: string): void {
  *   applies.
  * @param catalogIdOverride Catalog ID to use instead of the one the schema
  *   declares. The schema itself is kept as written.
+ * @param schemaCompiler Compiles the entries' and theme's schemas instead of
+ *   the built-in Zod 3 compiler.
  * @returns Parsed catalog fields ready to construct a `Catalog` instance.
  * @throws {Error} If the catalog ID is missing or not a string.
  * @throws {A2uiCatalogError} If a v1.0+ catalog has a `$ref` to a document
@@ -1036,6 +1103,7 @@ export function parseCatalogSchema(
   inputSchema: Record<string, unknown>,
   protocolVersion?: string,
   catalogIdOverride?: string,
+  schemaCompiler?: CatalogSchemaCompiler,
 ): ParsedCatalogSchema {
   // Everything the catalog keeps, including what the Zod schemas close over,
   // comes from this copy, so mutating the input afterwards cannot change it.
@@ -1062,11 +1130,13 @@ export function parseCatalogSchema(
     assertSupportedV10Refs(catalogSchema, '');
   }
   const commonTypes = commonTypeSchemasFor(resolvedVersion);
+  const compilation: Compilation = {compiler: schemaCompiler, protocolVersion: resolvedVersion};
 
   const componentsMap = (catalogSchema.components as Record<string, unknown>) ?? {};
   const components = parseCatalogComponents(
     componentsMap,
     catalogSchema,
+    compilation,
     atLeastV10,
     permittedNames,
     commonTypes,
@@ -1078,13 +1148,14 @@ export function parseCatalogSchema(
 
   const functions = parseFunctionDefinitions(
     catalogSchema.functions,
+    compilation,
     catalogSchema,
     permittedFunctionNames,
     atLeastV10,
     commonTypes,
   );
 
-  const themeSchema = parseThemeSchema(catalogSchema, defs);
+  const themeSchema = parseThemeSchema(catalogSchema, compilation, defs);
 
   // The copy is frozen: the entries' definitions and the document fields
   // refer into it.

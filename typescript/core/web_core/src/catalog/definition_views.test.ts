@@ -33,8 +33,10 @@ const COMMON_TYPES = new Set(['DataBinding', 'DynamicString', 'Checkable', 'Chec
 const isCommonTypeName = (name: string) => COMMON_TYPES.has(name);
 
 function model(overrides: Partial<ResolvedObjectDefinition>): ResolvedObjectDefinition {
+  const definition = {schema: {}, defs: {}, localDefinitionNames: new Set<string>()};
   return {
-    definition: {schema: {}, defs: {}, localDefinitionNames: new Set()},
+    definition,
+    bundleWith: () => definition,
     document: {$defs: {}},
     pieces: [],
     required: new Set(),
