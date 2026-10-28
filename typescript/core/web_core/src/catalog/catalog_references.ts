@@ -15,6 +15,7 @@
  */
 
 import {A2uiCatalogError} from '../errors.js';
+import type {JsonSchemaObject} from './spec_annotations.js';
 import type {CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 
 /**
@@ -344,6 +345,109 @@ export function resolvePeerTarget(
     : undefined;
 }
 
+/**
+ * A schema definition resolved against its catalog and peers.
+ *
+ * The entry schema retains its named references. Every local or peer target it
+ * reaches is bundled under `$defs`; references to common types remain external.
+ */
+export interface ResolvedDefinition {
+  readonly schema: JsonSchemaObject;
+  readonly defs: Readonly<Record<string, JsonSchemaObject>>;
+  /** Definition names that originated in the catalog containing `schema`. */
+  readonly localDefinitionNames: ReadonlySet<string>;
+}
+
+/**
+ * Resolves the references an entry schema reaches without flattening them.
+ *
+ * Local `$defs` remain local references and their definitions are bundled
+ * under the same name. Peer targets are copied under collision-free names and
+ * their references are rewritten to those local definitions. Common-type
+ * references remain external because the protocol owns their documents.
+ */
+export function resolveDefinition(
+  schema: JsonSchemaObject,
+  rootDoc: Record<string, unknown>,
+  peers: readonly PeerCatalogSource[] = [],
+): ResolvedDefinition {
+  const scope = new PeerScope(peers);
+  const defs: Record<string, JsonSchemaObject> = {};
+  const localDefinitionNames = new Set<string>();
+  const namesByTarget = new Map<string, string>();
+  const usedNames = new Set<string>();
+
+  const localDefs = rootDoc['$defs'];
+  if (localDefs && typeof localDefs === 'object' && !Array.isArray(localDefs)) {
+    for (const name of Object.keys(localDefs as Record<string, unknown>)) usedNames.add(name);
+  }
+
+  const pointerSegment = (pointer: string): string =>
+    pointer.split('/').filter(Boolean).at(-1)?.replace(/~1/g, '/').replace(/~0/g, '~') ?? 'target';
+  const peerName = (target: RefTarget): string => {
+    const peerIndex = peers.findIndex(peer => scope.documentOf(peer) === target.doc);
+    const base = `peer_${peerIndex}_${pointerSegment(target.pointer)}`;
+    let name = base;
+    let suffix = 2;
+    while (usedNames.has(name)) name = `${base}_${suffix++}`;
+    usedNames.add(name);
+    return name;
+  };
+
+  const transform = (value: unknown, document: Readonly<Record<string, unknown>>): unknown => {
+    if (Array.isArray(value)) return value.map(item => transform(item, document));
+    if (!value || typeof value !== 'object') return value;
+
+    const object = value as Record<string, unknown>;
+    const ref = object['$ref'];
+    const target = typeof ref === 'string' ? scope.resolve(ref, document) : undefined;
+    const result: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(object)) {
+      result[key] = key === '$ref' ? child : transform(child, document);
+    }
+    if (!target) return result;
+
+    const resolved = resolveJsonPointer(target.doc as Record<string, unknown>, target.pointer);
+    if (!resolved) {
+      scope.assertResolvable(ref as string);
+      return result;
+    }
+
+    const localDefinition =
+      !target.isPeer && target.pointer.startsWith('#/$defs/')
+        ? target.pointer
+            .slice('#/$defs/'.length)
+            .split('/')[0]
+            ?.replace(/~1/g, '/')
+            .replace(/~0/g, '~')
+        : undefined;
+    const name = localDefinition ?? namesByTarget.get(target.key) ?? peerName(target);
+    if (localDefinition) localDefinitionNames.add(name);
+    namesByTarget.set(target.key, name);
+
+    if (!(name in defs)) {
+      defs[name] = {};
+      const definition = target.isPeer
+        ? stripReferencedComponentEnvelope(resolved, target.pointer)
+        : localDefinition
+          ? (resolveJsonPointer(
+              target.doc as Record<string, unknown>,
+              `#/$defs/${localDefinition}`,
+            ) ?? resolved)
+          : stripReferencedComponentEnvelope(resolved, target.pointer);
+      defs[name] = transform(definition, target.doc) as JsonSchemaObject;
+    }
+
+    if (target.isPeer || !localDefinition) {
+      result['$ref'] = `#/$defs/${name.replace(/~/g, '~0').replace(/\//g, '~1')}`;
+    }
+    return result;
+  };
+
+  const resolvedSchema = transform(schema, rootDoc) as JsonSchemaObject;
+  return {schema: resolvedSchema, defs, localDefinitionNames};
+}
+
 /** Options for resolving references inline in a JSON Schema definition. */
 export interface InlineReferenceOptions {
   /** Reference identities already being resolved, used to stop recursive loops. */
@@ -362,12 +466,23 @@ export function inlineSchemaReferences(
   peers: readonly PeerCatalogSource[] = [],
   options: InlineReferenceOptions = {},
 ): unknown {
+  const definition = resolveDefinition(node as JsonSchemaObject, rootDoc, peers);
+  return inlineResolvedDefinition(definition, options);
+}
+
+/** Resolves the named references of a bundled definition inline for consumers that require them. */
+export function inlineResolvedDefinition(
+  definition: ResolvedDefinition,
+  options: InlineReferenceOptions = {},
+): unknown {
+  const rootDoc = {$defs: definition.defs};
   return inlineReferences(
-    node,
+    definition.schema,
     rootDoc,
-    new PeerScope(peers),
+    new PeerScope(),
     options.visited ?? new Set<string>(),
-    options.keepLocalDefinition ?? (() => false),
+    name =>
+      definition.localDefinitionNames.has(name) && (options.keepLocalDefinition?.(name) ?? false),
   );
 }
 

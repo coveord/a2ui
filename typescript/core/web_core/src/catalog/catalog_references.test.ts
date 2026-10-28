@@ -22,8 +22,10 @@ import {
   hasCrossDocumentRefs,
   inlineSchemaReferences,
   PeerScope,
+  resolveDefinition,
   resolveJsonPointer,
   resolvePeerTarget,
+  inlineResolvedDefinition,
 } from './catalog_references.js';
 
 describe('catalog references', () => {
@@ -96,6 +98,48 @@ describe('catalog references', () => {
     assert.deepStrictEqual(inlineSchemaReferences({$ref: '#/$defs/Node'}, recursive), {
       type: 'object',
       properties: {next: {$ref: '#/$defs/Node'}},
+    });
+  });
+
+  it('bundles local and peer definitions while retaining named references', () => {
+    const document = {
+      $defs: {
+        Local: {type: 'object', properties: {next: {$ref: '#/$defs/Local'}}},
+      },
+    };
+    const peer = {
+      catalogId: 'peer.json',
+      $defs: {
+        Shared: {type: 'object', properties: {label: {type: 'string'}}},
+      },
+    };
+    const schema = {
+      allOf: [
+        {$ref: '#/$defs/Local'},
+        {$ref: 'peer.json#/$defs/Shared'},
+        {$ref: 'common_types.json#/$defs/DynamicString'},
+      ],
+    };
+
+    const resolved = resolveDefinition(schema, document, [peer]);
+    assert.deepStrictEqual(resolved.schema, {
+      allOf: [
+        {$ref: '#/$defs/Local'},
+        {$ref: '#/$defs/peer_0_Shared'},
+        {$ref: 'common_types.json#/$defs/DynamicString'},
+      ],
+    });
+    assert.deepStrictEqual(resolved.defs, {
+      Local: {type: 'object', properties: {next: {$ref: '#/$defs/Local'}}},
+      peer_0_Shared: {type: 'object', properties: {label: {type: 'string'}}},
+    });
+    assert.deepStrictEqual(resolved.localDefinitionNames, new Set(['Local']));
+    assert.deepStrictEqual(inlineResolvedDefinition(resolved), {
+      allOf: [
+        {type: 'object', properties: {next: {$ref: '#/$defs/Local'}}},
+        {type: 'object', properties: {label: {type: 'string'}}},
+        {$ref: 'common_types.json#/$defs/DynamicString'},
+      ],
     });
   });
 
