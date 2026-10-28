@@ -17,7 +17,9 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
+import {basicCatalog} from '../catalogs/basic/v1/index.js';
 import {A2uiCatalogError} from '../errors.js';
+import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {
   hasCrossDocumentRefs,
   inlineResolvedDefinition,
@@ -131,6 +133,136 @@ describe('catalog references', () => {
       }),
       {type: 'object', properties: {value: {type: 'string'}}},
     );
+  });
+
+  it('resolves and inlines every basic catalog entry as the loader did', () => {
+    // The basic catalogs reference only their own `$defs` and the common
+    // types, with no sibling keywords beside a local `$ref`, so inlining one
+    // replaces each local `$ref` by its definition.
+    const inlineBareLocalRefs = (node: unknown, defs: Record<string, unknown>): unknown => {
+      if (Array.isArray(node)) return node.map(item => inlineBareLocalRefs(item, defs));
+      if (!node || typeof node !== 'object') return node;
+      const object = node as Record<string, unknown>;
+      const ref = object['$ref'];
+      if (typeof ref === 'string' && ref.startsWith('#/$defs/')) {
+        assert.deepStrictEqual(Object.keys(object), ['$ref'], ref);
+        return inlineBareLocalRefs(defs[ref.slice('#/$defs/'.length)], defs);
+      }
+      return Object.fromEntries(
+        Object.entries(object).map(([key, value]) => [key, inlineBareLocalRefs(value, defs)]),
+      );
+    };
+
+    for (const catalog of [v09BasicCatalog, basicCatalog]) {
+      const document = catalog.toJson() as Record<string, unknown>;
+      const localDefs = document['$defs'] as Record<string, unknown>;
+      for (const section of ['components', 'functions']) {
+        const entries = document[section] as Record<string, Record<string, unknown>>;
+        for (const [name, definition] of Object.entries(entries)) {
+          const label = `${catalog.protocolVersion} ${section}/${name}`;
+          const resolved = resolveDefinition(definition, document);
+          assert.deepStrictEqual(resolved.schema, definition, label);
+          for (const [defName, def] of Object.entries(resolved.defs)) {
+            assert.deepStrictEqual(def, localDefs[defName], `${label} $defs/${defName}`);
+          }
+          assert.deepStrictEqual(
+            inlineResolvedDefinition(resolved, {keepLocalDefinition: () => true}),
+            definition,
+            label,
+          );
+          assert.deepStrictEqual(
+            inlineResolvedDefinition(resolved),
+            inlineBareLocalRefs(definition, localDefs),
+            label,
+          );
+        }
+      }
+    }
+  });
+
+  it('keeps same-named definitions of two peers separate', () => {
+    const first = {catalogId: 'first.json', $defs: {Inner: {type: 'string'}}};
+    const second = {catalogId: 'second.json', $defs: {Inner: {type: 'boolean'}}};
+    const schema = {
+      properties: {
+        a: {$ref: 'first.json#/$defs/Inner'},
+        b: {$ref: 'second.json#/$defs/Inner'},
+      },
+    };
+
+    const resolved = resolveDefinition(schema, {catalogId: 'local'}, [first, second]);
+    assert.deepStrictEqual(resolved.schema, {
+      properties: {
+        a: {$ref: '#/$defs/peer_0_Inner'},
+        b: {$ref: '#/$defs/peer_1_Inner'},
+      },
+    });
+    assert.deepStrictEqual(inlineResolvedDefinition(resolved), {
+      properties: {a: {type: 'string'}, b: {type: 'boolean'}},
+    });
+  });
+
+  it('bundles a peer definition that references a second peer', () => {
+    const first = {
+      catalogId: 'first.json',
+      $defs: {Outer: {type: 'object', properties: {value: {$ref: 'second.json#/$defs/Leaf'}}}},
+    };
+    const second = {catalogId: 'second.json', $defs: {Leaf: {type: 'integer'}}};
+
+    const resolved = resolveDefinition({$ref: 'first.json#/$defs/Outer'}, {catalogId: 'local'}, [
+      first,
+      second,
+    ]);
+    assert.deepStrictEqual(resolved.defs, {
+      peer_0_Outer: {type: 'object', properties: {value: {$ref: '#/$defs/peer_1_Leaf'}}},
+      peer_1_Leaf: {type: 'integer'},
+    });
+    assert.deepStrictEqual(inlineResolvedDefinition(resolved), {
+      type: 'object',
+      properties: {value: {type: 'integer'}},
+    });
+  });
+
+  it('names a bundled root component without reusing a root definition name', () => {
+    const root = {
+      catalogId: 'local',
+      $defs: {component_Base: {type: 'string'}},
+      components: {
+        Base: {
+          properties: {component: {const: 'Base'}, label: {type: 'string'}},
+          required: ['component', 'label'],
+        },
+      },
+    };
+
+    const resolved = resolveDefinition({$ref: '#/components/Base'}, root);
+    assert.deepStrictEqual(resolved.schema, {$ref: '#/$defs/component_Base_2'});
+    assert.deepStrictEqual(resolved.defs, {
+      component_Base_2: {properties: {label: {type: 'string'}}, required: ['label']},
+    });
+  });
+
+  it('merges sibling keywords into an inlined reference, the sibling winning', () => {
+    const root = {
+      $defs: {
+        Base: {
+          type: 'object',
+          properties: {label: {type: 'string'}, size: {type: 'number'}},
+          required: ['label'],
+        },
+      },
+    };
+    const schema = {
+      $ref: '#/$defs/Base',
+      properties: {label: {type: 'integer'}, extra: {type: 'boolean'}},
+      required: ['label', 'extra'],
+    };
+
+    assert.deepStrictEqual(inlineResolvedDefinition(resolveDefinition(schema, root)), {
+      type: 'object',
+      properties: {label: {type: 'integer'}, size: {type: 'number'}, extra: {type: 'boolean'}},
+      required: ['label', 'extra'],
+    });
   });
 
   it('bundles local and peer definitions while retaining named references', () => {

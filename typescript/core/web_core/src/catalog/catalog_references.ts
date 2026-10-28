@@ -384,9 +384,15 @@ export function resolveDefinition(
 
   const pointerSegment = (pointer: string): string =>
     pointer.split('/').filter(Boolean).at(-1)?.replace(/~1/g, '/').replace(/~0/g, '~') ?? 'target';
-  const peerName = (target: RefTarget): string => {
-    const peerIndex = peers.findIndex(peer => scope.documentOf(peer) === target.doc);
-    const base = `peer_${peerIndex}_${pointerSegment(target.pointer)}`;
+  // Names a bundled target that is not a root `$defs` entry: a peer target
+  // after its peer, and a root component after the component, never reusing a
+  // root definition name or another bundled name.
+  const bundledName = (target: RefTarget): string => {
+    const prefix =
+      target.doc === rootDoc
+        ? 'component'
+        : `peer_${peers.findIndex(peer => scope.documentOf(peer) === target.doc)}`;
+    const base = `${prefix}_${pointerSegment(target.pointer)}`;
     let name = base;
     let suffix = 2;
     while (usedNames.has(name)) name = `${base}_${suffix++}`;
@@ -421,10 +427,7 @@ export function resolveDefinition(
             ?.replace(/~1/g, '/')
             .replace(/~0/g, '~')
         : undefined;
-    const name =
-      rootLocalDefinition ??
-      namesByTarget.get(target.key) ??
-      (target.doc === rootDoc ? `component_${pointerSegment(target.pointer)}` : peerName(target));
+    const name = rootLocalDefinition ?? namesByTarget.get(target.key) ?? bundledName(target);
     if (rootLocalDefinition) localDefinitionNames.add(name);
     namesByTarget.set(target.key, name);
 
@@ -471,7 +474,12 @@ export function inlineSchemaReferences(
   return inlineResolvedDefinition(definition, options);
 }
 
-/** Resolves the named references of a bundled definition inline for consumers that require them. */
+/**
+ * Resolves the named references of a bundled definition inline for consumers
+ * that require them. When a reference has sibling keywords, object keywords
+ * are shallow-merged with the sibling winning and array keywords are unioned,
+ * preserving the established catalog mixin precedence.
+ */
 export function inlineResolvedDefinition(
   definition: ResolvedDefinition,
   options: InlineReferenceOptions = {},
