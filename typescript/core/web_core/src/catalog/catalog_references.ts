@@ -235,3 +235,216 @@ export class PeerScope {
 export function throwUnresolvableRef(ref: string): never {
   throw new A2uiCatalogError(`Unresolvable schema reference: '${ref}'`);
 }
+
+/** Whether a property belongs to a component envelope rather than its properties. */
+function isEnvelopeField(propertyName: string): boolean {
+  return propertyName === 'id' || propertyName === 'component' || propertyName === 'catalogId';
+}
+
+function stripEnvelopeFromSubschema(node: Record<string, unknown>): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (key === 'unevaluatedProperties' || key === 'additionalProperties' || key === 'title') {
+      continue;
+    }
+    cleaned[key] = value;
+  }
+  if (
+    cleaned.properties &&
+    typeof cleaned.properties === 'object' &&
+    !Array.isArray(cleaned.properties)
+  ) {
+    const properties: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(cleaned.properties as Record<string, unknown>)) {
+      if (!isEnvelopeField(key)) properties[key] = value;
+    }
+    cleaned.properties = properties;
+  }
+  if (Array.isArray(cleaned.required)) {
+    cleaned.required = cleaned.required.filter(
+      (value): value is string => typeof value === 'string' && !isEnvelopeField(value),
+    );
+  }
+  if (Array.isArray(cleaned.allOf)) {
+    const specific: unknown[] = [];
+    const inherited: unknown[] = [];
+    for (const item of cleaned.allOf) {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const object = item as Record<string, unknown>;
+        const properties = object.properties;
+        const hasComponent =
+          Boolean(properties) &&
+          typeof properties === 'object' &&
+          !Array.isArray(properties) &&
+          'component' in (properties as Record<string, unknown>);
+        const stripped = stripEnvelopeFromSubschema(object);
+        (hasComponent ? specific : inherited).push(stripped);
+      } else {
+        inherited.push(item);
+      }
+    }
+    cleaned.allOf = [...specific, ...inherited];
+  }
+  return cleaned;
+}
+
+function stripReferencedComponentEnvelope(
+  node: Record<string, unknown>,
+  pointer: string,
+): Record<string, unknown> {
+  if (!pointer.startsWith('#/components/')) return node;
+  const parts = pointer.slice(2).split('/');
+  return parts.length === 2 ? stripEnvelopeFromSubschema(node) : node;
+}
+
+/** Resolves a JSON Pointer within a root JSON document. */
+export function resolveJsonPointer(
+  rootDoc: Record<string, unknown>,
+  pointer: string,
+): Record<string, unknown> | undefined {
+  if (!pointer.startsWith('#/')) return undefined;
+  let current: unknown = rootDoc;
+  for (const segment of pointer
+    .slice(2)
+    .split('/')
+    .map(value => value.replace(/~1/g, '/').replace(/~0/g, '~'))) {
+    if (current && typeof current === 'object' && segment in current) {
+      current = (current as Record<string, unknown>)[segment];
+    } else {
+      return undefined;
+    }
+  }
+  return typeof current === 'object' && current !== null
+    ? (current as Record<string, unknown>)
+    : undefined;
+}
+
+/** Resolves a peer reference to its target, omitting a referenced component envelope. */
+export function resolvePeerTarget(
+  target: RefTarget,
+): {doc: Record<string, unknown>; target: Record<string, unknown>} | undefined {
+  const doc = target.doc as Record<string, unknown>;
+  const resolved = resolveJsonPointer(doc, target.pointer);
+  return resolved
+    ? {doc, target: stripReferencedComponentEnvelope(resolved, target.pointer)}
+    : undefined;
+}
+
+/** Options for resolving references inline in a JSON Schema definition. */
+export interface InlineReferenceOptions {
+  /** Whether local `$defs` references are inlined. Defaults to `true`. */
+  readonly inlineLocalDefs?: boolean;
+  /** Reference identities already being resolved, used to stop recursive loops. */
+  readonly visited?: Set<string>;
+  /** Whether a local `$defs` name stays a named reference rather than being inlined. */
+  readonly preserveLocalDefinition?: (name: string) => boolean;
+}
+
+/**
+ * Returns a copy of `node` with local and peer catalog references resolved
+ * inline. The caller chooses which local definitions remain named references.
+ */
+export function inlineSchemaReferences(
+  node: unknown,
+  rootDoc: Record<string, unknown>,
+  peers: readonly PeerCatalogSource[] = [],
+  options: InlineReferenceOptions = {},
+): unknown {
+  return inlineReferences(
+    node,
+    rootDoc,
+    new PeerScope(peers),
+    options.inlineLocalDefs ?? true,
+    options.visited ?? new Set<string>(),
+    options.preserveLocalDefinition ?? (() => false),
+  );
+}
+
+function inlineReferences(
+  node: unknown,
+  rootDoc: Readonly<Record<string, unknown>>,
+  scope: PeerScope,
+  inlineLocalDefs: boolean,
+  visited: Set<string>,
+  preserveLocalDefinition: (name: string) => boolean,
+): unknown {
+  if (Array.isArray(node)) {
+    return node.map(item =>
+      inlineReferences(item, rootDoc, scope, inlineLocalDefs, visited, preserveLocalDefinition),
+    );
+  }
+  if (!node || typeof node !== 'object') return node;
+
+  const object = node as Record<string, unknown>;
+  if (typeof object.$ref === 'string') {
+    let target = scope.resolve(object.$ref, rootDoc);
+    if (target && !target.isPeer) {
+      const definitionName = target.pointer.split('/').pop() ?? '';
+      if (
+        (target.pointer.startsWith('#/$defs/') && preserveLocalDefinition(definitionName)) ||
+        (!inlineLocalDefs && target.pointer.startsWith('#/$defs/'))
+      ) {
+        target = undefined;
+      }
+    }
+
+    if (target && !visited.has(target.key)) {
+      const resolved = resolveJsonPointer(target.doc as Record<string, unknown>, target.pointer);
+      if (resolved) {
+        const nextVisited = new Set(visited).add(target.key);
+        const inlined = inlineReferences(
+          resolved,
+          target.doc,
+          scope,
+          target.isPeer ? true : inlineLocalDefs,
+          nextVisited,
+          preserveLocalDefinition,
+        );
+        if (inlined && typeof inlined === 'object' && !Array.isArray(inlined)) {
+          const result: Record<string, unknown> = {
+            ...stripReferencedComponentEnvelope(inlined as Record<string, unknown>, target.pointer),
+          };
+          for (const [key, value] of Object.entries(object)) {
+            if (key === '$ref') continue;
+            const inlinedValue = inlineReferences(
+              value,
+              rootDoc,
+              scope,
+              inlineLocalDefs,
+              visited,
+              preserveLocalDefinition,
+            );
+            if (
+              key in result &&
+              result[key] &&
+              typeof result[key] === 'object' &&
+              !Array.isArray(result[key]) &&
+              inlinedValue &&
+              typeof inlinedValue === 'object' &&
+              !Array.isArray(inlinedValue)
+            ) {
+              result[key] = {
+                ...(result[key] as Record<string, unknown>),
+                ...(inlinedValue as object),
+              };
+            } else if (Array.isArray(result[key]) && Array.isArray(inlinedValue)) {
+              const existing = result[key] as unknown[];
+              result[key] = [...existing, ...inlinedValue.filter(item => !existing.includes(item))];
+            } else {
+              result[key] = inlinedValue;
+            }
+          }
+          return result;
+        }
+        return inlined;
+      }
+    }
+  }
+
+  return Object.fromEntries(
+    Object.entries(object).map(([key, value]) => [
+      key,
+      inlineReferences(value, rootDoc, scope, inlineLocalDefs, visited, preserveLocalDefinition),
+    ]),
+  );
+}

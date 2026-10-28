@@ -21,10 +21,12 @@ import {assertUax31Identifier} from '../common/uax31.js';
 import {CommonSchemas} from '../types/common-types.js';
 import {CommonSchemas as V09CommonSchemas} from '../v0_9/schema/common-types.js';
 import {
+  inlineSchemaReferences,
   PeerScope,
+  resolveJsonPointer,
+  resolvePeerTarget,
   throwUnresolvableRef,
   type PeerCatalogSource,
-  type RefTarget,
 } from './catalog_references.js';
 import {exclusiveUnion} from './exclusive_union.js';
 import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
@@ -134,97 +136,9 @@ export function linkEntry<E extends ComponentApi | FunctionApi>(
   return build ? (build(peers) as E) : entry;
 }
 
-function stripEnvelopeFromSubschema(node: Record<string, unknown>): Record<string, unknown> {
-  const cleaned: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(node)) {
-    if (k === 'unevaluatedProperties' || k === 'additionalProperties' || k === 'title') {
-      continue;
-    }
-    cleaned[k] = v;
-  }
-  if (
-    cleaned.properties &&
-    typeof cleaned.properties === 'object' &&
-    !Array.isArray(cleaned.properties)
-  ) {
-    const nextProps: Record<string, unknown> = {};
-    for (const [pk, pv] of Object.entries(cleaned.properties as Record<string, unknown>)) {
-      if (!isEnvelopeField(pk)) {
-        nextProps[pk] = pv;
-      }
-    }
-    cleaned.properties = nextProps;
-  }
-  if (Array.isArray(cleaned.required)) {
-    cleaned.required = cleaned.required.filter(
-      (r): r is string => typeof r === 'string' && !isEnvelopeField(r),
-    );
-  }
-  if (Array.isArray(cleaned.allOf)) {
-    const specific: unknown[] = [];
-    const inherited: unknown[] = [];
-    for (const item of cleaned.allOf) {
-      if (item && typeof item === 'object' && !Array.isArray(item)) {
-        const itemObj = item as Record<string, unknown>;
-        const itemProps = itemObj.properties;
-        const hasComp =
-          Boolean(itemProps) &&
-          typeof itemProps === 'object' &&
-          !Array.isArray(itemProps) &&
-          'component' in (itemProps as Record<string, unknown>);
-        const strippedItem = stripEnvelopeFromSubschema(itemObj);
-        if (hasComp) {
-          specific.push(strippedItem);
-        } else {
-          inherited.push(strippedItem);
-        }
-      } else {
-        inherited.push(item);
-      }
-    }
-    cleaned.allOf = [...specific, ...inherited];
-  }
-  return cleaned;
-}
-
-function stripReferencedComponentEnvelope(
-  node: Record<string, unknown>,
-  pointer: string,
-): Record<string, unknown> {
-  if (!pointer.startsWith('#/components/')) return node;
-  const parts = pointer.slice(2).split('/');
-  if (parts.length !== 2) return node;
-  return stripEnvelopeFromSubschema(node);
-}
-
-/**
- * Resolves a `$ref` into a peer catalog to its target, without the component
- * envelope when the target is a whole component.
- */
-function resolvePeerTarget(
-  target: RefTarget,
-): {doc: Record<string, unknown>; target: Record<string, unknown>} | undefined {
-  const doc = target.doc as Record<string, unknown>;
-  const raw = resolveJsonPointer(doc, target.pointer);
-  return raw ? {doc, target: stripReferencedComponentEnvelope(raw, target.pointer)} : undefined;
-}
-
 /**
  * Returns a copy of `node` with local `#/...` and peer catalog `<doc>#/...`
  * references resolved inline, preserving references to standard common types.
- *
- * Documents are matched with the peer matching rule: a reference to a bare
- * `catalog.json`, or to a document ending in `/catalog.json` that no peer
- * matches exactly, points into `rootDoc`. References inside an inlined peer
- * document resolve against the same `peers`, and its local pointers against
- * that peer's document.
- *
- * @param node The schema to inline references in.
- * @param rootDoc The document `node` belongs to.
- * @param peers The peer catalogs, in matching order.
- * @param options `inlineLocalDefs`: whether to inline local `#/$defs/...`
- *     pointers of `rootDoc` (pointers inside a peer document are always
- *     inlined). `visited`: keys of the references already being inlined.
  */
 export function inlinePeerAndLocalRefs(
   node: unknown,
@@ -232,127 +146,10 @@ export function inlinePeerAndLocalRefs(
   peers: readonly PeerCatalogSource[] = [],
   options: {inlineLocalDefs?: boolean; visited?: Set<string>} = {},
 ): unknown {
-  return inlineRefs(
-    node,
-    rootDoc,
-    new PeerScope(peers),
-    options.inlineLocalDefs ?? true,
-    options.visited ?? new Set<string>(),
-  );
-}
-
-function inlineRefs(
-  node: unknown,
-  rootDoc: Readonly<Record<string, unknown>>,
-  scope: PeerScope,
-  inlineLocalDefs: boolean,
-  visited: Set<string>,
-): unknown {
-  if (Array.isArray(node)) {
-    return node.map(item => inlineRefs(item, rootDoc, scope, inlineLocalDefs, visited));
-  }
-  if (!node || typeof node !== 'object') {
-    return node;
-  }
-
-  const obj = node as Record<string, unknown>;
-  if (typeof obj.$ref === 'string') {
-    let target = scope.resolve(obj.$ref, rootDoc);
-    if (target && !target.isPeer) {
-      const defName = target.pointer.split('/').pop() ?? '';
-      const isPreservedCommonType =
-        target.pointer.startsWith('#/$defs/') && Object.hasOwn(CommonSchemas, defName);
-      if (isPreservedCommonType || (!inlineLocalDefs && target.pointer.startsWith('#/$defs/'))) {
-        target = undefined;
-      }
-    }
-
-    if (target && !visited.has(target.key)) {
-      const resolvedTarget = resolveJsonPointer(
-        target.doc as Record<string, unknown>,
-        target.pointer,
-      );
-      if (resolvedTarget) {
-        const nextVisited = new Set(visited);
-        nextVisited.add(target.key);
-        const inlinedTarget = inlineRefs(
-          resolvedTarget,
-          target.doc,
-          scope,
-          target.isPeer ? true : inlineLocalDefs,
-          nextVisited,
-        );
-        if (inlinedTarget && typeof inlinedTarget === 'object' && !Array.isArray(inlinedTarget)) {
-          const stripped = stripReferencedComponentEnvelope(
-            inlinedTarget as Record<string, unknown>,
-            target.pointer,
-          );
-          const res: Record<string, unknown> = {...stripped};
-          for (const [k, v] of Object.entries(obj)) {
-            if (k === '$ref') continue;
-            const inlinedVal = inlineRefs(v, rootDoc, scope, inlineLocalDefs, visited);
-            if (
-              k in res &&
-              res[k] &&
-              typeof res[k] === 'object' &&
-              !Array.isArray(res[k]) &&
-              inlinedVal &&
-              typeof inlinedVal === 'object' &&
-              !Array.isArray(inlinedVal)
-            ) {
-              res[k] = {
-                ...(res[k] as Record<string, unknown>),
-                ...(inlinedVal as Record<string, unknown>),
-              };
-            } else if (Array.isArray(res[k]) && Array.isArray(inlinedVal)) {
-              const existing = res[k] as unknown[];
-              res[k] = [...existing, ...inlinedVal.filter(item => !existing.includes(item))];
-            } else {
-              res[k] = inlinedVal;
-            }
-          }
-          return res;
-        }
-        return inlinedTarget;
-      }
-    }
-  }
-
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    out[k] = inlineRefs(v, rootDoc, scope, inlineLocalDefs, visited);
-  }
-  return out;
-}
-
-/**
- * Resolves a JSON Pointer within a root JSON document.
- *
- * Follows RFC 6901 pointer unescaping (~1 -> /, ~0 -> ~).
- *
- * @param rootDoc Root JSON document to resolve within.
- * @param pointer RFC 6901 JSON pointer string.
- * @returns The resolved document subtree, or undefined if not found.
- */
-function resolveJsonPointer(
-  rootDoc: Record<string, unknown>,
-  pointer: string,
-): Record<string, unknown> | undefined {
-  if (!pointer.startsWith('#/')) return undefined;
-  const segments = pointer
-    .slice(2)
-    .split('/')
-    .map(s => s.replace(/~1/g, '/').replace(/~0/g, '~'));
-
-  let curr: unknown = rootDoc;
-  for (const seg of segments) {
-    if (curr && typeof curr === 'object' && seg in curr) {
-      curr = (curr as Record<string, unknown>)[seg];
-    } else {
-      return undefined;
-    }
-  }
-  return typeof curr === 'object' && curr !== null ? (curr as Record<string, unknown>) : undefined;
+  return inlineSchemaReferences(node, rootDoc, peers, {
+    ...options,
+    preserveLocalDefinition: name => Object.hasOwn(CommonSchemas, name),
+  });
 }
 
 /**
