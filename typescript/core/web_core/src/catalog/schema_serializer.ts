@@ -475,7 +475,7 @@ export function catalogDocumentModel(catalog: SerializableCatalog): CatalogDocum
 
 function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel {
   const shaper = new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri);
-  const computedDefs = new Map<string, z.ZodTypeAny>();
+  const computedDefs = new Map<string, EntrySchema>();
   const shapedComponents = new Map<string, JsonSchemaObject>();
   for (const [name, comp] of catalog.components) {
     // A loaded entry's schema is derived on first read, so it is not read here.

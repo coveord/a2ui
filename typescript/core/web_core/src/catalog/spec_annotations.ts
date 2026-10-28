@@ -72,6 +72,12 @@ export interface SpecAnnotation {
 
 const annotations = new WeakMap<object, SpecAnnotation>();
 
+/**
+ * The annotations by the definition of the annotated schema, for converters
+ * such as `zod-to-json-schema` that see definitions only.
+ */
+const annotationsByDef = new WeakMap<object, SpecAnnotation>();
+
 function cloneWithDefAnnotation<T extends z.ZodTypeAny>(
   schema: T,
   nextAnnotation: SpecAnnotation,
@@ -79,16 +85,11 @@ function cloneWithDefAnnotation<T extends z.ZodTypeAny>(
 ): T {
   const copy = z.ZodType.prototype.describe.call(schema, description as string) as T;
   annotations.set(copy, nextAnnotation);
+  annotationsByDef.set(copy._def, nextAnnotation);
   copy.describe = (nextDescription: string) =>
     cloneWithDefAnnotation(copy, annotations.get(copy) ?? nextAnnotation, nextDescription);
   return copy;
 }
-
-/**
- * The annotations by the definition of the annotated schema, for converters
- * such as `zod-to-json-schema` that see definitions only.
- */
-const annotationsByDef = new WeakMap<object, SpecAnnotation>();
 
 /**
  * Returns a copy of a Zod schema that carries what a catalog document writes
@@ -130,11 +131,9 @@ export function specDef<T extends z.ZodTypeAny>(
     ...annotation,
     defName: name,
   });
-  annotations.set(copy, {
-    ...annotations.get(copy),
-    defName: name,
-    defModel: copy,
-  });
+  const annotated = {...annotations.get(copy), defName: name, defModel: copy};
+  annotations.set(copy, annotated);
+  annotationsByDef.set(copy._def, annotated);
   return copy;
 }
 
