@@ -15,11 +15,11 @@
  */
 
 import {
-  a2uiJsonSchemaOf,
   arrayItems,
   CHILD_LIST_DEF_NAMES,
   COMPONENT_ID_DEF_NAMES,
   coreJsonSchema,
+  inspectionSchemaOf,
   objectProperties,
   refDefName,
   unionBranches,
@@ -73,7 +73,7 @@ export function extractRefFields(schema: EntrySchema): RefFields {
     return cached;
   }
 
-  const shape = objectProperties(coreJsonSchema(a2uiJsonSchemaOf(schema)));
+  const shape = objectProperties(coreJsonSchema(inspectionSchemaOf(schema)));
   if (!shape) {
     refFieldsCache.set(schema, EMPTY_REF_FIELDS);
     return EMPTY_REF_FIELDS;

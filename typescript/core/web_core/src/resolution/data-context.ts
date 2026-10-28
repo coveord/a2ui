@@ -25,8 +25,8 @@ import {
   peekValue,
 } from '../reactivity/signals.js';
 import {
-  a2uiJsonSchemaOf,
   coreJsonSchema,
+  inspectionSchemaOf,
   isJsonObject,
   objectProperties,
   unionBranches,
@@ -86,7 +86,7 @@ export function getKnownSchemaKeys(schema: EntrySchema): Set<string> | null {
   if (schemaKeysCache.has(schema)) {
     return schemaKeysCache.get(schema) as Set<string> | null;
   }
-  const result = knownKeysOf(a2uiJsonSchemaOf(schema));
+  const result = knownKeysOf(inspectionSchemaOf(schema));
   schemaKeysCache.set(schema, result);
   return result;
 }

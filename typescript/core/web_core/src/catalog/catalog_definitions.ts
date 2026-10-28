@@ -114,6 +114,38 @@ function definitionNameOf(ref: string): string | undefined {
   return ref.split(/#\/(?:\$defs|definitions)\//)[1];
 }
 
+/** Keywords that only constrain the values a schema accepts. */
+const CONDITIONAL_KEYWORDS = new Set(['if', 'then', 'else', 'not', 'description', '$comment']);
+
+/**
+ * Returns a property schema that narrows one referenced type with an `allOf`,
+ * such as a `DynamicString` with a conditional date format, as a reference to
+ * that type with the property's own keywords, or `undefined` for any other
+ * schema.
+ *
+ * Loading the property as the referenced type keeps what the type means to
+ * the binder, such as a data binding. The conditional members are not
+ * enforced.
+ *
+ * @param propSchema Raw JSON Schema property definition.
+ */
+export function narrowedReference(
+  propSchema: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const {allOf, ...rest} = propSchema;
+  if (!Array.isArray(allOf) || rest.$ref !== undefined) return undefined;
+  const refs = allOf.filter(
+    (member): member is {$ref: string} =>
+      typeof (member as Record<string, unknown> | null)?.$ref === 'string',
+  );
+  const conditionalOnly = allOf.every(
+    member =>
+      refs.includes(member) ||
+      Object.keys(member as Record<string, unknown>).every(key => CONDITIONAL_KEYWORDS.has(key)),
+  );
+  return refs.length === 1 && conditionalOnly ? {...rest, $ref: refs[0].$ref} : undefined;
+}
+
 /** Returns the property names a piece's own `required` lists. */
 function requiredNames(schema: Readonly<Record<string, unknown>>): string[] {
   const required = schema['required'];
@@ -370,5 +402,147 @@ export function resolveFunctionArgumentsDefinition(
       collection.hasUnresolvable ||
       collection.schemas.some(isExplicitlyOpen) ||
       isExplicitlyOpen(schema),
+  };
+}
+
+/**
+ * Returns the JSON Schema view of a property schema, as web_core inspects the
+ * property: what binds as a dynamic value, what refers to a child, and which
+ * keys an object declares. It reads the schema the way the catalog loader
+ * converts it.
+ *
+ * - A reference to a common type, wherever its definition is written, is a
+ *   bare `$ref` to `common_types.json`.
+ * - A reference into `document` is read as the definition it points to. A
+ *   reference back into a definition already being read reads as any value.
+ * - A union of an enum with a data binding, and no description of its own, is
+ *   a `DynamicString`.
+ * - An object is closed when it forbids additional or unevaluated properties,
+ *   and open otherwise.
+ */
+function propertyView(
+  schema: unknown,
+  document: Readonly<Record<string, unknown>>,
+  isCommonTypeName: (name: string) => boolean,
+  visited: ReadonlySet<string>,
+): JsonSchemaObject {
+  if (!isRecord(schema)) return {};
+  const description = typeof schema['description'] === 'string' ? schema['description'] : undefined;
+  const described = (view: Record<string, unknown>): JsonSchemaObject =>
+    description === undefined ? view : {...view, description};
+  const read = (node: unknown, seen = visited) =>
+    propertyView(node, document, isCommonTypeName, seen);
+
+  const ref = schema['$ref'];
+  if (typeof ref === 'string') {
+    const name = definitionNameOf(ref);
+    if (name !== undefined && isCommonTypeName(name)) {
+      return described({$ref: `common_types.json#/$defs/${name}`});
+    }
+    const target = new PeerScope().resolve(ref, document);
+    const resolved = target ? resolveJsonPointer(document, target.pointer) : undefined;
+    if (target && resolved) {
+      if (visited.has(target.key)) return {};
+      const view = read(resolved, new Set(visited).add(target.key));
+      return description === undefined ? view : {...view, description};
+    }
+    if (ref.startsWith('#')) return {};
+  }
+
+  const narrowed = narrowedReference(schema);
+  if (narrowed) return read(narrowed);
+
+  for (const keyword of ['oneOf', 'anyOf'] as const) {
+    const branches = schema[keyword];
+    if (!Array.isArray(branches)) continue;
+    const objects = branches.filter(isRecord);
+    if (objects.length === 0) break;
+    const hasEnum = objects.some(branch => Array.isArray(branch['enum']));
+    const hasBinding = objects.some(
+      branch => typeof branch['$ref'] === 'string' && branch['$ref'].includes('DataBinding'),
+    );
+    if (description === undefined && hasEnum && hasBinding) {
+      return {$ref: 'common_types.json#/$defs/DynamicString'};
+    }
+    const views = objects.map(branch => read(branch));
+    if (views.length === 1) return described(views[0]);
+    return described({[Array.isArray(schema['oneOf']) ? 'oneOf' : 'anyOf']: views});
+  }
+
+  if (schema['const'] !== undefined) return described({const: schema['const']});
+  if (Array.isArray(schema['enum']) && schema['enum'].length > 0) {
+    return described({enum: schema['enum']});
+  }
+  switch (schema['type']) {
+    case 'array':
+      return described({
+        type: 'array',
+        items: isRecord(schema['items']) ? read(schema['items']) : {},
+      });
+    case 'object': {
+      const properties = schema['properties'];
+      if (!isRecord(properties)) return described({type: 'object'});
+      const closed =
+        schema['additionalProperties'] === false || schema['unevaluatedProperties'] === false;
+      return described({
+        type: 'object',
+        properties: Object.fromEntries(
+          Object.entries(properties).map(([key, value]) => [key, read(value)]),
+        ),
+        additionalProperties: !closed,
+      });
+    }
+    case 'string':
+    case 'integer':
+    case 'number':
+    case 'boolean':
+      return described({type: schema['type']});
+    default:
+      return described({});
+  }
+}
+
+/**
+ * Returns the JSON Schema view of a resolved object definition, as web_core
+ * inspects it: its pieces' properties merged in order, without its omitted
+ * properties, with the names it requires and whether it is open.
+ *
+ * @param model The resolved object definition.
+ * @param commonTypes The JSON Schema definitions of the protocol's common
+ *     types, which a common-type piece reads its properties from.
+ * @param isCommonTypeName Whether a definition name stands for a common type.
+ */
+export function objectDefinitionView(
+  model: ResolvedObjectDefinition,
+  commonTypes: Readonly<Record<string, unknown>>,
+  isCommonTypeName: (name: string) => boolean,
+): JsonSchemaObject {
+  const commonTypesDocument = {$defs: commonTypes};
+  const properties: Record<string, JsonSchemaObject> = {};
+  for (const piece of model.pieces) {
+    const [source, document] =
+      piece.kind === 'commonType'
+        ? [
+            isRecord(commonTypes[piece.name]) ? commonTypes[piece.name] : undefined,
+            commonTypesDocument,
+          ]
+        : [{properties: piece.properties}, model.document];
+    const declared = isRecord(source) ? source['properties'] : undefined;
+    if (!isRecord(declared)) continue;
+    const names =
+      piece.kind === 'commonType'
+        ? (piece.properties ?? Object.keys(declared))
+        : Object.keys(declared);
+    for (const name of names) {
+      if (model.omittedProperties.has(name) || declared[name] === undefined) continue;
+      properties[name] = propertyView(declared[name], document, isCommonTypeName, new Set());
+    }
+  }
+  const required = [...model.required].filter(name => name in properties);
+  return {
+    type: 'object',
+    properties,
+    ...(required.length > 0 ? {required} : {}),
+    additionalProperties: model.open,
   };
 }

@@ -125,6 +125,48 @@ export function a2uiJsonSchemaOf(
   return view;
 }
 
+/**
+ * The inspection views of the schemas compiled from a catalog definition,
+ * computed from that definition on first use, by compiled schema.
+ */
+const definitionViews = new WeakMap<object, () => JsonSchemaObject>();
+const computedDefinitionViews = new WeakMap<object, JsonSchemaObject>();
+
+/**
+ * Records that `schema` was compiled from a catalog definition, and how to
+ * compute the view of that definition that `inspectionSchemaOf` returns for
+ * it.
+ *
+ * @param schema The compiled schema.
+ * @param computeView Computes the definition's view.
+ */
+export function setDefinitionView(schema: object, computeView: () => JsonSchemaObject): void {
+  definitionViews.set(schema, computeView);
+}
+
+/**
+ * Returns the JSON Schema view web_core inspects a schema through, to bind
+ * its properties and find its child references and known keys.
+ *
+ * A schema the catalog loader compiled from a definition is inspected
+ * through that definition, so what the binder sees does not depend on how the
+ * validator was built. Any other schema is inspected through its own JSON
+ * Schema view (see `a2uiJsonSchemaOf`).
+ *
+ * @param schema The schema to inspect.
+ * @returns The view, computed once and deeply frozen.
+ */
+export function inspectionSchemaOf(schema: EntrySchema): JsonSchemaObject {
+  const computeView = definitionViews.get(schema as object);
+  if (!computeView) return a2uiJsonSchemaOf(schema);
+  let view = computedDefinitionViews.get(schema as object);
+  if (!view) {
+    view = deepFreeze(computeView());
+    computedDefinitionViews.set(schema as object, view);
+  }
+  return view;
+}
+
 /** Returns a mutable copy of the JSON Schema view of a schema. */
 export function copyA2uiJsonSchemaOf(
   schema: EntrySchema,

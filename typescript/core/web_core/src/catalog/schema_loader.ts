@@ -21,8 +21,13 @@ import {assertUax31Identifier} from '../common/uax31.js';
 import {A2uiCatalogError} from '../errors.js';
 import {CommonSchemas} from '../types/common-types.js';
 import {CommonSchemas as V09CommonSchemas} from '../v0_9/schema/common-types.js';
+import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
+import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
+import {setDefinitionView} from './a2ui_json_schema.js';
 import {
   isShorthandParameterMap,
+  narrowedReference,
+  objectDefinitionView,
   resolveComponentDefinition,
   resolveFunctionArgumentsDefinition,
   resolveThemeDefinition,
@@ -106,10 +111,14 @@ function commonTypeSchemasFor(protocolVersion: string): CommonTypeSchemas {
 class ConversionCache extends Map<string, z.ZodTypeAny> {
   readonly scope = new RefScope();
   readonly commonTypes: CommonTypeSchemas;
+  /** The JSON Schema definitions the Zod mirrors in `commonTypes` stand for. */
+  readonly commonTypeDefinitions: Readonly<Record<string, unknown>>;
 
   constructor(commonTypes?: CommonTypeSchemas) {
     super();
     this.commonTypes = commonTypes ?? CommonSchemas;
+    this.commonTypeDefinitions =
+      this.commonTypes === V09_COMMON_TYPE_SCHEMAS ? V09_STANDARD_DEFS : V10_STANDARD_DEFS;
   }
 }
 
@@ -332,38 +341,6 @@ function convertUnionToZod(
     (typeof propSchema.description === 'string' ? propSchema.description : undefined) ||
     (enumBranch && hasBinding ? 'REF:common_types.json#/$defs/DynamicString' : undefined);
   return desc ? unionZod.describe(desc) : unionZod;
-}
-
-/** Keywords that only constrain the values a schema accepts. */
-const CONDITIONAL_KEYWORDS = new Set(['if', 'then', 'else', 'not', 'description', '$comment']);
-
-/**
- * Returns a property schema that narrows one referenced type with an `allOf`,
- * such as a `DynamicString` with a conditional date format, as a reference to
- * that type with the property's own keywords, or `undefined` for any other
- * schema.
- *
- * Loading the property as the referenced type keeps what the type means to
- * the binder, such as a data binding. The conditional members are not
- * enforced.
- *
- * @param propSchema Raw JSON Schema property definition.
- */
-function narrowedReference(
-  propSchema: Record<string, unknown>,
-): Record<string, unknown> | undefined {
-  const {allOf, ...rest} = propSchema;
-  if (!Array.isArray(allOf) || rest.$ref !== undefined) return undefined;
-  const refs = allOf.filter(
-    (member): member is {$ref: string} =>
-      typeof (member as Record<string, unknown> | null)?.$ref === 'string',
-  );
-  const conditionalOnly = allOf.every(
-    member =>
-      refs.includes(member) ||
-      Object.keys(member as Record<string, unknown>).every(key => CONDITIONAL_KEYWORDS.has(key)),
-  );
-  return refs.length === 1 && conditionalOnly ? {...rest, $ref: refs[0].$ref} : undefined;
 }
 
 /**
@@ -680,7 +657,15 @@ function buildObjectZod(
     );
   }
   const obj = z.object(shape);
-  return model.open ? obj.passthrough() : obj.strict();
+  const zod = model.open ? obj.passthrough() : obj.strict();
+  // The binder inspects the definition this object was built from rather
+  // than the Zod object itself.
+  setDefinitionView(zod, () =>
+    objectDefinitionView(model, defCache.commonTypeDefinitions, name =>
+      Object.hasOwn(defCache.commonTypes, name),
+    ),
+  );
+  return zod;
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   CHILD_LIST_DEF_NAMES,
   COMPONENT_ID_DEF_NAMES,
   coreJsonSchema,
+  inspectionSchemaOf,
   objectProperties,
   refDefName,
   unionBranches,
@@ -100,7 +101,7 @@ export function scrapeSchemaBehavior(schema: EntrySchema): BehaviorNode {
   if (cached) {
     return cached;
   }
-  const behavior = getFieldBehavior(a2uiJsonSchemaOf(schema));
+  const behavior = getFieldBehavior(inspectionSchemaOf(schema));
   const result: BehaviorNode =
     behavior.type === 'OBJECT' && behavior.shape && !('accessibility' in behavior.shape)
       ? {
