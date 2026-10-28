@@ -153,6 +153,29 @@ export type JsonSpecAnnotation = Omit<SpecAnnotation, 'mixins'> & {
 };
 
 /**
+ * An annotation as `specMeta` takes it: it may also list the models of the
+ * catalog definitions the schema refers to.
+ */
+export type SpecMetaAnnotation = JsonSpecAnnotation & {
+  /**
+   * The models, each named with `specMeta({defName})`, of the catalog
+   * definitions the schema's properties refer to, such as the v1.0 basic
+   * catalog's `Weight`. A property that is one of them is written as a
+   * reference to its definition, which the catalog document declares under
+   * `$defs`.
+   */
+  readonly defs?: readonly SpecMetaSchema[];
+};
+
+/** A schema that reports its metadata, as a Zod 4 schema does with `meta()`. */
+interface SpecMetaSchema {
+  meta(): Readonly<Record<string, unknown>> | undefined;
+}
+
+/** The models of the annotations `specMeta` returned, by definition name. */
+const carriedModels = new WeakMap<object, ReadonlyMap<string, object>>();
+
+/**
  * Returns the metadata that annotates a schema written with a library that
  * writes metadata into its JSON Schema, as `spec()` annotates a Zod 3
  * schema. With Zod 4:
@@ -161,12 +184,46 @@ export type JsonSpecAnnotation = Omit<SpecAnnotation, 'mixins'> & {
  * z.object({...}).strict().meta(specMeta({mixins: ['Checkable']}))
  * ```
  *
+ * The models of `defs` are left out of the schema's JSON Schema. A2UI finds
+ * them through the schema's `meta()`.
+ *
  * @param annotation What the catalog document writes about the schema.
  */
-export function specMeta(annotation: JsonSpecAnnotation): {
+export function specMeta(annotation: SpecMetaAnnotation): {
   readonly [SPEC_KEYWORD]: JsonSpecAnnotation;
 } {
-  return {[SPEC_KEYWORD]: annotation};
+  const {defs, ...json} = annotation;
+  const models = new Map<string, object>();
+  for (const model of defs ?? []) {
+    const defName = specMetaOf(model)?.defName;
+    if (defName === undefined) {
+      throw new Error('A definition model must be named with specMeta({defName}).');
+    }
+    models.set(defName, model);
+  }
+  if (models.size > 0) carriedModels.set(json, models);
+  return {[SPEC_KEYWORD]: json};
+}
+
+/** Returns the `specMeta` annotation a schema reports through `meta()`. */
+function specMetaOf(schema: unknown): JsonSpecAnnotation | undefined {
+  const meta = (schema as Partial<SpecMetaSchema> | null)?.meta?.();
+  const annotation = meta?.[SPEC_KEYWORD];
+  return typeof annotation === 'object' && annotation !== null
+    ? (annotation as JsonSpecAnnotation)
+    : undefined;
+}
+
+/**
+ * Returns the definition models a schema annotated with `specMeta` carries,
+ * by definition name.
+ *
+ * @internal
+ * @param schema The annotated schema.
+ */
+export function getSpecModels(schema: unknown): ReadonlyMap<string, object> | undefined {
+  const annotation = specMetaOf(schema);
+  return annotation ? carriedModels.get(annotation) : undefined;
 }
 
 /**

@@ -52,8 +52,13 @@ const ChildList = z
   .union([z.array(ComponentId), z.strictObject({componentId: ComponentId, path: z.string()})])
   .meta({$ref: '#/$defs/ChildList'});
 
-const WEIGHT =
-  "The relative weight of this component within a Row or Column. This is similar to the CSS 'flex-grow' property. Note: this may ONLY be set when the component is a direct descendant of a Row or Column.";
+// A leaf definition of the catalog itself, which its components carry.
+const Weight = z
+  .number()
+  .describe(
+    "The relative weight of this component within a Row or Column. This is similar to the CSS 'flex-grow' property. Note: this may ONLY be set when the component is a direct descendant of a Row or Column.",
+  )
+  .meta(specMeta({defName: 'Weight'}));
 
 // Three v1.0 basic components written with Zod 4, as the generated Zod 3
 // ones are.
@@ -69,9 +74,9 @@ const TextApi: ComponentApi = {
         .default('body')
         .describe('A hint for the base text style.')
         .optional(),
-      weight: z.number().describe(WEIGHT).optional(),
+      weight: Weight.optional(),
     })
-    .meta(specMeta({mixins: []})),
+    .meta(specMeta({mixins: [], defs: [Weight]})),
 };
 
 const ColumnApi: ComponentApi = {
@@ -95,12 +100,12 @@ const ColumnApi: ComponentApi = {
           "Defines the alignment of children along the cross axis (horizontally). This is similar to the CSS 'align-items' property.",
         )
         .optional(),
-      weight: z.number().describe(WEIGHT).optional(),
+      weight: Weight.optional(),
     })
     .describe(
       'A layout component that arranges its children vertically. To create a grid layout, nest Rows within this Column.',
     )
-    .meta(specMeta({mixins: []})),
+    .meta(specMeta({mixins: [], defs: [Weight]})),
 };
 
 const TextFieldApi: ComponentApi = {
@@ -121,9 +126,9 @@ const TextFieldApi: ComponentApi = {
         .default('shortText')
         .describe('The type of input field to display.')
         .optional(),
-      weight: z.number().describe(WEIGHT).optional(),
+      weight: Weight.optional(),
     })
-    .meta(specMeta({mixins: ['Checkable']})),
+    .meta(specMeta({mixins: ['Checkable'], defs: [Weight]})),
 };
 
 const zod4Catalog = new Catalog('urn:zod4-basic', '1.0', [TextApi, ColumnApi, TextFieldApi], [], {

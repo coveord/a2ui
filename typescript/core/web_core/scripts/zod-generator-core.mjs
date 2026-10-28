@@ -73,6 +73,38 @@ export function transformZodSyntax(code) {
  * @param {Set<string>} deps Set of accumulated dependencies.
  * @returns {Set<string>} The dependency set.
  */
+/**
+ * Rewrites generated Zod 3 common types as Zod 4 code for catalogs: it
+ * imports `zod/v4`, and a schema names its definition in its metadata
+ * (`.meta({$ref})`) instead of with a `REF:` description marker, which also
+ * makes the child reference marks of `markChildRef` unnecessary. `Child`
+ * names its own definition rather than reusing `ComponentId`'s.
+ *
+ * @param {string} code Generated Zod 3 code.
+ * @returns {string} The Zod 4 code.
+ */
+export function toZod4Code(code) {
+  let clean = code.replace("import {z} from 'zod/v3';", "import {z} from 'zod/v4';");
+  clean = clean.replace(/import \{markChildRef\} from '[^']+';\n/, '');
+  clean = clean.replace(
+    /markChildRef\(\n\s*([\s\S]*?),\n\s*'(?:component-id|child-list)',\n\)/g,
+    '$1',
+  );
+  clean = clean.replace(
+    /\.describe\(\s*(['"])REF:#\/\$defs\/([A-Za-z0-9_]+)(?:\|((?:\\.|(?!\1)[^\\])*))?\1,?\s*\)/g,
+    (_match, quote, name, description) =>
+      description === undefined
+        ? `.meta({$ref: '#/$defs/${name}'})`
+        : `.meta({$ref: '#/$defs/${name}', description: ${quote}${description}${quote}})`,
+  );
+  clean = clean.replace(
+    'export const ChildSchema = ComponentIdSchema;',
+    "export const ChildSchema = ComponentIdSchema.meta({$ref: '#/$defs/Child'});",
+  );
+  clean = clean.replace(/z\.ZodIssueCode\.custom/g, "'custom'");
+  return clean;
+}
+
 export function getDependencies(node, deps = new Set(), parentDefName) {
   if (!node || typeof node !== 'object') return deps;
   if (Array.isArray(node)) {

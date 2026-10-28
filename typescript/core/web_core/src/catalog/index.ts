@@ -36,5 +36,6 @@ export {
   SPEC_KEYWORD,
   type JsonSpecAnnotation,
   type SpecAnnotation,
+  type SpecMetaAnnotation,
   type SpecMixin,
 } from './spec_annotations.js';
