@@ -138,6 +138,38 @@ export function specDef<T extends z.ZodTypeAny>(
 }
 
 /**
+ * The JSON Schema keyword under which a schema written without Zod 3 carries
+ * its annotation, such as with Zod 4's `.meta()`. A2UI reads it from the
+ * schema's JSON Schema and never writes it to a catalog document.
+ */
+export const SPEC_KEYWORD = 'x-a2ui-spec';
+
+/**
+ * An annotation as a schema carries it in its JSON Schema: its mixins are the
+ * names of common types, such as `Checkable`.
+ */
+export type JsonSpecAnnotation = Omit<SpecAnnotation, 'mixins'> & {
+  readonly mixins?: readonly string[];
+};
+
+/**
+ * Returns the metadata that annotates a schema written with a library that
+ * writes metadata into its JSON Schema, as `spec()` annotates a Zod 3
+ * schema. With Zod 4:
+ *
+ * ```ts
+ * z.object({...}).strict().meta(specMeta({mixins: ['Checkable']}))
+ * ```
+ *
+ * @param annotation What the catalog document writes about the schema.
+ */
+export function specMeta(annotation: JsonSpecAnnotation): {
+  readonly [SPEC_KEYWORD]: JsonSpecAnnotation;
+} {
+  return {[SPEC_KEYWORD]: annotation};
+}
+
+/**
  * Returns the annotation of a Zod schema itself, if any.
  *
  * @param schema A Zod schema.

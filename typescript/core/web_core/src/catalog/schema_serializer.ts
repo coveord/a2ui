@@ -18,7 +18,7 @@
 import type {z} from 'zod/v3';
 
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
-import {copyA2uiJsonSchemaOf} from './a2ui_json_schema.js';
+import {copyA2uiJsonSchemaOf, specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
 import {zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
 import {loadedDefinition} from './json_entries.js';
 import {getSpecAnnotation, type JsonSchemaObject} from './spec_annotations.js';
@@ -480,11 +480,13 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   for (const [name, comp] of catalog.components) {
     // A loaded entry's schema is derived on first read, so it is not read here.
     if (loadedDefinition(comp)) continue;
-    const zod3 = zod3SchemaOf(comp.schema);
-    if (!zod3 || !isSpecComponentSchema(zod3)) continue;
+    // A Zod 3 schema is read as itself, `fromZod3` included, and any other
+    // schema through its JSON Schema, which may carry an annotation.
+    const model = zod3SchemaOf(comp.schema) ?? comp.schema;
+    if (!isSpecComponentSchema(model)) continue;
     const {schema, catalogDefs} = shaper.componentSchema(
       name,
-      zod3,
+      model,
       comp.allowedParents,
       comp.allowedChildren,
     );
@@ -492,7 +494,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
     for (const [defName, defModel] of catalogDefs) computedDefs.set(defName, defModel);
   }
   for (const defModel of catalog.defModels ?? []) {
-    const defName = getSpecAnnotation(defModel)?.defName;
+    const defName = specAnnotationOf(specJsonSchemaOf(defModel))?.defName;
     if (defName === undefined) {
       throw new Error('A catalog definition model must be named with specDef().');
     }
@@ -500,13 +502,14 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   }
 
   const functions = new Map<string, JsonSchemaObject | undefined>();
-  const rawFunctions = new Map<string, z.ZodTypeAny>();
+  const rawFunctions = new Map<string, EntrySchema>();
   for (const [name, fn] of catalog.functions) {
-    const zod3 = loadedDefinition(fn) ? undefined : zod3SchemaOf(fn.schema);
-    if (zod3 && isSpecFunctionSchema(zod3)) {
-      rawFunctions.set(name, zod3);
+    const model =
+      loadedDefinition(fn) || !fn.schema ? undefined : (zod3SchemaOf(fn.schema) ?? fn.schema);
+    if (model && isSpecFunctionSchema(model)) {
+      rawFunctions.set(name, model);
       // Pre-scan function schema for any referenced catalog $defs models.
-      shaper.toJson(zod3, computedDefs);
+      shaper.toJson(model, computedDefs);
     }
   }
 
