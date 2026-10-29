@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   type ChildRefKind,
   type RefSchemaOptions,
@@ -40,44 +40,34 @@ export const TemplateChildListSchema = z
       .string()
       .describe('The path to the list of component property objects in the data model.'),
   })
-  .describe('REF:#/$defs/TemplateChildList');
+  .meta({$ref: '#/$defs/TemplateChildList'});
 export type TemplateChildList = z.infer<typeof TemplateChildListSchema>;
 
 export function componentId(options: RefSchemaOptions = {}): typeof ComponentIdSchema {
   if (options.description === undefined) {
     return ComponentIdSchema;
   }
-  return ComponentIdSchema.describe(`REF:#/$defs/ComponentId|\${options.description}`);
+  return ComponentIdSchema.describe(options.description);
 }
 
 export function dynamicString(description?: string) {
-  return description
-    ? DynamicStringSchema.describe(`REF:#/$defs/DynamicString|\${description}`)
-    : DynamicStringSchema;
+  return description ? DynamicStringSchema.describe(description) : DynamicStringSchema;
 }
 
 export function dynamicNumber(description?: string) {
-  return description
-    ? DynamicNumberSchema.describe(`REF:#/$defs/DynamicNumber|\${description}`)
-    : DynamicNumberSchema;
+  return description ? DynamicNumberSchema.describe(description) : DynamicNumberSchema;
 }
 
 export function dynamicBoolean(description?: string) {
-  return description
-    ? DynamicBooleanSchema.describe(`REF:#/$defs/DynamicBoolean|\${description}`)
-    : DynamicBooleanSchema;
+  return description ? DynamicBooleanSchema.describe(description) : DynamicBooleanSchema;
 }
 
 export function dynamicValue(description?: string) {
-  return description
-    ? DynamicValueSchema.describe(`REF:#/$defs/DynamicValue|\${description}`)
-    : DynamicValueSchema;
+  return description ? DynamicValueSchema.describe(description) : DynamicValueSchema;
 }
 
 export function dynamicStringList(description?: string) {
-  return description
-    ? DynamicStringListSchema.describe(`REF:#/$defs/DynamicStringList|\${description}`)
-    : DynamicStringListSchema;
+  return description ? DynamicStringListSchema.describe(description) : DynamicStringListSchema;
 }
 
 export function childList(options: RefSchemaOptions = {}): typeof ChildListSchema {

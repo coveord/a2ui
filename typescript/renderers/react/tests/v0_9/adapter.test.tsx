@@ -25,7 +25,7 @@ import {
   Catalog,
   CommonSchemas,
 } from '@a2ui/web_core/v0_9';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 const mockCatalog = new Catalog('test', '0.9', [], []);
 

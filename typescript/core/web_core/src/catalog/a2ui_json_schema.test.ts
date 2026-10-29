@@ -25,11 +25,8 @@ import {MessageProcessor} from '../processing/message-processor.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
 import {extractRefFields} from '../resolution/ref-fields.js';
-import {
-  AccessibilityAttributesSchema,
-  ChildListSchema,
-  ComponentIdSchema,
-} from '../types/common-types.js';
+import {ChildListSchema, ComponentIdSchema} from '../test/zod3-common-types.js';
+import {AccessibilityAttributesSchema} from '../types/common-types.js';
 import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {a2uiJsonSchemaOf} from './a2ui_json_schema.js';
 import type {A2uiSchema, StandardJSONSchemaV1} from './a2ui_schema.js';

@@ -24,7 +24,7 @@ import {
   DynamicNumberSchema,
   DynamicStringSchema,
   DynamicValueSchema,
-} from '../../zod4/common-types.js';
+} from '../../schema/common-types.js';
 
 /**
  * Checks that the value is not null, undefined, or empty.

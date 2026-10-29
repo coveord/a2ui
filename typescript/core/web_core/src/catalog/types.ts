@@ -991,7 +991,7 @@ function createCatalogInvoker<F extends FunctionApi>(
       // validity, as the specification defines the type.
       const documentSchema = functionSchemaOf(catalog, fn);
       const args = isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
-        ? coerceValidationResults(zod3SchemaOf(fn.schema) ?? documentSchema, resolvedArgs)
+        ? coerceValidationResults(documentSchema, resolvedArgs)
         : resolvedArgs;
       const parsed = validateEntry(documentSchema, fn.schema, args);
       if (parsed.issues) {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   type ChildRefKind,
   type RefSchemaOptions,
@@ -45,9 +45,7 @@ export function componentId(options: RefSchemaOptions = {}): typeof ComponentIdS
   if (options.description === undefined) {
     return ComponentIdSchema;
   }
-  return ComponentIdSchema.describe(
-    `REF:common_types.json#/$defs/ComponentId|\${options.description}`,
-  );
+  return ComponentIdSchema.describe(options.description);
 }
 
 /**
@@ -60,7 +58,7 @@ export function childList(options: RefSchemaOptions = {}): typeof ChildListSchem
   if (options.description === undefined) {
     return ChildListSchema;
   }
-  return ChildListSchema.describe(`REF:common_types.json#/$defs/ChildList|\${options.description}`);
+  return ChildListSchema.describe(options.description);
 }
 
 /**

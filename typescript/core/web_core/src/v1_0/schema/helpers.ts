@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   type ChildRefKind,
   type RefSchemaOptions,
@@ -42,53 +42,45 @@ export const TemplateChildListSchema = z
       .describe('The path to the list of component property objects in the data model.'),
   })
   .strict()
-  .describe(
-    'REF:#/$defs/TemplateChildList|A template for generating a dynamic list of children from a data model list. The `componentId` is the component to use as a template.',
-  );
+  .meta({
+    $ref: '#/$defs/TemplateChildList',
+    description:
+      'A template for generating a dynamic list of children from a data model list. The `componentId` is the component to use as a template.',
+  });
 export type TemplateChildList = z.infer<typeof TemplateChildListSchema>;
 
 export function componentId(options: RefSchemaOptions = {}): typeof ComponentIdSchema {
   if (options.description === undefined) {
     return ComponentIdSchema;
   }
-  return ComponentIdSchema.describe(`REF:#/$defs/ComponentId|\${options.description}`);
+  return ComponentIdSchema.describe(options.description);
 }
 
 export function dynamicString(description?: string) {
-  return description
-    ? DynamicStringSchema.describe(`REF:#/$defs/DynamicString|\${description}`)
-    : DynamicStringSchema;
+  return description ? DynamicStringSchema.describe(description) : DynamicStringSchema;
 }
 
 export function dynamicNumber(description?: string) {
-  return description
-    ? DynamicNumberSchema.describe(`REF:#/$defs/DynamicNumber|\${description}`)
-    : DynamicNumberSchema;
+  return description ? DynamicNumberSchema.describe(description) : DynamicNumberSchema;
 }
 
 export function dynamicBoolean(description?: string) {
-  return description
-    ? DynamicBooleanSchema.describe(`REF:#/$defs/DynamicBoolean|\${description}`)
-    : DynamicBooleanSchema;
+  return description ? DynamicBooleanSchema.describe(description) : DynamicBooleanSchema;
 }
 
 export function dynamicValue(description?: string) {
-  return description
-    ? DynamicValueSchema.describe(`REF:#/$defs/DynamicValue|\${description}`)
-    : DynamicValueSchema;
+  return description ? DynamicValueSchema.describe(description) : DynamicValueSchema;
 }
 
 export function dynamicStringList(description?: string) {
-  return description
-    ? DynamicStringListSchema.describe(`REF:#/$defs/DynamicStringList|\${description}`)
-    : DynamicStringListSchema;
+  return description ? DynamicStringListSchema.describe(description) : DynamicStringListSchema;
 }
 
 export function childList(options: RefSchemaOptions = {}): typeof ChildListSchema {
   if (options.description === undefined) {
     return ChildListSchema;
   }
-  return ChildListSchema.describe(`REF:#/$defs/ChildList|\${options.description}`);
+  return ChildListSchema.describe(options.description);
 }
 
 /** Zod schema validating any component payload in a v1.0 message (excluding Surface). */

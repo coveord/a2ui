@@ -16,7 +16,8 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from 'zod/v3';
+import {z as z3} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   GenericBinder,
   getSafeChildList,
@@ -28,7 +29,7 @@ import {
 } from './generic-binder.js';
 import {ComponentContext} from './component-context.js';
 import {SurfaceModel} from '../state/surface-model.js';
-import {spec} from '../catalog/spec_annotations.js';
+import {specMeta} from '../catalog/spec_annotations.js';
 import {Catalog, FunctionImplementation} from '../catalog/types.js';
 import {ComponentModel} from '../state/component-model.js';
 import {
@@ -73,9 +74,10 @@ describe('GenericBinder Checkable Trait', () => {
   it('reads Checkable behavior from its catalog document when given the authored schema', () => {
     const field = {
       name: 'Field',
-      schema: spec(z.object({label: CommonSchemas.DynamicString}).strict(), {
-        mixins: ['Checkable'],
-      }),
+      schema: z
+        .object({label: CommonSchemas.DynamicString})
+        .strict()
+        .meta(specMeta({mixins: ['Checkable']})),
     };
     const required: FunctionImplementation = {
       name: 'required',
@@ -763,64 +765,66 @@ describe('GenericBinder Checkable Trait', () => {
     it('should infer behavior from schema descriptions', () => {
       // Description-based matching across formats (relative, URI, pipe-annotated)
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(z.unknown().describe('REF:common_types.json#/$defs/Action')),
+        scrapeSchemaBehavior(z3.unknown().describe('REF:common_types.json#/$defs/Action')),
         {type: 'ACTION'},
       );
       assert.deepStrictEqual(
         scrapeSchemaBehavior(
-          z
+          z3
             .unknown()
             .describe('REF:https://a2ui.org/v1_0/common_types.json#/$defs/Action|On click'),
         ),
         {type: 'ACTION'},
       );
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('REF:#/$defs/ChildList')), {
+      assert.deepStrictEqual(scrapeSchemaBehavior(z3.unknown().describe('REF:#/$defs/ChildList')), {
         type: 'STRUCTURAL',
       });
       assert.deepStrictEqual(
         scrapeSchemaBehavior(
-          z.unknown().describe('REF:common_types.json#/$defs/ChildList|Children array'),
+          z3.unknown().describe('REF:common_types.json#/$defs/ChildList|Children array'),
         ),
         {type: 'STRUCTURAL'},
       );
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(z.unknown().describe('REF:#/$defs/DynamicString')),
+        scrapeSchemaBehavior(z3.unknown().describe('REF:#/$defs/DynamicString')),
         {
           type: 'DYNAMIC',
         },
       );
       assert.deepStrictEqual(
         scrapeSchemaBehavior(
-          z
+          z3
             .unknown()
             .describe('REF:https://a2ui.org/v1_0/common_types.json#/$defs/DynamicNumber|Age'),
         ),
         {type: 'DYNAMIC'},
       );
       assert.deepStrictEqual(
-        scrapeSchemaBehavior(z.unknown().describe('REF:common_types.json#/$defs/DataBinding')),
+        scrapeSchemaBehavior(z3.unknown().describe('REF:common_types.json#/$defs/DataBinding')),
         {
           type: 'DYNAMIC',
         },
       );
 
       // Descriptions without the REF: prefix must NOT be treated as reference schemas
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('#/$defs/ChildList')), {
+      assert.deepStrictEqual(scrapeSchemaBehavior(z3.unknown().describe('#/$defs/ChildList')), {
         type: 'STATIC',
       });
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('Action')), {
+      assert.deepStrictEqual(scrapeSchemaBehavior(z3.unknown().describe('Action')), {
         type: 'STATIC',
       });
-      assert.deepStrictEqual(scrapeSchemaBehavior(z.unknown().describe('CheckRule')), {
+      assert.deepStrictEqual(scrapeSchemaBehavior(z3.unknown().describe('CheckRule')), {
         type: 'STATIC',
       });
 
       // Ref-annotated Checkable or array of CheckRule is CHECKABLE, while unannotated fields (even if named 'checks') are STATIC
-      const objSchema = z.object({
-        checkableField: CommonSchemas.Checkable.shape.checks,
-        rulesField: z.array(z.unknown().describe('REF:common_types.json#/$defs/CheckRule')),
-        checks: z.unknown(),
-        customProp: z.unknown(),
+      const objSchema = z3.object({
+        checkableField: z3
+          .array(z3.unknown().describe('REF:common_types.json#/$defs/CheckRule'))
+          .optional(),
+        rulesField: z3.array(z3.unknown().describe('REF:common_types.json#/$defs/CheckRule')),
+        checks: z3.unknown(),
+        customProp: z3.unknown(),
       });
 
       const behavior = scrapeSchemaBehavior(objSchema);
@@ -833,11 +837,11 @@ describe('GenericBinder Checkable Trait', () => {
       }
 
       // Do not short-circuit to DYNAMIC if property is a nested ZodObject or ZodArray
-      const nestedSchema = z.object({
-        value: z.object({
-          nestedField: z.string().describe('REF:#/$defs/DynamicString'),
+      const nestedSchema = z3.object({
+        value: z3.object({
+          nestedField: z3.string().describe('REF:#/$defs/DynamicString'),
         }),
-        text: z.array(z.string().describe('REF:#/$defs/DynamicString')),
+        text: z3.array(z3.string().describe('REF:#/$defs/DynamicString')),
       });
       const nestedBehavior = scrapeSchemaBehavior(nestedSchema);
       assert.strictEqual(nestedBehavior.type, 'OBJECT');
@@ -1107,15 +1111,15 @@ describe('GenericBinder Checkable Trait', () => {
 
   it('should unwrap ZodBranded and ZodLazy schemas and preserve outer wrapper descriptions', () => {
     // Outer description on optional wrapper
-    const optionalAction = z.unknown().describe('REF:common_types.json#/$defs/Action').optional();
+    const optionalAction = z3.unknown().describe('REF:common_types.json#/$defs/Action').optional();
     assert.deepStrictEqual(scrapeSchemaBehavior(optionalAction), {type: 'ACTION'});
 
     // ZodBranded
-    const brandedDynamic = z.string().describe('REF:#/$defs/DynamicString').brand<'CustomBrand'>();
+    const brandedDynamic = z3.string().describe('REF:#/$defs/DynamicString').brand<'CustomBrand'>();
     assert.deepStrictEqual(scrapeSchemaBehavior(brandedDynamic), {type: 'DYNAMIC'});
 
     // ZodLazy
-    const lazyAction = z.lazy(() => z.unknown().describe('REF:#/$defs/Action'));
+    const lazyAction = z3.lazy(() => z3.unknown().describe('REF:#/$defs/Action'));
     assert.deepStrictEqual(scrapeSchemaBehavior(lazyAction), {type: 'ACTION'});
 
     // Checkable wrapped in optional
@@ -1123,14 +1127,14 @@ describe('GenericBinder Checkable Trait', () => {
     assert.deepStrictEqual(scrapeSchemaBehavior(optionalCheckable), {type: 'CHECKABLE'});
 
     // Union option with wrapped object shape containing ComponentId
-    const componentIdSchema = z.string().describe('REF:common_types.json#/$defs/ComponentId');
-    const templateChildOption = z
+    const componentIdSchema = z3.string().describe('REF:common_types.json#/$defs/ComponentId');
+    const templateChildOption = z3
       .object({
         target: componentIdSchema,
-        data: z.string().describe('REF:common_types.json#/$defs/DataBinding'),
+        data: z3.string().describe('REF:common_types.json#/$defs/DataBinding'),
       })
       .optional();
-    const unionWithChild = z.union([z.array(z.string()), templateChildOption]);
+    const unionWithChild = z3.union([z3.array(z3.string()), templateChildOption]);
     assert.deepStrictEqual(scrapeSchemaBehavior(unionWithChild), {type: 'STRUCTURAL'});
   });
 

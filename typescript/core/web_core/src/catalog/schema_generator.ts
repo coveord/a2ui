@@ -855,8 +855,8 @@ function processFunctions(
 }
 
 /**
- * Descriptions the shared Zod mirrors of the common types carry on their
- * `REF:` markers, by definition name.
+ * Descriptions the shared Zod mirrors of the common types carry beside the
+ * `$ref` in their metadata, by definition name.
  *
  * The mirrors are shared by every protocol version, so their text is one
  * version's. A reference that carries exactly this text did not get it from
@@ -864,13 +864,11 @@ function processFunctions(
  */
 const MIRROR_REF_DESCRIPTIONS: ReadonlyMap<string, string> = new Map(
   Object.values(CommonSchemas).flatMap(mirror => {
-    const description = (mirror as {description?: unknown}).description;
-    if (typeof description !== 'string' || !description.startsWith('REF:')) return [];
-    const content = description.substring(4);
-    const pipeIndex = content.indexOf('|');
-    if (pipeIndex === -1) return [];
-    const name = content.substring(0, pipeIndex).split('/').pop()!;
-    return [[name, content.substring(pipeIndex + 1)] as [string, string]];
+    const meta = mirror.meta();
+    const ref = meta?.['$ref'];
+    const description = meta?.['description'];
+    if (typeof ref !== 'string' || typeof description !== 'string') return [];
+    return [[ref.split('/').pop()!, description] as [string, string]];
   }),
 );
 

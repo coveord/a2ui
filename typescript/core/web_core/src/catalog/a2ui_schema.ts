@@ -160,32 +160,45 @@ export function zod3SchemaOf(schema: unknown): z.ZodTypeAny | undefined {
 const TARGET = 'draft-2020-12';
 
 /**
- * Converter options by vendor, passed as Standard JSON Schema `libraryOptions`.
+ * Returns the converter options by vendor that `normalizeSchema` passes as
+ * Standard JSON Schema `libraryOptions`.
  *
  * Zod 4 writes a schema that names its definition with `.meta({$ref})` as
  * its contents beside the reference, and cannot write one on a cycle, such as
  * v0.9's `DynamicValue` and `FunctionCall`. A2UI reads such a schema as the
- * reference, so Zod writes it as its reference and its metadata alone.
+ * reference, so Zod writes it as its reference and its metadata alone, unless
+ * `keepContents` asks for the contents of the definition it names.
+ *
+ * @internal
+ * @param keepContents Whether to keep the contents of a schema that names
+ *     the definition `ref`.
  */
-const LIBRARY_OPTIONS: Readonly<Record<string, Record<string, unknown>>> = {
-  zod: {
-    override({
-      zodSchema,
-      jsonSchema,
-    }: {
-      zodSchema: ZodMetaSchema;
-      jsonSchema: Record<string, unknown>;
-    }) {
-      const meta = zodSchema.meta?.();
-      if (typeof meta?.['$ref'] !== 'string') return;
-      for (const key of Object.keys(jsonSchema)) {
-        if (!(key in meta)) delete jsonSchema[key];
-      }
+export function libraryOptionsFor(
+  keepContents: (ref: string) => boolean = () => false,
+): Readonly<Record<string, Record<string, unknown>>> {
+  return {
+    zod: {
+      override({
+        zodSchema,
+        jsonSchema,
+      }: {
+        zodSchema: ZodMetaSchema;
+        jsonSchema: Record<string, unknown>;
+      }) {
+        const ref = zodSchema.meta?.()?.['$ref'];
+        if (typeof ref !== 'string' || keepContents(ref)) return;
+        const meta = zodSchema.meta?.() ?? {};
+        for (const key of Object.keys(jsonSchema)) {
+          if (!(key in meta)) delete jsonSchema[key];
+        }
+      },
     },
-  },
-};
+  };
+}
 
-/** The part of a Zod 4 schema `LIBRARY_OPTIONS` reads: its metadata. */
+const LIBRARY_OPTIONS = libraryOptionsFor();
+
+/** The part of a Zod 4 schema `libraryOptionsFor` reads: its metadata. */
 interface ZodMetaSchema {
   meta?(): Readonly<Record<string, unknown>> | undefined;
 }
@@ -220,7 +233,11 @@ export function isA2uiSchema(value: unknown): value is A2uiStandardSchema {
  * @throws {A2uiCatalogError} If `schema` implements Standard Schema without
  *   Standard JSON Schema, or is not an object.
  */
-export function normalizeSchema(schema: A2uiSchema): JsonSchemaObject {
+export function normalizeSchema(
+  schema: A2uiSchema,
+  /** @internal The converter options by vendor (see `libraryOptionsFor`). */
+  libraryOptions: Readonly<Record<string, Record<string, unknown>>> = LIBRARY_OPTIONS,
+): JsonSchemaObject {
   if (!isObject(schema)) {
     throw new A2uiCatalogError('A schema must be a JSON Schema object or a library schema.');
   }
@@ -236,7 +253,7 @@ export function normalizeSchema(schema: A2uiSchema): JsonSchemaObject {
     }
     json = (converter as unknown as StandardJSONSchemaV1.Converter).input({
       target: TARGET,
-      libraryOptions: LIBRARY_OPTIONS[vendor],
+      libraryOptions: libraryOptions[vendor],
     });
     if (!isObject(json)) {
       throw new A2uiCatalogError(`A schema from '${vendor}' wrote no JSON Schema object.`);

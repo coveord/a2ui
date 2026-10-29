@@ -26,7 +26,7 @@ import {
   DynamicStringSchema,
   DynamicValueSchema,
   FunctionCallSchema,
-} from '../../../../v1_0/zod4/common-types.js';
+} from '../../../../v1_0/schema/common-types.js';
 
 /**
  * Checks that the value is not null, undefined, or empty.
