@@ -15,12 +15,7 @@
  */
 
 import {z} from 'zod/v4';
-import {
-  type ChildRefKind,
-  type RefSchemaOptions,
-  markChildRef,
-  childRefKindOf,
-} from '../../types/child-ref-helpers.js';
+import {type RefSchemaOptions} from '../../types/child-ref-helpers.js';
 import {
   ChildListSchema,
   ComponentCommonSchema,
@@ -32,7 +27,7 @@ import {
   DynamicValueSchema,
 } from './common-types.js';
 
-export {type ChildRefKind, type RefSchemaOptions, markChildRef, childRefKindOf};
+export {type RefSchemaOptions};
 
 export const TemplateChildListSchema = z
   .object({

@@ -14,58 +14,44 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import type {z} from 'zod/v4';
+
+/** A Zod 4 validation issue. */
+export type ZodIssue = z.core.$ZodIssue;
 
 /**
- * Formats a single Zod issue into a human-readable diagnostic message. It
- * reads a Zod 3 issue or a Zod 4 one, which nests the issues of a union's
- * branches under `errors`, with paths relative to the union, and does not
- * report the type it received apart from its message.
+ * Formats a single Zod issue into a human-readable diagnostic message. A
+ * union's issue carries the issues of its branches under `errors`, with paths
+ * relative to the union.
  *
  * Direct attribute extraction is used so that issue details (such as unrecognized
- * property keys or invalid enum options) are preserved even when running in
- * optimized/minified production builds where Zod's internal error map messages
- * may be obfuscated or stripped.
+ * property keys) are preserved even when running in optimized/minified
+ * production builds where Zod's internal error map messages may be obfuscated
+ * or stripped.
  *
  * @param err Zod validation issue to format.
  * @return Human-readable formatted error message.
  */
-export function formatZodIssue(err: z.ZodIssue): string {
-  const path = err.path.join('.') || 'root';
+export function formatZodIssue(err: ZodIssue): string {
+  const path = err.path.map(String).join('.') || 'root';
 
   switch (err.code) {
-    case z.ZodIssueCode.invalid_union: {
-      const zod4Errors = (err as {errors?: z.ZodIssue[][]}).errors;
-      const unionIssues =
-        (err as z.ZodInvalidUnionIssue).unionErrors?.flatMap(uErr => uErr.issues) ??
-        zod4Errors?.flat().map(issue => ({...issue, path: [...err.path, ...issue.path]}));
-      if (unionIssues && unionIssues.length > 0) {
+    case 'invalid_union': {
+      const unionIssues = err.errors
+        .flat()
+        .map(issue => ({...issue, path: [...err.path, ...issue.path]}) as ZodIssue);
+      if (unionIssues.length > 0) {
         return unionIssues.map(formatZodIssue).join('; ');
       }
-      // A Zod 4 exclusive union (`z.xor`) that more than one branch accepts
-      // reports no branch issues, only its message.
-      return zod4Errors ? `${path}: ${err.message}` : `${path}: Invalid union`;
+      // An exclusive union (`z.xor`) that more than one branch accepts reports
+      // no branch issues, only its message.
+      return `${path}: ${err.message}`;
     }
 
-    case z.ZodIssueCode.unrecognized_keys: {
-      const keysStr = (err as z.ZodUnrecognizedKeysIssue).keys.map(k => `'${k}'`).join(', ');
+    case 'unrecognized_keys': {
+      const keysStr = err.keys.map(k => `'${k}'`).join(', ');
       return `${path}: Unrecognized key(s) in object: ${keysStr}`;
     }
-
-    case z.ZodIssueCode.invalid_enum_value: {
-      const issue = err as z.ZodInvalidEnumValueIssue;
-      const optionsStr = issue.options.map(o => String(o)).join(' | ');
-      return `${path}: Invalid enum value. Expected ${optionsStr}, received '${String(issue.received)}'`;
-    }
-
-    case z.ZodIssueCode.invalid_type: {
-      const issue = err as z.ZodInvalidTypeIssue;
-      if (issue.received === undefined) return `${path}: ${err.message}`;
-      return `${path}: Expected ${issue.expected}, received ${issue.received}`;
-    }
-
-    case z.ZodIssueCode.custom:
-      return `${path}: ${err.message}`;
 
     default:
       return err.message ? `${path}: ${err.message}` : `${path}: Validation error (${err.code})`;

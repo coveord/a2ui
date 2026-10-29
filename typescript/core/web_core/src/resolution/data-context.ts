@@ -94,8 +94,12 @@ function knownKeysOf(node: JsonSchemaObject): Set<string> | null {
   const current = coreJsonSchema(node);
   const properties = objectProperties(current);
   if (properties) {
-    // An object that allows additional properties allows arbitrary keys.
-    return current['additionalProperties'] === true ? null : new Set(Object.keys(properties));
+    // An object that allows additional properties allows arbitrary keys,
+    // written `true` or, as Zod 4 writes a loose object, as an empty schema.
+    const additional = current['additionalProperties'];
+    const allowsAny =
+      additional === true || (isJsonObject(additional) && Object.keys(additional).length === 0);
+    return allowsAny ? null : new Set(Object.keys(properties));
   }
   const members = current['allOf'] ?? unionBranches(current);
   if (!Array.isArray(members) || members.length === 0) {
@@ -1008,11 +1012,11 @@ export class DataContext {
     // A Zod error thrown by a function's own code, recognized by name so that
     // web_core does not depend on Zod.
     if (typeof e === 'object' && e !== null && (e as {name?: string}).name === 'ZodError') {
-      const zodErr = e as {message: string; errors?: unknown; issues?: unknown};
+      const zodErr = e as {message: string; issues?: unknown};
       const err = new A2uiExpressionError(
         `Validation failed for function '${name}': ${zodErr.message}`,
         name,
-        zodErr.errors ?? zodErr.issues,
+        zodErr.issues,
       );
       this.surface.dispatchError({
         code: 'EXPRESSION_ERROR',

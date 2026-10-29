@@ -30,7 +30,7 @@ import {BASIC_FUNCTIONS} from '../catalogs/basic/v1/functions/basic_functions.js
 import {A2uiCatalogError, A2uiIntegrityError, A2uiValidationError} from '../errors.js';
 import {DataContext} from '../resolution/data-context.js';
 import {peekValue} from '../reactivity/signals.js';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 /**
  * Turns validation on while relaxing every topology rule, so a test exercises
@@ -362,31 +362,6 @@ describe('MessageProcessor', () => {
         message: 'Expected undefined, received undefined',
       };
       assert.strictEqual(formatZodIssue(issue), "root: Unrecognized key(s) in object: 'color'");
-    });
-
-    it('formats invalid enum values', () => {
-      const issue: any = {
-        code: 'invalid_enum_value',
-        options: ['primary', 'secondary'],
-        received: 'invalid',
-        path: ['variant'],
-        message: 'Invalid enum value',
-      };
-      assert.strictEqual(
-        formatZodIssue(issue),
-        "variant: Invalid enum value. Expected primary | secondary, received 'invalid'",
-      );
-    });
-
-    it('falls back to expected/received when message is corrupted with undefined', () => {
-      const issue: any = {
-        code: 'invalid_type',
-        expected: 'string',
-        received: 'number',
-        path: ['label'],
-        message: 'Expected undefined, received undefined',
-      };
-      assert.strictEqual(formatZodIssue(issue), 'label: Expected string, received number');
     });
 
     it('surfaces unrecognized property validation error when processing component updates', () => {

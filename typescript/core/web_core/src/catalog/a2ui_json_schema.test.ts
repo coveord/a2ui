@@ -17,20 +17,18 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {z} from 'zod/v3';
-import {z as z4} from 'zod/v4';
+import {z} from 'zod/v4';
 
 import {A2uiCatalogError, A2uiValidationError} from '../errors.js';
 import {MessageProcessor} from '../processing/message-processor.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
 import {extractRefFields} from '../resolution/ref-fields.js';
-import {ChildListSchema, ComponentIdSchema} from '../test/zod3-common-types.js';
 import {AccessibilityAttributesSchema} from '../types/common-types.js';
 import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {a2uiJsonSchemaOf} from './a2ui_json_schema.js';
+import {SPEC_KEYWORD} from './spec_annotations.js';
 import type {A2uiSchema, StandardJSONSchemaV1} from './a2ui_schema.js';
-import {exclusiveUnion} from './exclusive_union.js';
 import {basicCatalog} from '../catalogs/basic/v1/index.js';
 import {Catalog, type ComponentApi, type FunctionApi} from './types.js';
 
@@ -38,69 +36,38 @@ import {Catalog, type ComponentApi, type FunctionApi} from './types.js';
  * Adds Standard JSON Schema to a Zod 4 schema, as Zod 4.2 and later implement
  * it natively.
  */
-function withZod4JsonSchema<T extends z4.ZodType>(schema: T): T & StandardJSONSchemaV1 {
-  const converter = () => z4.toJSONSchema(schema, {target: 'draft-2020-12'});
+function withZod4JsonSchema<T extends z.ZodType>(schema: T): T & StandardJSONSchemaV1 {
+  const converter = () => z.toJSONSchema(schema, {target: 'draft-2020-12'});
   Object.assign(schema['~standard'], {jsonSchema: {input: converter, output: converter}});
   return schema as T & StandardJSONSchemaV1;
 }
 
 const ref = (name: string) => ({$ref: `common_types.json#/$defs/${name}`});
 
+/** Returns a copy of an entry whose schema carries no `specMeta()` annotation. */
 function plain<E extends ComponentApi | FunctionApi>(entry: E): E {
-  const schema = entry.schema as z.ZodTypeAny;
-  return {...entry, schema: schema.describe(schema.description as string)};
+  const schema = entry.schema as z.ZodType;
+  return {...entry, schema: schema.meta({[SPEC_KEYWORD]: undefined})};
 }
 
 /** A Zod 4 component using the A2UI `$ref` conventions. */
 const Zod4CardApi = {
   name: 'Card',
   schema: withZod4JsonSchema(
-    z4
+    z
       .object({
-        title: z4.union([z4.string(), z4.object({path: z4.string()})]).meta(ref('DynamicString')),
-        child: z4.string().meta(ref('ComponentId')),
-        children: z4.array(z4.string()).meta(ref('ChildList')),
-        action: z4.object({event: z4.object({name: z4.string()})}).meta(ref('Action')),
-        tabs: z4.array(
-          z4.object({label: z4.string(), content: z4.string().meta(ref('ComponentId'))}),
-        ),
-        elevated: z4.boolean().optional(),
+        title: z.union([z.string(), z.object({path: z.string()})]).meta(ref('DynamicString')),
+        child: z.string().meta(ref('ComponentId')),
+        children: z.array(z.string()).meta(ref('ChildList')),
+        action: z.object({event: z.object({name: z.string()})}).meta(ref('Action')),
+        tabs: z.array(z.object({label: z.string(), content: z.string().meta(ref('ComponentId'))})),
+        elevated: z.boolean().optional(),
       })
       .strict(),
   ),
 } satisfies ComponentApi;
 
 describe('a2uiJsonSchemaOf', () => {
-  it('writes the REF: markers of a Zod 3 schema as $refs', () => {
-    const schema = z.object({
-      label: z.string().describe('REF:common_types.json#/$defs/DynamicString|The label.'),
-      size: z.number().describe('REF:#/$defs/Size').default(1).optional(),
-    });
-    assert.deepStrictEqual(a2uiJsonSchemaOf(schema), {
-      type: 'object',
-      properties: {
-        label: {$ref: 'common_types.json#/$defs/DynamicString', description: 'The label.'},
-        size: {$ref: '#/$defs/Size', default: 1},
-      },
-      required: ['label'],
-      additionalProperties: false,
-    });
-  });
-
-  it('writes Zod 3 child references as $refs, even when described anew', () => {
-    const view = a2uiJsonSchemaOf(
-      z.object({one: ComponentIdSchema.describe('The child.'), many: ChildListSchema}),
-    );
-    assert.deepStrictEqual((view['properties'] as Record<string, unknown>)['one'], {
-      $ref: 'common_types.json#/$defs/ComponentId',
-      description: 'The child.',
-    });
-    assert.strictEqual(
-      ((view['properties'] as Record<string, Record<string, unknown>>)['many'] ?? {})['$ref'],
-      'common_types.json#/$defs/ChildList',
-    );
-  });
-
   it('writes common-type references without converted constraints', () => {
     assert.deepStrictEqual(a2uiJsonSchemaOf(AccessibilityAttributesSchema), {
       $ref: 'common_types.json#/$defs/AccessibilityAttributes',
@@ -164,11 +131,6 @@ describe('a2uiJsonSchemaOf', () => {
         );
       }
     }
-  });
-
-  it('writes a Zod 3 exclusive union as oneOf', () => {
-    const view = a2uiJsonSchemaOf(exclusiveUnion([z.string(), z.number()]));
-    assert.deepStrictEqual(view, {oneOf: [{type: 'string'}, {type: 'number'}]});
   });
 
   it('converts a schema with its Standard JSON Schema converter', () => {

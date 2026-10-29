@@ -15,15 +15,10 @@
  */
 
 import {z} from 'zod/v4';
-import {
-  type ChildRefKind,
-  type RefSchemaOptions,
-  markChildRef,
-  childRefKindOf,
-} from './child-ref-helpers.js';
+import {type RefSchemaOptions} from './child-ref-helpers.js';
 import {ChildListSchema, ComponentIdSchema} from './common-types.js';
 
-export {type ChildRefKind, type RefSchemaOptions, markChildRef, childRefKindOf};
+export {type RefSchemaOptions};
 
 /**
  * The maximum number of arguments accepted in a single function call.

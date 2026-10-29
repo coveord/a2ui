@@ -211,7 +211,7 @@ function viewOf(schema: EntrySchema): JsonObject {
   return specJsonSchemaOf(schema) as JsonObject;
 }
 
-/** Returns the `spec()` annotation of a schema, read from its spec view. */
+/** Returns the `specMeta()` annotation of a schema, read from its spec view. */
 function annotationOf(schema: EntrySchema): SpecAnnotation {
   return specAnnotationOf(viewOf(schema)) ?? {};
 }
@@ -305,7 +305,7 @@ export interface SpecSchema {
  * Builds specification-shaped definitions of models for a protocol version.
  *
  * It reads a model through its spec view (see `specJsonSchemaOf`): its JSON
- * Schema, and the `spec()` annotations its nodes hold.
+ * Schema, and the `specMeta()` annotations its nodes hold.
  */
 export class SpecShaper {
   private readonly isV08: boolean;
@@ -460,28 +460,19 @@ export class SpecShaper {
     models: ReadonlyMap<string, EntrySchema>,
     catalogDefs: Map<string, EntrySchema>,
   ): string {
-    if (typeof mixin === 'string') {
-      const model = models.get(mixin);
-      if (model === undefined) return `${this.commonTypesUri}#/$defs/${mixin}`;
-      catalogDefs.set(mixin, model);
-      return `#/$defs/${mixin}`;
-    }
-    const name = annotationOf(mixin).defName;
-    if (name === undefined) {
-      throw new Error('A component mixin model must be named with specDef().');
-    }
-    catalogDefs.set(name, mixin);
-    return `#/$defs/${name}`;
+    const model = models.get(mixin);
+    if (model === undefined) return `${this.commonTypesUri}#/$defs/${mixin}`;
+    catalogDefs.set(mixin, model);
+    return `#/$defs/${mixin}`;
   }
 
   /** Returns the names of the properties a mixin declares. */
   private mixinProperties(mixin: SpecMixin, models: ReadonlyMap<string, EntrySchema>): string[] {
-    const model = typeof mixin === 'string' ? models.get(mixin) : mixin;
+    const model = models.get(mixin);
     if (model !== undefined) {
       const properties = viewOf(model)['properties'];
       return isObject(properties) ? Object.keys(properties) : [];
     }
-    if (typeof mixin !== 'string') return [];
     const names: string[] = [];
     const collect = (def: unknown, seen: Set<unknown>): void => {
       if (!isObject(def) || seen.has(def)) return;

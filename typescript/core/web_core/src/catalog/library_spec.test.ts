@@ -33,8 +33,7 @@ import {SPEC_KEYWORD, specMeta} from './spec_annotations.js';
 import {Catalog, type ComponentApi} from './types.js';
 
 // v1.0 common types written with Zod 4. Each names its definition with a
-// `$ref`, which Zod 4 writes into its JSON Schema, as a Zod 3 common type
-// does with a `REF:` description.
+// `$ref`, which Zod 4 writes into its JSON Schema.
 const DataBinding = z
   .object({'@path': z.string().optional(), 'path': z.string().optional()})
   .meta({$ref: '#/$defs/DataBinding'});
@@ -55,7 +54,7 @@ const ChildList = z
 const WEIGHT =
   "The relative weight of this component within a Row or Column. This is similar to the CSS 'flex-grow' property. Note: this may ONLY be set when the component is a direct descendant of a Row or Column.";
 
-// Three v1.0 basic components written with Zod 4, as the generated Zod 3
+// Three v1.0 basic components written by hand with Zod 4, as the generated
 // ones are.
 const TextApi: ComponentApi = {
   name: 'Text',
@@ -107,7 +106,7 @@ const TextFieldApi: ComponentApi = {
   name: 'TextField',
   schema: z
     .strictObject({
-      // Declared here too, as the generated Zod 3 component does; the
+      // Declared here too, as the generated component does; the
       // document writes it through the Checkable mixin instead.
       checks: z
         .array(CheckRule)
@@ -142,12 +141,12 @@ describe('catalog entries annotated with specMeta', () => {
     }
   });
 
-  it('bind and find child references as the Zod 3 catalog does', () => {
+  it('bind and find child references as the generated basic catalog does', () => {
     for (const api of [TextApi, ColumnApi, TextFieldApi]) {
-      const zod4 = componentSchemaOf(zod4Catalog, api);
-      const zod3 = componentSchemaOf(basicCatalog, basicCatalog.components.get(api.name)!);
+      const written = componentSchemaOf(zod4Catalog, api);
+      const generated = componentSchemaOf(basicCatalog, basicCatalog.components.get(api.name)!);
       for (const view of [scrapeSchemaBehavior, extractRefFields, getKnownSchemaKeys]) {
-        assert.deepStrictEqual(view(zod4), view(zod3), `${api.name} ${view.name}`);
+        assert.deepStrictEqual(view(written), view(generated), `${api.name} ${view.name}`);
       }
     }
   });

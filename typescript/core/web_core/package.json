@@ -114,10 +114,6 @@
       "types": "./dist/src/universal/index.d.ts",
       "default": "./dist/src/universal/index.js"
     },
-    "./zod3": {
-      "types": "./dist/src/zod3/index.d.ts",
-      "default": "./dist/src/zod3/index.js"
-    },
     "./data/*": {
       "types": "./dist/src/v0_8/data/*.d.ts",
       "default": "./dist/src/v0_8/data/*.js"
@@ -323,7 +319,6 @@
     "lit": "^3.3.3",
     "redos-detector": "^6.1.4",
     "validate-color": "^2.2.4",
-    "zod": "^4.6.7",
-    "zod-to-json-schema": "^3.25.2"
+    "zod": "^4.6.7"
   }
 }

@@ -18,7 +18,7 @@
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {CommonSchemas} from '../types/common-types.js';
 import {copyA2uiJsonSchemaOf} from './a2ui_json_schema.js';
-import {zod3SchemaOf, type EntrySchema} from './a2ui_schema.js';
+import {type EntrySchema} from './a2ui_schema.js';
 import {
   catalogDocumentModel,
   deepCopyJson,
@@ -109,8 +109,8 @@ function transformRefDescriptionNode(obj: Record<string, unknown>): boolean {
  * Normalizes property schema structures like allOf and additionalProperties.
  *
  * A `z.union` comes out as `anyOf`, and stays `anyOf`: a value may match more
- * than one branch. Only a union that requires exactly one match comes out as
- * `oneOf` (see `exclusiveUnionOverride`).
+ * than one branch. Only a union that requires exactly one match, such as a
+ * Zod 4 `z.xor`, comes out as `oneOf`.
  */
 function cleanSchemaProperties(
   obj: Record<string, unknown>,
@@ -625,7 +625,7 @@ function extractZodComponentSchema(
  * `REF:` markers.
  */
 function zodComponentDescription(comp: ComponentApi): string | undefined {
-  const own = zod3SchemaOf(comp.schema) ?? comp.schema;
+  const own = comp.schema;
   const zodDescription = (own as {description?: unknown} | undefined)?.description;
   return typeof zodDescription === 'string' && !zodDescription.startsWith('REF:')
     ? zodDescription

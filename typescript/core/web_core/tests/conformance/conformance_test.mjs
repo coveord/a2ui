@@ -1582,7 +1582,7 @@ function validateToJsonTestCase(testCase) {
   );
 }
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 /**
  * Fallback component definitions with permissive schemas (`z.object({}).passthrough()`).

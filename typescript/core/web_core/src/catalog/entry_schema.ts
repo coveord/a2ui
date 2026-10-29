@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
-import type {z as z4} from 'zod/v4';
+import type {z} from 'zod/v4';
 
 import {hasDefinitionView} from './a2ui_json_schema.js';
 import {
   validateA2uiSchema,
-  zod3SchemaOf,
   type A2uiSchemaResult,
   type A2uiValidator,
   type EntrySchema,
@@ -30,11 +28,8 @@ import {DEFAULT_PROTOCOL_VERSION, linkEntry, parseCatalogSchema} from './schema_
 import {serializeCatalogDocument} from './schema_serializer.js';
 import type {CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 
-/**
- * A Zod schema the core validates with: a Zod 3 schema an entry is written
- * with, or the Zod 4 schema the catalog loader compiles from a definition.
- */
-type ZodSchema = z.ZodTypeAny | z4.ZodType;
+/** A Zod schema the catalog loader compiles from a definition. */
+type ZodSchema = z.ZodType;
 
 /** The entries and theme of a catalog reloaded from its own document. */
 interface ReloadedEntries {
@@ -99,8 +94,8 @@ function standaloneSchemaOf(
 
 /**
  * Returns the Zod schema the core reads an `EntrySchema` with when no catalog
- * document is at hand: a Zod 3 schema, or one the catalog loader compiled, as
- * is, or the one derived from a document that holds an entry with that
+ * document is at hand: one the catalog loader compiled, as is, or the one
+ * derived from a document that holds an entry with that
  * schema alone, at the default protocol version.
  *
  * @param schema A component's or function's schema.
@@ -111,9 +106,7 @@ export function zodSchemaFor(
   schema: EntrySchema,
   kind: 'component' | 'function' = 'component',
 ): ZodSchema {
-  const zod3 = zod3SchemaOf(schema);
-  if (zod3) return zod3;
-  if (hasDefinitionView(schema as object)) return schema as z4.ZodType;
+  if (hasDefinitionView(schema as object)) return schema as z.ZodType;
   let derivedSchema = standalone[kind].get(schema);
   if (!derivedSchema) {
     const id = 'urn:a2ui:standalone';
@@ -130,7 +123,7 @@ export function zodSchemaFor(
     });
     const parsed = parseCatalogSchema(document, DEFAULT_PROTOCOL_VERSION, id);
     const derived = kind === 'component' ? parsed.components[0] : parsed.functions[0];
-    derivedSchema = derived.schema as z4.ZodType;
+    derivedSchema = derived.schema as z.ZodType;
     standalone[kind].set(schema, derivedSchema);
   }
   return derivedSchema;
@@ -146,8 +139,8 @@ export function zodSchemaFor(
  *
  * An entry `Catalog.fromJson` loaded already derives its schema from its
  * definition, and is returned as is. Without a catalog that writes a
- * document, a Zod 3 schema is returned as is, and any other schema is read
- * from a document that holds the component alone.
+ * document, the schema is read from a document that holds the component
+ * alone.
  *
  * @param catalog The catalog the component resolves against.
  * @param component The component.
@@ -201,8 +194,6 @@ export function themeSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi>,
 ): A2uiValidator | undefined {
   if (!catalog.themeSchema) return undefined;
-  const zod3 = zod3SchemaOf(catalog.themeSchema);
-  if (zod3) return zod3;
   // A theme the catalog loader compiled, or one written with a library.
   if ('~standard' in catalog.themeSchema) return catalog.themeSchema as A2uiValidator;
   return typeof catalog.toJson === 'function' ? reloadedEntries(catalog).themeSchema : undefined;
@@ -214,7 +205,7 @@ export function themeSchemaOf(
  * expresses, such as a `refine`, still run. Both are read as synchronous
  * Standard Schema validators.
  *
- * A Zod 3 or library own schema validates `value` itself, and a JSON Schema
+ * A library own schema validates `value` itself, and a JSON Schema
  * object adds nothing to the document's check.
  *
  * @param documentSchema The schema from `componentSchemaOf`,
@@ -231,8 +222,7 @@ export function validateEntry(
   value: unknown,
 ): A2uiSchemaResult<unknown> {
   const own: A2uiValidator | undefined =
-    zod3SchemaOf(ownSchema) ??
-    ('~standard' in ownSchema ? (ownSchema as A2uiValidator) : undefined);
+    '~standard' in ownSchema ? (ownSchema as A2uiValidator) : undefined;
   if (documentSchema !== own) {
     const result = validateA2uiSchema(documentSchema, value);
     if (result.issues || !own) return result;

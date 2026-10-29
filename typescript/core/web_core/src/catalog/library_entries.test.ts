@@ -18,10 +18,8 @@ import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
 import {z} from 'zod';
-import {z as z3} from 'zod/v3';
 
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
-import {DynamicStringSchema as Zod3DynamicStringSchema} from '../test/zod3-common-types.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {componentSchemaOf} from './entry_schema.js';
 import {
@@ -29,7 +27,6 @@ import {
   createFunctionImplementation,
   type ComponentApi,
   type InferredComponentApiSchemaType,
-  type ResolvedDynamic,
   type ResolvedFunctionArgs,
 } from './types.js';
 
@@ -122,11 +119,5 @@ describe('createFunctionImplementation', () => {
       value: 'hi',
     });
     assert.strictEqual(shout.execute({value: 'hi'}, undefined as never), 'HI');
-  });
-
-  it('keeps typing arguments from a Zod 3 schema as before', () => {
-    type Schema = z3.ZodObject<{value: typeof Zod3DynamicStringSchema}>;
-    // What the helper gave when it inferred with `z.infer`.
-    assertType<Equal<ResolvedFunctionArgs<Schema>, ResolvedDynamic<z3.infer<Schema>>>>();
   });
 });

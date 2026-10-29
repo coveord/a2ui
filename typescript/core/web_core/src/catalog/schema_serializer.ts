@@ -17,9 +17,9 @@
 
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {copyA2uiJsonSchemaOf, specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
-import {zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
+import {type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
 import {loadedDefinition} from './json_entries.js';
-import {getSpecAnnotation, type JsonSchemaObject} from './spec_annotations.js';
+import {type JsonSchemaObject} from './spec_annotations.js';
 import {
   DEFAULT_COMMON_TYPES_URI,
   isSpecComponentSchema,
@@ -476,7 +476,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   for (const defModel of catalog.defModels ?? []) {
     const defName = specAnnotationOf(specJsonSchemaOf(defModel))?.defName;
     if (defName === undefined) {
-      throw new Error('A catalog definition model must be named with specDef() or specMeta().');
+      throw new Error('A catalog definition model must be named with specMeta({defName}).');
     }
     defModels.set(defName, defModel);
   }
@@ -486,9 +486,8 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   for (const [name, comp] of catalog.components) {
     // A loaded entry's schema is derived on first read, so it is not read here.
     if (loadedDefinition(comp)) continue;
-    // A Zod 3 schema is read as itself, `fromZod3` included, and any other
-    // schema through its JSON Schema, which may carry an annotation.
-    const model = zod3SchemaOf(comp.schema) ?? comp.schema;
+    // A schema is read through its JSON Schema, which may carry an annotation.
+    const model = comp.schema;
     if (!isSpecComponentSchema(model)) continue;
     const {schema, catalogDefs} = shaper.componentSchema(
       name,
@@ -507,10 +506,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   }
   const extensionFields: JsonObject = {...catalog.extensionFields};
   if (catalog.themeLocation === 'styles' && catalog.themeSchema && !hasAuthoredTheme(catalog)) {
-    const zod3Theme = zod3SchemaOf(catalog.themeSchema);
-    const theme = zod3Theme
-      ? shaper.defSchema(zod3Theme)
-      : zodToUnbundledJson(catalog.themeSchema, new Set(), catalog.commonTypesUri);
+    const theme = zodToUnbundledJson(catalog.themeSchema, new Set(), catalog.commonTypesUri);
     extensionFields['styles'] = isObject(theme['properties']) ? theme['properties'] : {};
   }
 
@@ -521,10 +517,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
   const functions = new Map<string, JsonSchemaObject | undefined>();
   for (const [name, fn] of catalog.functions) {
     const loaded = entryDefinition(fn, defs);
-    const model =
-      loaded || loadedDefinition(fn) || !fn.schema
-        ? undefined
-        : (zod3SchemaOf(fn.schema) ?? fn.schema);
+    const model = loaded || loadedDefinition(fn) || !fn.schema ? undefined : fn.schema;
     functions.set(
       name,
       loaded ??
@@ -644,11 +637,7 @@ export function serializeCatalogDocument(catalog: SerializableCatalog): JsonObje
   const defs: JsonObject = deepCopyJson({...model.defs});
   const themeLocation = catalog.themeLocation ?? (isAtLeastV10 ? undefined : 'defs');
   if (themeLocation === 'defs' && catalog.themeSchema && !hasAuthoredTheme(model)) {
-    const zod3Theme = zod3SchemaOf(catalog.themeSchema);
-    defs.theme =
-      zod3Theme && getSpecAnnotation(zod3Theme)
-        ? new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri).defSchema(zod3Theme)
-        : serializeThemeModel(catalog.themeSchema, localDefs, commonTypesUri);
+    defs.theme = serializeThemeModel(catalog.themeSchema, localDefs, commonTypesUri);
   }
   const unions = catalog.unions ?? {
     anyComponent: isAtLeastV10 || catalog.components.size > 0,

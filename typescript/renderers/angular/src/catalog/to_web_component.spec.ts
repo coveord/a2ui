@@ -17,7 +17,7 @@
 import {Component, Injector} from '@angular/core';
 
 import {TestBed} from '@angular/core/testing';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {Catalog, ComponentContext, ComponentModel, SurfaceModel} from '@a2ui/web_core/v0_9';
 import {toWebComponent} from './to_web_component';
 import {AngularWcHost, setDefaultUniversalInjector} from './angular_wc_host';

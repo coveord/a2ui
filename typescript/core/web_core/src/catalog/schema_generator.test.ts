@@ -18,14 +18,13 @@
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {z} from 'zod/v3';
-import {z as z4} from 'zod/v4';
+import {z} from 'zod/v4';
 
 import {CheckRuleSchema} from '../types/common-types.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
 import {cleanSchemaNode, generateValidationSchema} from './schema_generator.js';
-import {spec} from './spec_annotations.js';
+import {specMeta} from './spec_annotations.js';
 import {Catalog, ComponentApi, FunctionApi, FunctionImplementation} from './types.js';
 
 /** A standard definition as validationSchema bundles it: its catalog union ref localized. */
@@ -71,8 +70,8 @@ describe('Catalog.validationSchema & schema_generator', () => {
       name: 'annotated',
       returnType: 'void',
       schema: z.object({
-        count: spec(z.number(), {keywords: {minimum: 0}}),
-        url: spec(z.string(), {keywords: {format: 'uri'}}),
+        count: z.number().meta(specMeta({keywords: {minimum: 0}})),
+        url: z.string().meta(specMeta({keywords: {format: 'uri'}})),
       }),
     };
     const catalog = new Catalog('https://example.com/annotated.json', '1.0', [], [fn]);
@@ -107,7 +106,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
       schema: z.object({
         children: z
           .array(z.string())
-          .describe('REF:common_types.json#/$defs/ChildList|List of children'),
+          .meta({$ref: 'common_types.json#/$defs/ChildList', description: 'List of children'}),
       }),
     };
 
@@ -472,7 +471,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
     const CustomWidget: ComponentApi = {
       name: 'CustomWidget',
       schema: z.object({
-        content: z.string().describe('REF:#/$defs/DynamicString'),
+        content: z.string().meta({$ref: '#/$defs/DynamicString'}),
       }),
     };
 
@@ -508,8 +507,8 @@ describe('Catalog.validationSchema & schema_generator', () => {
     const CustomWidget: ComponentApi = {
       name: 'CustomWidget',
       schema: z.object({
-        content: z.string().describe('REF:#/$defs/DynamicString'),
-        child: z.string().describe('REF:#/$defs/Child'),
+        content: z.string().meta({$ref: '#/$defs/DynamicString'}),
+        child: z.string().meta({$ref: '#/$defs/Child'}),
       }),
     };
 
@@ -536,7 +535,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
     const CustomWidget: ComponentApi = {
       name: 'CustomWidget',
       schema: z.object({
-        child: z.string().describe('REF:#/$defs/Child'),
+        child: z.string().meta({$ref: '#/$defs/Child'}),
       }),
     };
 
@@ -547,7 +546,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
     }
 
     const v092Defs = new Catalog('https://example.com/v092.json', '0.9.2', [
-      {name: 'Label', schema: z.object({text: z.string().describe('REF:#/$defs/DynamicString')})},
+      {name: 'Label', schema: z.object({text: z.string().meta({$ref: '#/$defs/DynamicString'})})},
     ]).validationSchema['$defs'] as Record<string, unknown>;
     assert.deepStrictEqual(v092Defs['DynamicString'], V09_STANDARD_DEFS['DynamicString']);
   });
@@ -556,7 +555,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
     const CustomWidget: ComponentApi = {
       name: 'CustomWidget',
       schema: z.object({
-        content: z.string().describe('REF:#/$defs/CustomType'),
+        content: z.string().meta({$ref: '#/$defs/CustomType'}),
       }),
     };
 
@@ -649,12 +648,12 @@ describe('Catalog.validationSchema & schema_generator', () => {
   it('emits only local references that resolve, with or without functions', () => {
     const Label: ComponentApi = {
       name: 'Label',
-      schema: z.object({text: z.string().describe('REF:common_types.json#/$defs/DynamicString')}),
+      schema: z.object({text: z.string().meta({$ref: 'common_types.json#/$defs/DynamicString'})}),
     };
     const shout: FunctionApi = {
       name: 'shout',
       returnType: 'string',
-      schema: z.object({value: z.string().describe('REF:common_types.json#/$defs/DynamicString')}),
+      schema: z.object({value: z.string().meta({$ref: 'common_types.json#/$defs/DynamicString'})}),
     };
     for (const version of ['0.9', '1.0']) {
       const withFunctions = new Catalog(
@@ -695,7 +694,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
       name: 'shout',
       description: 'Upper-cases a string.',
       returnType: 'string',
-      schema: z.object({value: z.string().describe('REF:common_types.json#/$defs/DynamicString')}),
+      schema: z.object({value: z.string().meta({$ref: 'common_types.json#/$defs/DynamicString'})}),
     };
     const schema = new Catalog('https://example.com/v10.json', '1.0', [], [shout as any])
       .validationSchema;
@@ -834,7 +833,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
   it("describes standard references from the catalog's own protocol version", () => {
     const Field: ComponentApi = {
       name: 'Field',
-      schema: z4.object({checks: z4.array(CheckRuleSchema).optional()}),
+      schema: z.object({checks: z.array(CheckRuleSchema).optional()}),
     };
     const describedRule = (version: string) =>
       (
@@ -1106,15 +1105,15 @@ describe('Catalog.validationSchema & schema_generator', () => {
         );
       });
 
-      it(`bundles a deep pointer in a REF marker of a v${version} code catalog`, () => {
+      it(`bundles a deep pointer in a $ref of a v${version} code catalog`, () => {
         const Label: ComponentApi = {
           name: 'Label',
-          schema: z.object({text: z.string().describe(`REF:${DEEP_REF}`)}),
+          schema: z.object({text: z.string().meta({$ref: DEEP_REF})}),
         };
         const echo: FunctionApi = {
           name: 'echo',
           returnType: 'string',
-          schema: z.object({value: z.string().describe(`REF:${DEEP_REF}`)}),
+          schema: z.object({value: z.string().meta({$ref: DEEP_REF})}),
         };
         const catalog = new Catalog(
           `https://example.com/deep-code-${version}.json`,

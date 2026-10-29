@@ -17,7 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {validateA2uiSchema, type A2uiValidator} from './a2ui_schema.js';
 import {componentSchemaOf, functionSchemaOf, validateEntry} from './entry_schema.js';
@@ -63,8 +63,12 @@ describe('componentSchemaOf', () => {
     assert.strictEqual(componentSchemaOf(loaded, picker), picker.schema);
   });
 
-  it('returns the own schema without a catalog', () => {
-    assert.strictEqual(componentSchemaOf(undefined, PickerApi), PickerApi.schema);
+  it('reads the component through a document of its own without a catalog', () => {
+    const schema = componentSchemaOf(undefined, PickerApi);
+    assert.notStrictEqual(schema, PickerApi.schema);
+    assert.strictEqual(componentSchemaOf(undefined, PickerApi), schema);
+    assert.strictEqual(accepts(schema, {choice: 'forbidden'}), true);
+    assert.strictEqual(accepts(schema, {choice: 1}), false);
   });
 });
 
@@ -76,9 +80,16 @@ describe('functionSchemaOf', () => {
     assert.strictEqual(accepts(schema, {value: 1, extra: true}), false);
   });
 
-  it('returns the own schema of a function the document does not define', () => {
-    const other: FunctionApi = {name: 'other', returnType: 'any', schema: z.object({})};
-    assert.strictEqual(functionSchemaOf(catalog, other), other.schema);
+  it('reads a function the document does not define through a document of its own', () => {
+    const other: FunctionApi = {
+      name: 'other',
+      returnType: 'any',
+      schema: z.object({n: z.number()}),
+    };
+    const schema = functionSchemaOf(catalog, other);
+    assert.notStrictEqual(schema, other.schema);
+    assert.strictEqual(accepts(schema, {n: 1}), true);
+    assert.strictEqual(accepts(schema, {n: 'x'}), false);
   });
 });
 
@@ -103,7 +114,7 @@ describe('validateEntry', () => {
     );
     assert.deepStrictEqual(
       result.issues?.map(issue => issue.message),
-      ["Unrecognized key(s) in object: 'extra'"],
+      ['Unrecognized key: "extra"'],
     );
   });
 

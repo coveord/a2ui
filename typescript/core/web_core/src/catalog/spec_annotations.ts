@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod/v3';
-
 /**
  * A JSON Schema object, as written in a catalog document.
  */
@@ -24,15 +22,15 @@ export type JsonSchemaObject = Readonly<Record<string, unknown>>;
 /**
  * A mixin that a component's definition composes with `allOf`: the name of a
  * common type (`'ComponentCommon'`, `'Checkable'`), referenced in the
- * catalog's common types document, or a model named with {@link specDef},
- * which the catalog document declares under `$defs`.
+ * catalog's common types document, or of a model the catalog document
+ * declares under `$defs`.
  */
-export type SpecMixin = string | z.ZodTypeAny;
+export type SpecMixin = string;
 
 /**
- * What a catalog document writes about a Zod schema that the schema itself
- * does not express. `Catalog.toJson` reads it when it computes the document
- * of a catalog defined in code; it never changes validation.
+ * What a catalog document writes about a schema that the schema itself does
+ * not express. `Catalog.toJson` reads it when it computes the document of a
+ * catalog defined in code; it never changes validation.
  */
 export interface SpecAnnotation {
   /**
@@ -68,59 +66,9 @@ export interface SpecAnnotation {
   readonly defName?: string;
 }
 
-const annotations = new WeakMap<object, SpecAnnotation>();
-
 /**
- * The annotations by the definition of the annotated schema, for converters
- * such as `zod-to-json-schema` that see definitions only.
- */
-const annotationsByDef = new WeakMap<object, SpecAnnotation>();
-
-/**
- * Returns a copy of a Zod schema that carries what a catalog document writes
- * about it beyond the schema itself.
- *
- * The copy validates exactly as `schema` does and has its type, so it can be
- * used wherever `schema` is. Annotating a copy keeps a shared schema, such as
- * a common type, free of the annotations of one of its uses.
- *
- * @deprecated For Zod 3 schemas only. With Zod 4, annotate with
- *     `.meta(specMeta(annotation))`.
- * @param schema The schema to annotate.
- * @param annotation What the document writes about it.
- * @returns An annotated copy of `schema`.
- */
-export function spec<T extends z.ZodTypeAny>(schema: T, annotation: SpecAnnotation): T {
-  const copy = schema.describe(schema.description as string) as T;
-  const merged = {...annotations.get(schema), ...annotation};
-  annotations.set(copy, merged);
-  annotationsByDef.set(copy._def, merged);
-  return copy;
-}
-
-/**
- * Returns a copy of a Zod model that a catalog document declares under
- * `$defs` as `name`, such as the `CatalogComponentCommon` mixin of the v0.9
- * basic catalog or its `theme`.
- *
- * @deprecated For Zod 3 schemas only. With Zod 4, name the model with
- *     `.meta(specMeta({defName: name}))`.
- * @param name The definition's name.
- * @param schema The definition's model.
- * @param annotation Anything else the document writes about the model.
- * @returns An annotated copy of `schema`.
- */
-export function specDef<T extends z.ZodTypeAny>(
-  name: string,
-  schema: T,
-  annotation: Omit<SpecAnnotation, 'defName' | 'mixins'> = {},
-): T {
-  return spec(schema, {...annotation, defName: name});
-}
-
-/**
- * The JSON Schema keyword under which a schema written without Zod 3 carries
- * its annotation, such as with Zod 4's `.meta()`. A2UI reads it from the
+ * The JSON Schema keyword under which a schema carries its annotation, such
+ * as with Zod 4's `.meta()`. A2UI reads it from the
  * schema's JSON Schema and never writes it to a catalog document.
  */
 export const SPEC_KEYWORD = 'x-a2ui-spec';
@@ -131,9 +79,7 @@ export const SPEC_KEYWORD = 'x-a2ui-spec';
  * basic catalog's `CatalogComponentCommon`, or else of a common type, such as
  * `Checkable`.
  */
-export type JsonSpecAnnotation = Omit<SpecAnnotation, 'mixins'> & {
-  readonly mixins?: readonly string[];
-};
+export type JsonSpecAnnotation = SpecAnnotation;
 
 /**
  * An annotation as `specMeta` takes it: a mixin is a common type's name, or a
@@ -154,8 +100,7 @@ const mixinModels = new WeakMap<object, ReadonlyMap<string, object>>();
 
 /**
  * Returns the metadata that annotates a schema written with a library that
- * writes metadata into its JSON Schema, as `spec()` annotates a Zod 3
- * schema. With Zod 4:
+ * writes metadata into its JSON Schema. With Zod 4:
  *
  * ```ts
  * z.object({...}).strict().meta(specMeta({mixins: ['Checkable']}))
@@ -205,23 +150,4 @@ function specMetaOf(schema: unknown): JsonSpecAnnotation | undefined {
 export function getSpecMixinModels(schema: unknown): ReadonlyMap<string, object> | undefined {
   const annotation = specMetaOf(schema);
   return annotation ? mixinModels.get(annotation) : undefined;
-}
-
-/**
- * Returns the annotation of a Zod schema itself, if any.
- *
- * @param schema A Zod schema.
- */
-export function getSpecAnnotation(schema: unknown): SpecAnnotation | undefined {
-  return typeof schema === 'object' && schema !== null ? annotations.get(schema) : undefined;
-}
-
-/**
- * Returns the annotation of the Zod schema a definition belongs to, if any.
- *
- * @internal
- * @param def The definition (`_def`) of a Zod schema.
- */
-export function getSpecAnnotationOfDef(def: object): SpecAnnotation | undefined {
-  return annotationsByDef.get(def);
 }

@@ -17,21 +17,22 @@
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
-import {spec} from './spec_annotations.js';
+import {specMeta} from './spec_annotations.js';
 import {SpecShaper} from './spec_shape.js';
 
 describe('specJsonSchemaOf', () => {
-  it('holds the spec() annotations of the wrappers around a schema, the outer ones winning', () => {
-    const inner = spec(z.string(), {keywords: {format: 'uri'}, required: ['a']});
-    const outer = spec(inner.optional(), {required: ['b']});
+  it('holds the specMeta() annotation of the outermost wrapper that sets one', () => {
+    const inner = z.string().meta(specMeta({keywords: {format: 'uri'}, required: ['a']}));
+    const outer = inner.optional().meta(specMeta({required: ['b']}));
     const view = specJsonSchemaOf(z.object({link: outer}));
     const link = (view['properties'] as Record<string, unknown>)['link'];
-    assert.deepStrictEqual(specAnnotationOf(link), {keywords: {format: 'uri'}, required: ['b']});
+    // Zod 4 merges metadata shallowly, so the outer annotation replaces the inner one.
+    assert.deepStrictEqual(specAnnotationOf(link), {required: ['b']});
     // The annotation is not written to JSON.
-    assert.strictEqual(JSON.stringify(link), '{"type":"string","format":"uri"}');
+    assert.strictEqual(JSON.stringify(link), '{"type":"string"}');
   });
 
   it('leaves open an object that strips unknown keys', () => {

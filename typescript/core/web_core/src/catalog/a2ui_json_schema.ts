@@ -26,30 +26,14 @@
  * matters to web_core.
  */
 
-import type {z} from 'zod/v3';
-import {parseDef, zodToJsonSchema, type OverrideCallback} from 'zod-to-json-schema';
-
 import {
   libraryOptionsFor,
   normalizeSchema,
-  zod3SchemaOf,
   type A2uiSchema,
   type EntrySchema,
   type InspectableSchema,
 } from './a2ui_schema.js';
-import {exclusiveUnionOverride} from './exclusive_union.js';
-import {
-  getSpecAnnotationOfDef,
-  SPEC_KEYWORD,
-  type JsonSchemaObject,
-  type SpecAnnotation,
-} from './spec_annotations.js';
-
-/** The common types definitions that a schema marked with `markChildRef` refers to. */
-const CHILD_REF_TARGETS: Readonly<Record<string, string>> = {
-  'component-id': 'common_types.json#/$defs/ComponentId',
-  'child-list': 'common_types.json#/$defs/ChildList',
-};
+import {SPEC_KEYWORD, type JsonSchemaObject, type SpecAnnotation} from './spec_annotations.js';
 
 const views = new WeakMap<object, JsonSchemaObject>();
 const expandedReferenceViews = new WeakMap<object, JsonSchemaObject>();
@@ -57,7 +41,10 @@ const specViews = new WeakMap<object, JsonSchemaObject>();
 
 /** Options controlling how the JSON Schema view represents references. */
 export interface A2uiJsonSchemaOptions {
-  /** Whether Zod 3 `REF:` markers retain their converted constraints beside the `$ref`. */
+  /**
+   * Whether a schema that names a definition keeps its constraints beside
+   * the `$ref`, unless the definition is one web_core reads by name.
+   */
   readonly expandReferences?: boolean;
   /**
    * Whether the view is the one `SpecShaper` writes catalog documents from.
@@ -70,13 +57,13 @@ export interface A2uiJsonSchemaOptions {
 
 /**
  * The key under which a node of a spec view (see `specJsonSchemaOf`) holds
- * the `spec()` annotation of the schema it was converted from. It is a
+ * the `specMeta()` annotation of the schema it was converted from. It is a
  * symbol, so that it is neither written to JSON nor copied by
  * `structuredClone`.
  */
 export const SPEC_ANNOTATION: unique symbol = Symbol('a2ui.specAnnotation');
 
-/** Returns the `spec()` annotation a node of a spec view holds, if any. */
+/** Returns the `specMeta()` annotation a node of a spec view holds, if any. */
 export function specAnnotationOf(node: unknown): SpecAnnotation | undefined {
   return isJsonObject(node)
     ? ((node as Record<symbol, unknown>)[SPEC_ANNOTATION] as SpecAnnotation | undefined)
@@ -88,11 +75,10 @@ export function specAnnotationOf(node: unknown): SpecAnnotation | undefined {
  * computed once and deeply frozen.
  *
  * It is the JSON Schema view of the schema, except that a node holds the
- * `spec()` annotation of the schema it was converted from under
- * `SPEC_ANNOTATION`, the annotations of the wrappers around a schema merged
- * with the outer ones winning. An object that strips unknown keys is left
- * open, as JSON Schema writes an object that accepts them, and exclusive
- * bounds are numbers. A schema that is not a Zod 3 schema has no annotations.
+ * `specMeta()` annotation of the schema it was converted from under
+ * `SPEC_ANNOTATION`, an object that accepts any unknown key is written with
+ * `additionalProperties: true`, and an integer the library bounds only by the
+ * safe integers is left unbounded.
  *
  * @param schema The schema.
  */
@@ -109,16 +95,13 @@ export function specJsonSchemaOf(schema: EntrySchema): JsonSchemaObject {
  * Returns the JSON Schema view of a schema, computed once and deeply frozen.
  *
  * A schema implementing Standard JSON Schema, or a JSON Schema object, is
- * converted with `normalizeSchema`, targeting draft 2020-12. A Zod 3 schema,
- * which does not implement it, is converted with `zod-to-json-schema`: its
- * `REF:<ref>|<description>` description markers and its `markChildRef` marks
- * become `$ref`s, and a union made with `exclusiveUnion` becomes a `oneOf`.
- * The keywords a `spec()` annotation adds to a schema are written with it. A
- * node with a `$ref` to a `$defs` entry is bare by default; callers that
- * need the converted constraints for inspection can request
- * `expandReferences` explicitly.
+ * converted with `normalizeSchema`, targeting draft 2020-12. The keywords a
+ * `specMeta()` annotation adds to a schema are written with it. A schema that
+ * names its definition, such as with Zod 4's `.meta({$ref})`, is the bare
+ * `$ref` by default; callers that need its constraints for inspection can
+ * request `expandReferences` explicitly.
  *
- * @throws A2uiCatalogError when the schema can be converted neither way.
+ * @throws A2uiCatalogError when the schema cannot be converted.
  */
 export function a2uiJsonSchemaOf(
   schema: EntrySchema,
@@ -212,8 +195,6 @@ export function copyA2uiJsonSchemaOf(
 }
 
 function convert(schema: EntrySchema, options: A2uiJsonSchemaOptions): Record<string, unknown> {
-  const zod3 = zod3SchemaOf(schema);
-  if (zod3) return zod3ToJsonSchema(zod3, options);
   // A schema implementing Standard JSON Schema, or a JSON Schema object, is
   // read through `normalizeSchema`, which throws for a Standard Schema that
   // implements no JSON Schema conversion.
@@ -231,10 +212,9 @@ const SAFE_INTEGER_BOUNDS: Readonly<Record<string, number>> = {
 };
 
 /**
- * Returns a copy of the JSON Schema of a schema written without Zod 3, with
- * the annotation each node carries under `SPEC_KEYWORD` read out of it: the
- * keyword is removed and the keywords the annotation adds are written, as for
- * a Zod 3 `spec()` annotation. A spec view also holds the annotation under
+ * Returns a copy of the JSON Schema of a schema, with the annotation each
+ * node carries under `SPEC_KEYWORD` read out of it: the keyword is removed
+ * and the keywords the annotation adds are written. A spec view also holds the annotation under
  * `SPEC_ANNOTATION`, writes an object that accepts any unknown key as
  * `additionalProperties: true`, and leaves out the safe-integer bounds a
  * library writes for an integer it does not bound.
@@ -266,52 +246,6 @@ function liftSpecKeywords(value: unknown, options: A2uiJsonSchemaOptions): unkno
 }
 
 /**
- * Converts a Zod 3 schema into its JSON Schema view.
- *
- * @internal
- */
-export function zod3ToJsonSchema(
-  schema: z.ZodTypeAny,
-  options: A2uiJsonSchemaOptions = {},
-): Record<string, unknown> {
-  const json = zodToJsonSchema(schema, {
-    target: options.forSpec ? 'jsonSchema7' : 'jsonSchema2019-09',
-    $refStrategy: 'none',
-    override: createA2uiOverride(options),
-    postProcess: (json, def) => {
-      const annotation = getSpecAnnotationOfDef(def);
-      const keywords = annotation?.keywords;
-      const result = json && keywords ? ({...json, ...keywords} as typeof json) : json;
-      return result && options.forSpec ? withSpecFacts(result, def, annotation) : result;
-    },
-  }) as Record<string, unknown>;
-  delete json['$schema'];
-  markersToRefs(json);
-  return json;
-}
-
-/**
- * Adds to a node of a spec view what JSON Schema does not say of the Zod 3
- * schema it was converted from: its `spec()` annotation, merged over the
- * annotations of the schemas it wraps, and, for an object that strips unknown
- * keys, that it accepts them.
- */
-function withSpecFacts<T extends object>(json: T, def: unknown, annotation?: SpecAnnotation): T {
-  const zodDef = def as {typeName?: string; unknownKeys?: string; catchall?: {_def?: unknown}};
-  const catchallType = (zodDef.catchall?._def as {typeName?: string} | undefined)?.typeName;
-  const stripsUnknownKeys =
-    zodDef.typeName === 'ZodObject' &&
-    zodDef.unknownKeys === 'strip' &&
-    catchallType === 'ZodNever' &&
-    (json as Record<string, unknown>)['additionalProperties'] === false;
-  if (!stripsUnknownKeys && !annotation) return json;
-  const result = {...json} as Record<string | symbol, unknown>;
-  if (stripsUnknownKeys) delete result['additionalProperties'];
-  if (annotation) result[SPEC_ANNOTATION] = {...specAnnotationOf(json), ...annotation};
-  return result as T;
-}
-
-/**
  * The local definitions whose name alone tells what a value referring to them
  * is, so that the JSON Schema view is the bare `$ref`. Expanding them would
  * also recurse: a `FunctionCall`'s arguments are dynamic values, which may
@@ -322,112 +256,11 @@ const OPAQUE_DEFS =
 
 /**
  * Converter options that keep the contents of a schema naming a definition
- * that is not opaque, as a Zod 3 view does when it expands references.
+ * that is not opaque, for a view that expands references.
  */
 const EXPANDING_LIBRARY_OPTIONS = libraryOptionsFor(
   ref => !OPAQUE_DEFS.test(refDefName({$ref: ref})),
 );
-
-/** Whether a `REF:` marker points to a named JSON Schema definition. */
-function isDefinitionRef(ref: string): boolean {
-  return ref.includes('#/$defs/');
-}
-
-/** The Zod 3 types that wrap another schema. */
-const WRAPPERS = new Set([
-  'ZodOptional',
-  'ZodNullable',
-  'ZodDefault',
-  'ZodCatch',
-  'ZodReadonly',
-  'ZodBranded',
-  'ZodLazy',
-]);
-
-/** Returns the reference a `REF:<ref>|<description>` marker holds, if it is one. */
-function markerRef(description: unknown): string | undefined {
-  if (typeof description !== 'string' || !description.startsWith('REF:')) return undefined;
-  const content = description.substring(4);
-  const pipe = content.indexOf('|');
-  return pipe === -1 ? content : content.substring(0, pipe);
-}
-
-/**
- * Stops at a schema described with a `REF:` marker to an opaque definition,
- * or marked with `markChildRef`, and writes a union made with
- * `exclusiveUnion` as `oneOf`.
- */
-const createA2uiOverride =
-  ({expandReferences, forSpec}: A2uiJsonSchemaOptions): OverrideCallback =>
-  (def, refs, seen, forceResolution) => {
-    const description = (def as {description?: string}).description;
-    const ref = markerRef(description);
-    // Wrappers such as `.optional()` and `.default()` copy the description of
-    // the schema they wrap, and are converted as usual so that they keep their
-    // own keywords, such as `default`.
-    const isWrapper = WRAPPERS.has((def as {typeName?: string}).typeName ?? '');
-    if (ref !== undefined) {
-      if (
-        !expandReferences &&
-        !isWrapper &&
-        (isDefinitionRef(ref) || OPAQUE_DEFS.test(refDefName({$ref: ref})))
-      ) {
-        // The converter does not post-process a schema this returns, so a
-        // spec view adds its facts here.
-        return forSpec
-          ? withSpecFacts({description}, def, getSpecAnnotationOfDef(def))
-          : {description};
-      }
-    } else {
-      const childRef = (def as {a2uiChildRef?: string}).a2uiChildRef;
-      const target = childRef === undefined ? undefined : CHILD_REF_TARGETS[childRef];
-      // A spec view writes a marked schema as what it is, as the catalog
-      // document does: only a `REF:` marker names a definition there.
-      if (target !== undefined && !isWrapper && !forSpec) {
-        return description === undefined ? {$ref: target} : {$ref: target, description};
-      }
-    }
-    if (forSpec) {
-      // A spec view keeps each branch of a union, which the converter would
-      // otherwise merge into one enum when every branch is a literal.
-      const {typeName, options} = def as {typeName?: string; options?: Iterable<z.ZodTypeAny>};
-      if ((typeName === 'ZodUnion' || typeName === 'ZodDiscriminatedUnion') && options) {
-        const anyOf = [...options]
-          .map((option, index) =>
-            parseDef(option._def, {
-              ...refs,
-              currentPath: [...refs.currentPath, 'anyOf', `${index}`],
-            }),
-          )
-          .filter(branch => branch !== undefined);
-        const json = description === undefined ? {anyOf} : {anyOf, description};
-        return withSpecFacts(json, def, getSpecAnnotationOfDef(def));
-      }
-    }
-    return exclusiveUnionOverride(def, refs, seen, forceResolution);
-  };
-
-/**
- * Replaces the `REF:<ref>|<description>` marker of each node with a `$ref` to
- * `<ref>` and the marker's description, keeping the node's structure.
- */
-function markersToRefs(node: unknown): void {
-  if (Array.isArray(node)) {
-    for (const item of node) markersToRefs(item);
-    return;
-  }
-  if (typeof node !== 'object' || node === null) return;
-  const obj = node as Record<string, unknown>;
-  const description = obj['description'];
-  const ref = markerRef(description);
-  if (ref !== undefined) {
-    const prose = (description as string).substring(4 + ref.length + 1);
-    delete obj['description'];
-    obj['$ref'] = ref;
-    if (prose) obj['description'] = prose;
-  }
-  for (const value of Object.values(obj)) markersToRefs(value);
-}
 
 function deepFreeze<T>(value: T): T {
   if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
