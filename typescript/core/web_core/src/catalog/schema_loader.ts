@@ -298,24 +298,6 @@ function convertRefToZod(
 }
 
 /**
- * Returns a union that accepts a value exactly one of `branches` accepts, as
- * a JSON Schema `oneOf` does.
- */
-function exclusiveUnion(
-  branches: readonly [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]],
-): z.ZodTypeAny {
-  return z.union(branches).superRefine((value, ctx) => {
-    let matches = 0;
-    for (const branch of branches) {
-      if (branch.safeParse(value).success && ++matches > 1) {
-        ctx.addIssue({code: 'custom', message: 'Value matched more than one schema in oneOf'});
-        return;
-      }
-    }
-  });
-}
-
-/**
  * Converts `oneOf` or `anyOf` JSON Schema unions into a Zod schema.
  *
  * Enforces mutual exclusivity for `oneOf` unions by verifying that valid values
@@ -354,7 +336,7 @@ function convertUnionToZod(
     unionZod = zodBranches[0];
   } else {
     const tuple = [zodBranches[0], zodBranches[1], ...zodBranches.slice(2)] as const;
-    unionZod = isOneOf ? exclusiveUnion(tuple) : z.union(tuple);
+    unionZod = isOneOf ? z.xor(tuple) : z.union(tuple);
   }
 
   if (propSchema.default !== undefined) {

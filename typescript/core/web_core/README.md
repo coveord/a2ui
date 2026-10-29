@@ -53,8 +53,8 @@ The code generator uses **Schema Flattening** to remain version-, catalog-, and 
 - **`$defs` Scope**:
   - Reusable type schemas reside under `$defs`. Definition names are not hardcoded; any definition present in `$defs` is resolved dynamically when referenced.
 - **Reference Annotations**:
-  - When a component property references `$defs/<DefName>`, the generator maps it to `<DefName>Schema` and attaches a `.describe('REF:#/$defs/<DefName>|<description>')` annotation.
-  - At runtime, `generateValidationSchema` inspects these markers to emit `$ref` pointers and tree-shake unused `$defs` definitions.
+  - When a component property references `$defs/<DefName>`, the generator maps it to `<DefName>Schema`, a Zod 4 schema that names its definition with `.meta({$ref: '#/$defs/<DefName>', description})`.
+  - At runtime, `generateValidationSchema` reads these references to emit `$ref` pointers and tree-shake unused `$defs` definitions.
 - **Child References**:
   - Single child references and child collections are identified when their `$defs` reference targets or descriptions indicate a child component relationship (such as references to `ComponentId`, `Child`, or `ChildList`).
 
@@ -89,27 +89,34 @@ const chatCatalog = basicCatalog.derive({
 
 ### Specification annotations
 
-`spec(schema, annotation)` returns a copy of a Zod schema that records what a catalog document writes about it beyond the schema itself, without changing validation: `mixins` (the common types, such as `'ComponentCommon'`, and the `specDef()` models a component's definition composes with `allOf`), `closure` (`additionalProperties` or `unevaluatedProperties`), `required` (the order of the `required` list), `allOf` (schemas that follow the schema's own, such as a format rule) and `keywords` (such as `format`). `specDef(name, schema)` names a model that the document declares under `$defs`. The descriptions come from `.describe()`, and common types references from `REF:#/$defs/<Name>` description markers.
+`specMeta(annotation)` returns the metadata that records what a catalog document writes about a schema beyond the schema itself, without changing validation. With Zod 4, pass it to `.meta()`. Its fields are:
+
+- `mixins`: the common types, such as `'ComponentCommon'`, and the models a component's definition composes with `allOf`;
+- `closure`: `additionalProperties` or `unevaluatedProperties`;
+- `required`: the order of the `required` list;
+- `allOf`: schemas that follow the schema's own, such as a format rule;
+- `keywords`: such as `format`.
+
+`specMeta({defName})` names a model that the document declares under `$defs`. The descriptions come from `.describe()`. A common type names its definition in its metadata (`.meta({$ref})`), and `.describe()` keeps that reference. A union written with `z.xor` is written as `oneOf`, and one written with `z.union` as `anyOf`.
 
 ```ts
-import {Catalog, spec, specDef} from '@a2ui/web_core/catalog';
-import {z} from 'zod/v3';
+import {Catalog, specMeta} from '@a2ui/web_core/catalog';
+import {z} from 'zod/v4';
 
-const Common = specDef('Common', z.object({weight: z.number().optional()}));
+const Common = z.object({weight: z.number().optional()}).meta(specMeta({defName: 'Common'}));
 const Badge = {
   name: 'Badge',
-  schema: spec(
-    z
-      .object({...Common.shape, label: z.string()})
-      .describe('A badge.')
-      .strict(),
-    {mixins: ['ComponentCommon', Common]},
-  ),
+  schema: z
+    .strictObject({...Common.shape, label: z.string()})
+    .describe('A badge.')
+    .meta(specMeta({mixins: ['ComponentCommon', Common]})),
 };
 // Badge's definition composes ComponentCommon and #/$defs/Common with allOf,
 // and $defs.Common is computed from the Common model.
 const document = new Catalog('https://example.com/badges', '0.9', [Badge]).toJson();
 ```
+
+`spec(schema, annotation)` and `specDef(name, schema)` annotate a Zod 3 schema the same way, and `exclusiveUnion` gives a Zod 3 union the semantics of `oneOf`. They are deprecated, along with Zod 3 schemas.
 
 The built-in basic catalogs are built this way. Their components and functions are Zod models generated from the published catalog documents by `scripts/generate-catalog-schemas.mjs` (v0.9 and v1) and `src/v0_8/scripts/generate-catalog.mjs` (v0.8), which run as part of `yarn generate-zod-schemas`. For every schema node, the generator predicts the JSON Schema that `toJson` derives from the Zod code it emits, and annotates the node with the difference from the published schema. `toJson` of each basic catalog computes its published document from the models; no copy of the document is kept in the package.
 

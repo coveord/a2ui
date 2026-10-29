@@ -30,6 +30,8 @@ const exclusiveGuards = new WeakSet<z.ZodTypeDef>();
  * accepts it, the semantics of a JSON Schema `oneOf`. A plain `z.union` has
  * the semantics of `anyOf`.
  *
+ * @deprecated For Zod 3 schemas only. With Zod 4, use `z.xor(branches)`,
+ *     which has these semantics and writes `oneOf`.
  * @param branches The union's branches, at least two.
  */
 export function exclusiveUnion(
