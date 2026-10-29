@@ -989,11 +989,9 @@ function createCatalogInvoker<F extends FunctionApi>(
       // `ValidationResult` a validation function returns; it is read by its
       // validity, as the specification defines the type.
       const documentSchema = functionSchemaOf(catalog, fn);
-      const zodArgs = zod3SchemaOf(fn.schema);
-      const args =
-        zodArgs && isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
-          ? coerceValidationResults(zodArgs, resolvedArgs)
-          : resolvedArgs;
+      const args = isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
+        ? coerceValidationResults(zod3SchemaOf(fn.schema) ?? documentSchema, resolvedArgs)
+        : resolvedArgs;
       const parsed = validateEntry(documentSchema, fn.schema, args);
       if (parsed.issues) {
         // Written as a Zod error's message was, the issues as indented JSON.

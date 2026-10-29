@@ -16,6 +16,16 @@
 
 import {z} from 'zod/v3';
 
+import {
+  arrayItems,
+  coreJsonSchema,
+  inspectionSchemaOf,
+  objectProperties,
+  refDefName,
+} from './a2ui_json_schema.js';
+import {zod3SchemaOf, type InspectableSchema} from './a2ui_schema.js';
+import type {JsonSchemaObject} from './spec_annotations.js';
+
 /**
  * Matches the `REF:` description a `DynamicBoolean` schema carries, whether
  * it was defined in code (`REF:#/$defs/DynamicBoolean|...`) or loaded from a
@@ -64,12 +74,15 @@ function innerSchema(schema: z.ZodTypeAny): z.ZodTypeAny | undefined {
 /**
  * Whether `schema` is the common `DynamicBoolean` type, possibly wrapped.
  *
- * The type is recognized by the `REF:` description every copy of it carries,
- * so a schema defined in code and one loaded from a catalog document are
- * treated alike.
+ * The type is recognized by the `REF:` description every copy of a Zod 3
+ * schema carries, and by the definition the JSON Schema view of any other
+ * schema refers to, so a schema defined in code and one loaded from a catalog
+ * document are treated alike.
  */
-export function isDynamicBooleanSchema(schema: z.ZodTypeAny): boolean {
-  let current: z.ZodTypeAny | undefined = schema;
+export function isDynamicBooleanSchema(schema: InspectableSchema): boolean {
+  const zod3 = zod3SchemaOf(schema);
+  if (!zod3) return isDynamicBooleanNode(inspectionSchemaOf(schema));
+  let current: z.ZodTypeAny | undefined = zod3;
   while (current) {
     if (typeof current.description === 'string' && DYNAMIC_BOOLEAN_REF.test(current.description)) {
       return true;
@@ -105,14 +118,21 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * truthy in JavaScript, so an uncoerced `{valid: false}` would read as true.
  *
  * Follows the schema through object properties, array items and wrappers
- * such as `optional()`. Returns `value` itself when nothing is coerced.
+ * such as `optional()`, reading the JSON Schema view (see
+ * `inspectionSchemaOf`) of a schema that is not a Zod 3 schema. Returns
+ * `value` itself when nothing is coerced.
  *
  * @param schema The schema of `value`, such as a function's argument schema.
  * @param value The resolved value to coerce.
  * @returns `value`, with every `ValidationResult` in a `DynamicBoolean`
  *   position replaced by its validity.
  */
-export function coerceValidationResults(schema: z.ZodTypeAny, value: unknown): unknown {
+export function coerceValidationResults(schema: InspectableSchema, value: unknown): unknown {
+  const zod3 = zod3SchemaOf(schema);
+  return zod3 ? coerceZod3(zod3, value) : coerceNode(inspectionSchemaOf(schema), value);
+}
+
+function coerceZod3(schema: z.ZodTypeAny, value: unknown): unknown {
   if (typeof value !== 'object' || value === null) {
     return value;
   }
@@ -125,7 +145,7 @@ export function coerceValidationResults(schema: z.ZodTypeAny, value: unknown): u
     const itemSchema = def.type;
     let changed = false;
     const items = value.map(item => {
-      const coerced = coerceValidationResults(itemSchema, item);
+      const coerced = coerceZod3(itemSchema, item);
       changed ||= coerced !== item;
       return coerced;
     });
@@ -137,7 +157,44 @@ export function coerceValidationResults(schema: z.ZodTypeAny, value: unknown): u
     const result: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(value)) {
       const propertySchema = shape[key];
-      const coerced = propertySchema ? coerceValidationResults(propertySchema, item) : item;
+      const coerced = propertySchema ? coerceZod3(propertySchema, item) : item;
+      changed ||= coerced !== item;
+      result[key] = coerced;
+    }
+    return changed ? result : value;
+  }
+  return value;
+}
+
+function isDynamicBooleanNode(node: JsonSchemaObject): boolean {
+  return refDefName(coreJsonSchema(node)) === 'DynamicBoolean';
+}
+
+function coerceNode(node: JsonSchemaObject, value: unknown): unknown {
+  if (typeof value !== 'object' || value === null) {
+    return value;
+  }
+  if (isDynamicBooleanNode(node)) {
+    return validityOf(value) ?? value;
+  }
+  const core = coreJsonSchema(node);
+  const items = arrayItems(core);
+  if (items && Array.isArray(value)) {
+    let changed = false;
+    const coercedItems = value.map(item => {
+      const coerced = coerceNode(items, item);
+      changed ||= coerced !== item;
+      return coerced;
+    });
+    return changed ? coercedItems : value;
+  }
+  const properties = objectProperties(core);
+  if (properties && isPlainObject(value)) {
+    let changed = false;
+    const result: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const propertySchema = properties[key];
+      const coerced = propertySchema ? coerceNode(propertySchema, item) : item;
       changed ||= coerced !== item;
       result[key] = coerced;
     }
