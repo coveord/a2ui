@@ -16,6 +16,7 @@
 
 import {z} from 'zod/v3';
 
+import {hasDefinitionView} from './a2ui_json_schema.js';
 import {
   validateA2uiSchema,
   zod3SchemaOf,
@@ -63,7 +64,7 @@ function reloadedEntries(catalog: CatalogInterface<ComponentApi, FunctionApi>): 
     entries = {
       components: new Map(parsed.components.map(byName)),
       functions: new Map(parsed.functions.map(byName)),
-      themeSchema: parsed.themeSchema,
+      themeSchema: parsed.themeSchema as z.ZodTypeAny | undefined,
     };
     reloaded.set(catalog, entries);
   }
@@ -83,7 +84,7 @@ const standalone = {
 function standaloneSchemaOf(
   entry: ComponentApi | FunctionApi,
   kind: 'component' | 'function',
-): z.ZodTypeAny {
+): A2uiValidator {
   return zodSchemaFor(entry.schema, kind);
 }
 
@@ -126,10 +127,12 @@ export function zodSchemaFor(
 }
 
 /**
- * Returns the Zod schema that the core binds and validates a component
- * against: the one derived from the component's definition in its catalog's
+ * Returns the schema that the core binds and validates a component against:
+ * the one compiled from the component's definition in its catalog's
  * document, so that a catalog defined in code behaves as the document it
- * publishes, whatever library wrote the component's schema.
+ * publishes, whatever library wrote the component's schema. The core reads it
+ * only as a Standard Schema validator, and inspects it through its
+ * definition (see `inspectionSchemaOf`).
  *
  * An entry `Catalog.fromJson` loaded already derives its schema from its
  * definition, and is returned as is. Without a catalog that writes a
@@ -142,18 +145,18 @@ export function zodSchemaFor(
 export function componentSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi> | undefined,
   component: ComponentApi,
-): z.ZodTypeAny {
-  if (loadedDefinition(component)) return component.schema as z.ZodTypeAny;
+): A2uiValidator {
+  if (loadedDefinition(component)) return component.schema as A2uiValidator;
   if (!readsThroughDocument(catalog, component)) return standaloneSchemaOf(component, 'component');
   return (
-    (reloadedEntries(catalog).components.get(component.name)?.schema as z.ZodTypeAny) ??
+    (reloadedEntries(catalog).components.get(component.name)?.schema as A2uiValidator) ??
     standaloneSchemaOf(component, 'component')
   );
 }
 
 /**
- * Returns the Zod schema that the core validates a function's arguments
- * against, derived from the function's definition in its catalog's document.
+ * Returns the schema that the core validates a function's arguments against,
+ * compiled from the function's definition in its catalog's document.
  * See {@link componentSchemaOf}.
  *
  * @param catalog The catalog the function resolves against.
@@ -162,18 +165,18 @@ export function componentSchemaOf(
 export function functionSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi> | undefined,
   fn: FunctionApi,
-): z.ZodTypeAny {
-  if (loadedDefinition(fn)) return fn.schema as z.ZodTypeAny;
+): A2uiValidator {
+  if (loadedDefinition(fn)) return fn.schema as A2uiValidator;
   if (!readsThroughDocument(catalog, fn)) return standaloneSchemaOf(fn, 'function');
   return (
-    (reloadedEntries(catalog).functions.get(fn.name)?.schema as z.ZodTypeAny) ??
+    (reloadedEntries(catalog).functions.get(fn.name)?.schema as A2uiValidator) ??
     standaloneSchemaOf(fn, 'function')
   );
 }
 
 /**
- * Returns the Zod schema that the core validates a catalog's theme against:
- * the catalog's own Zod 3 theme schema, or the one derived from the theme its
+ * Returns the schema that the core validates a catalog's theme against: the
+ * catalog's own Zod 3 theme schema, or the one compiled from the theme its
  * document writes, for a theme written with another library or as JSON
  * Schema.
  *
@@ -181,59 +184,43 @@ export function functionSchemaOf(
  */
 export function themeSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi>,
-): z.ZodTypeAny | undefined {
+): A2uiValidator | undefined {
   if (!catalog.themeSchema) return undefined;
+  // A theme the catalog loader compiled is already read through its definition.
+  if (hasDefinitionView(catalog.themeSchema)) return catalog.themeSchema as A2uiValidator;
   const zod3 = zod3SchemaOf(catalog.themeSchema);
   if (zod3) return zod3;
   return typeof catalog.toJson === 'function' ? reloadedEntries(catalog).themeSchema : undefined;
 }
 
-/** Reads a synchronous Standard Schema result as a Zod parse result. */
-function asParseResult(result: A2uiSchemaResult<unknown>): z.SafeParseReturnType<unknown, unknown> {
-  if (!result.issues) return {success: true, data: result.value};
-  return {
-    success: false,
-    error: new z.ZodError(
-      result.issues.map(issue => ({
-        code: z.ZodIssueCode.custom,
-        message: issue.message,
-        path: (issue.path ?? []).map(segment =>
-          typeof segment === 'object' && segment !== null && 'key' in segment
-            ? ((segment as {key: unknown}).key as string | number)
-            : (segment as string | number),
-        ),
-      })),
-    ),
-  };
-}
-
 /**
- * Parses `value` with the schema derived from an entry's document, then with
- * the entry's own schema, so that the checks only the entry's library
- * expresses, such as a `refine`, still run.
+ * Validates `value` with the schema compiled from an entry's document, then
+ * with the entry's own schema, so that the checks only the entry's library
+ * expresses, such as a `refine`, still run. Both are read as synchronous
+ * Standard Schema validators.
  *
- * A Zod 3 own schema parses `value` itself, a library schema validates it
- * through Standard Schema, and a JSON Schema object adds nothing to the
- * document's check.
+ * A Zod 3 or library own schema validates `value` itself, and a JSON Schema
+ * object adds nothing to the document's check.
  *
  * @param documentSchema The schema from `componentSchemaOf`,
  *   `functionSchemaOf` or `themeSchemaOf`.
  * @param ownSchema The entry's own schema.
- * @param value The value to parse.
- * @returns The first failure, or the own schema's result, whose data carries
- *   the defaults the entry's implementation is typed for.
- * @throws {A2uiCatalogError} If the own schema validates asynchronously.
+ * @param value The value to validate.
+ * @returns The first failure's issues, or the own schema's value, which
+ *   carries the defaults the entry's implementation is typed for.
+ * @throws {A2uiCatalogError} If either schema validates asynchronously.
  */
-export function safeParseEntry(
-  documentSchema: z.ZodTypeAny,
+export function validateEntry(
+  documentSchema: A2uiValidator,
   ownSchema: EntrySchema,
   value: unknown,
-): z.SafeParseReturnType<unknown, unknown> {
-  const zod3 = zod3SchemaOf(ownSchema);
-  if (documentSchema !== zod3) {
-    const result = documentSchema.safeParse(value);
-    if (!result.success || (!zod3 && !('~standard' in ownSchema))) return result;
+): A2uiSchemaResult<unknown> {
+  const own: A2uiValidator | undefined =
+    zod3SchemaOf(ownSchema) ??
+    ('~standard' in ownSchema ? (ownSchema as A2uiValidator) : undefined);
+  if (documentSchema !== own) {
+    const result = validateA2uiSchema(documentSchema, value);
+    if (result.issues || !own) return result;
   }
-  if (zod3) return zod3.safeParse(value);
-  return asParseResult(validateA2uiSchema(ownSchema as A2uiValidator, value));
+  return validateA2uiSchema(own!, value);
 }

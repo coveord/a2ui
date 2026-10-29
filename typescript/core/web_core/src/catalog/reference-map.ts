@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {a2uiJsonSchemaOf, coreJsonSchema} from './a2ui_json_schema.js';
+import {coreJsonSchema, inspectionSchemaOf} from './a2ui_json_schema.js';
 import {isA2uiSchema} from './a2ui_schema.js';
 import {componentSchemaOf} from './entry_schema.js';
 import type {Catalog, ComponentApi} from './types.js';
@@ -238,7 +238,7 @@ export function analyzeChildRefSchema(
   if (!schema || typeof schema !== 'object') {
     return {isChild: false, isChildList: false};
   }
-  const node = (isA2uiSchema(schema) ? a2uiJsonSchemaOf(schema) : schema) as Record<string, any>;
+  const node = (isA2uiSchema(schema) ? inspectionSchemaOf(schema) : schema) as Record<string, any>;
   const description = typeof node.description === 'string' ? [node.description] : [];
   return checkDescriptionChildRef(description, options) ?? checkJsonSchemaRef(node, options);
 }
@@ -366,7 +366,7 @@ function inspectComponentSchema(
   options: ChildRefAnalysisOptions,
 ): void {
   if (!schema || typeof schema !== 'object') return;
-  const node = isA2uiSchema(schema) ? coreJsonSchema(a2uiJsonSchemaOf(schema)) : schema;
+  const node = isA2uiSchema(schema) ? coreJsonSchema(inspectionSchemaOf(schema)) : schema;
   const rawProps = (node as {properties?: Record<string, unknown>}).properties;
   if (typeof rawProps === 'object' && rawProps !== null) {
     inspectRawProperties(rawProps, acc, options);

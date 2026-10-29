@@ -20,11 +20,13 @@ import {
   CHILD_LIST_DEF_NAMES,
   COMPONENT_ID_DEF_NAMES,
   coreJsonSchema,
+  hasDefinitionView,
+  inspectionSchemaOf,
   objectProperties,
   refDefName,
   unionBranches,
 } from '../catalog/a2ui_json_schema.js';
-import type {EntrySchema} from '../catalog/a2ui_schema.js';
+import type {EntrySchema, InspectableSchema} from '../catalog/a2ui_schema.js';
 import {componentSchemaOf, zodSchemaFor} from '../catalog/entry_schema.js';
 import type {JsonSchemaObject} from '../catalog/spec_annotations.js';
 import {ComponentContext} from './component-context.js';
@@ -74,16 +76,17 @@ export type BehaviorNode =
 const behaviorCache = new WeakMap<object, BehaviorNode>();
 
 /**
- * Returns the schema a binder reads with: the component's catalog-document
- * schema when the caller passed that component's authored schema, or the
- * caller's schema otherwise.
+ * Returns the schema a binder reads with: a schema compiled from a catalog
+ * definition as is, the component's catalog-document schema when the caller
+ * passed that component's authored schema, or the caller's schema otherwise.
  */
-function bindingSchemaOf(context: ComponentContext, schema: EntrySchema): EntrySchema {
+function bindingSchemaOf(context: ComponentContext, schema: InspectableSchema): InspectableSchema {
+  if (hasDefinitionView(schema)) return schema;
   const model = context.componentModel;
   const entry = model.catalog?.components.get(model.type);
   return entry && entry.schema === schema
     ? componentSchemaOf(model.catalog, entry)
-    : zodSchemaFor(schema);
+    : zodSchemaFor(schema as EntrySchema);
 }
 
 /**
@@ -95,12 +98,12 @@ function bindingSchemaOf(context: ComponentContext, schema: EntrySchema): EntryS
  * @param schema Schema to inspect.
  * @returns Root BehaviorNode describing schema properties.
  */
-export function scrapeSchemaBehavior(schema: EntrySchema): BehaviorNode {
+export function scrapeSchemaBehavior(schema: InspectableSchema): BehaviorNode {
   const cached = behaviorCache.get(schema);
   if (cached) {
     return cached;
   }
-  const behavior = getFieldBehavior(a2uiJsonSchemaOf(schema));
+  const behavior = getFieldBehavior(inspectionSchemaOf(schema));
   const result: BehaviorNode =
     behavior.type === 'OBJECT' && behavior.shape && !('accessibility' in behavior.shape)
       ? {
@@ -446,7 +449,7 @@ export class GenericBinder<T> {
    * @param context Component context providing state and event dispatching.
    * @param schema Schema defining the component properties.
    */
-  constructor(context: ComponentContext, schema: EntrySchema) {
+  constructor(context: ComponentContext, schema: InspectableSchema) {
     this.context = context;
     this.behaviorTree = scrapeSchemaBehavior(bindingSchemaOf(context, schema));
 

@@ -29,7 +29,13 @@
 import type {z} from 'zod/v3';
 import {parseDef, zodToJsonSchema, type OverrideCallback} from 'zod-to-json-schema';
 
-import {normalizeSchema, zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
+import {
+  normalizeSchema,
+  zod3SchemaOf,
+  type A2uiSchema,
+  type EntrySchema,
+  type InspectableSchema,
+} from './a2ui_schema.js';
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {
   getSpecAnnotationOfDef,
@@ -121,6 +127,53 @@ export function a2uiJsonSchemaOf(
   if (!view) {
     view = deepFreeze(convert(schema, options));
     cache.set(schema as object, view);
+  }
+  return view;
+}
+
+/**
+ * The inspection views of the schemas compiled from a catalog definition,
+ * computed from that definition on first use, by compiled schema.
+ */
+const definitionViews = new WeakMap<object, () => JsonSchemaObject>();
+const computedDefinitionViews = new WeakMap<object, JsonSchemaObject>();
+
+/**
+ * Records that `schema` was compiled from a catalog definition, and how to
+ * compute the view of that definition that `inspectionSchemaOf` returns for
+ * it.
+ *
+ * @param schema The compiled schema.
+ * @param computeView Computes the definition's view.
+ */
+export function setDefinitionView(schema: object, computeView: () => JsonSchemaObject): void {
+  definitionViews.set(schema, computeView);
+}
+
+/** Whether `schema` was compiled from a catalog definition web_core inspects it through. */
+export function hasDefinitionView(schema: object): boolean {
+  return definitionViews.has(schema);
+}
+
+/**
+ * Returns the JSON Schema view web_core inspects a schema through, to bind
+ * its properties and find its child references and known keys.
+ *
+ * A schema the catalog loader compiled from a definition is inspected
+ * through that definition, so what the binder sees does not depend on how the
+ * validator was built. Any other schema is inspected through its own JSON
+ * Schema view (see `a2uiJsonSchemaOf`).
+ *
+ * @param schema The schema to inspect.
+ * @returns The view, computed once and deeply frozen.
+ */
+export function inspectionSchemaOf(schema: InspectableSchema): JsonSchemaObject {
+  const computeView = definitionViews.get(schema as object);
+  if (!computeView) return a2uiJsonSchemaOf(schema as EntrySchema);
+  let view = computedDefinitionViews.get(schema as object);
+  if (!view) {
+    view = deepFreeze(computeView());
+    computedDefinitionViews.set(schema as object, view);
   }
   return view;
 }

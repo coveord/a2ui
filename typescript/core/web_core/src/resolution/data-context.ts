@@ -25,13 +25,13 @@ import {
   peekValue,
 } from '../reactivity/signals.js';
 import {
-  a2uiJsonSchemaOf,
   coreJsonSchema,
+  inspectionSchemaOf,
   isJsonObject,
   objectProperties,
   unionBranches,
 } from '../catalog/a2ui_json_schema.js';
-import type {EntrySchema} from '../catalog/a2ui_schema.js';
+import type {InspectableSchema} from '../catalog/a2ui_schema.js';
 import type {JsonSchemaObject} from '../catalog/spec_annotations.js';
 import {DataModel, DataSubscription} from '../state/data-model.js';
 import {type FunctionCall, type Action} from '../types/common-types.js';
@@ -82,11 +82,11 @@ function getSystemFunctionCatalog(): Catalog<any> {
  * @param schema Schema to inspect.
  * @returns Set of allowed property names, or `null` if arbitrary keys are permitted or undetermined.
  */
-export function getKnownSchemaKeys(schema: EntrySchema): Set<string> | null {
+export function getKnownSchemaKeys(schema: InspectableSchema): Set<string> | null {
   if (schemaKeysCache.has(schema)) {
     return schemaKeysCache.get(schema) as Set<string> | null;
   }
-  const result = knownKeysOf(a2uiJsonSchemaOf(schema));
+  const result = knownKeysOf(inspectionSchemaOf(schema));
   schemaKeysCache.set(schema, result);
   return result;
 }

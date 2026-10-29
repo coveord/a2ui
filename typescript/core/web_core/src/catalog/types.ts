@@ -28,7 +28,8 @@ import {
   type EntrySchema,
   type InferEntrySchema,
 } from './a2ui_schema.js';
-import {functionSchemaOf, safeParseEntry} from './entry_schema.js';
+import type {CatalogSchemaCompiler} from './catalog_definitions.js';
+import {functionSchemaOf, validateEntry} from './entry_schema.js';
 import {parseCatalogSchema} from './schema_loader.js';
 import type {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
@@ -871,7 +872,13 @@ export class Catalog<
    *   catalog. It becomes the catalog's `id`, and replaces the document's own
    *   `catalogId` in `toJson`; a document that declares none still has none
    *   in `toJson`.
-   * @returns A new Catalog populated with component and function schemas.
+   * @param options `schemaCompiler` compiles the entries' and theme's schemas
+   *   instead of the built-in Zod 3 compiler, so that the loaded catalog
+   *   validates with the compiler's validators. It applies to this catalog,
+   *   and to the copies `withPeerCatalogs` links to peers.
+   * @returns A new Catalog populated with component and function schemas,
+   *   typed as Zod schemas without a compiler, and as the schemas the
+   *   compiler's validators back with one.
    * @throws {Error} If the catalog ID is missing or not a string.
    * @throws {A2uiCatalogError} If a v1.0 catalog has a `$ref` to a document
    *   other than itself or `common_types.json`, such as another catalog. Such
@@ -881,20 +888,33 @@ export class Catalog<
     json: Record<string, any>,
     protocolVersion?: string,
     catalogId?: string,
-  ): Catalog<JsonComponentApi, JsonFunctionApi> {
+  ): Catalog<JsonComponentApi, JsonFunctionApi>;
+  static fromJson(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the document type of the overload above
+    json: Record<string, any>,
+    protocolVersion: string | undefined,
+    catalogId: string | undefined,
+    options: {readonly schemaCompiler: CatalogSchemaCompiler},
+  ): Catalog<JsonComponentApi<A2uiStandardSchema>, JsonFunctionApi<A2uiStandardSchema>>;
+  static fromJson(
+    json: Record<string, unknown>,
+    protocolVersion?: string,
+    catalogId?: string,
+    options?: {readonly schemaCompiler?: CatalogSchemaCompiler},
+  ): Catalog<JsonComponentApi<EntrySchema>, JsonFunctionApi<EntrySchema>> {
     const {
       id,
       protocolVersion: resolvedVersion,
       components,
       functions,
-      ...options
-    } = parseCatalogSchema(json, protocolVersion, catalogId);
+      ...catalogOptions
+    } = parseCatalogSchema(json, protocolVersion, catalogId, options?.schemaCompiler);
     return new Catalog(
       id,
       resolvedVersion,
-      components as JsonComponentApi[],
-      functions as JsonFunctionApi[],
-      options,
+      components as JsonComponentApi<EntrySchema>[],
+      functions as JsonFunctionApi<EntrySchema>[],
+      catalogOptions,
     );
   }
 
@@ -938,7 +958,7 @@ function isSchemaArgument(value: unknown): value is z.ZodTypeAny | A2uiStandardS
  * when called, so a linked copy can be given its invoker as it is assembled.
  *
  * Arguments are validated against the function's definition in the catalog's
- * document and against its own schema (see `safeParseEntry`), and the function
+ * document and against its own schema (see `validateEntry`), and the function
  * runs with them as its own schema parses them, so it receives the values,
  * such as defaults, its implementation is typed for.
  */
@@ -965,17 +985,26 @@ function createCatalogInvoker<F extends FunctionApi>(
     }
 
     const parseAndExecute = (resolvedArgs: unknown): unknown => {
-      try {
-        // From v1.0 a `DynamicBoolean` argument may resolve to the
-        // `ValidationResult` a validation function returns; it is read by its
-        // validity, as the specification defines the type.
-        const documentSchema = functionSchemaOf(catalog, fn);
-        const args = isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
-          ? coerceValidationResults(documentSchema, resolvedArgs)
+      // From v1.0 a `DynamicBoolean` argument may resolve to the
+      // `ValidationResult` a validation function returns; it is read by its
+      // validity, as the specification defines the type.
+      const documentSchema = functionSchemaOf(catalog, fn);
+      const zodArgs = zod3SchemaOf(fn.schema);
+      const args =
+        zodArgs && isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
+          ? coerceValidationResults(zodArgs, resolvedArgs)
           : resolvedArgs;
-        const parsed = safeParseEntry(documentSchema, fn.schema, args);
-        if (!parsed.success) throw parsed.error;
-        return execute.call(fn, parsed.data as Record<string, unknown>, ctx, abortSignal);
+      const parsed = validateEntry(documentSchema, fn.schema, args);
+      if (parsed.issues) {
+        // Written as a Zod error's message was, the issues as indented JSON.
+        throw new A2uiExpressionError(
+          `Validation failed for function '${name}': ${JSON.stringify(parsed.issues, null, 2)}`,
+          name,
+          parsed.issues,
+        );
+      }
+      try {
+        return execute.call(fn, parsed.value as Record<string, unknown>, ctx, abortSignal);
       } catch (e: any) {
         if (e?.name === 'ZodError' || e instanceof z.ZodError) {
           throw new A2uiExpressionError(

@@ -16,6 +16,7 @@
 
 import type {z} from 'zod/v3';
 
+import type {EntrySchema} from './a2ui_schema.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
 
 /**
@@ -71,20 +72,23 @@ function stringList(value: unknown): string[] | undefined {
  * A component that `Catalog.fromJson` loaded from a catalog document.
  *
  * Its model is its JSON Schema definition as the document writes it
- * (`jsonSchema`), deeply frozen. Every other field is a view of it: the Zod
- * `schema` is derived from it on first use and cached, and `allowedParents`
+ * (`jsonSchema`), deeply frozen. Every other field is a view of it: the
+ * `schema` is compiled from it on first use and cached, as a Zod schema unless
+ * the catalog was loaded with a `CatalogSchemaCompiler`, and `allowedParents`
  * and `allowedChildren` are read from it. `Catalog.toJson` writes the
  * definition, so a loaded catalog serializes as written.
  *
  * A copy made with object spread is an ordinary component defined in code: it
  * keeps the views' values but not the definition, and is serialized from its
  * `schema`.
+ *
+ * @template S The type of the compiled schema.
  */
-export class JsonComponentApi {
+export class JsonComponentApi<S extends EntrySchema = z.ZodTypeAny> {
   /** Name of the component as it appears in A2UI JSON. */
   readonly name: string;
-  /** Zod schema of the component's properties, derived from `jsonSchema`. */
-  declare readonly schema: z.ZodTypeAny;
+  /** Schema of the component's properties, compiled from `jsonSchema`. */
+  declare readonly schema: S;
   /** Allowed parent component types, as the definition declares them. */
   declare readonly allowedParents?: string[];
   /** Allowed child component types, as the definition declares them. */
@@ -93,12 +97,12 @@ export class JsonComponentApi {
   /**
    * @param name The component's name.
    * @param jsonSchema The component's definition, deeply frozen.
-   * @param deriveSchema Derives the component's Zod schema from its definition.
+   * @param deriveSchema Compiles the component's schema from its definition.
    */
   constructor(
     name: string,
     jsonSchema: JsonSchemaObject,
-    deriveSchema: (jsonSchema: JsonSchemaObject) => z.ZodTypeAny,
+    deriveSchema: (jsonSchema: JsonSchemaObject) => S,
   ) {
     this.name = name;
     definitions.set(this, jsonSchema);
@@ -122,19 +126,22 @@ export class JsonComponentApi {
  * Its model is its JSON Schema definition as the document writes it
  * (`jsonSchema`): an entry of a `functions` map (the schema of a call to the
  * function) or an item of a `functions` list (with its `name` and
- * `parameters`), deeply frozen. Every other field is a view of it: the Zod
- * `schema` of its arguments is derived from it on first use and cached, and
+ * `parameters`), deeply frozen. Every other field is a view of it: the
+ * `schema` of its arguments is compiled from it on first use and cached, as a
+ * Zod schema unless the catalog was loaded with a `CatalogSchemaCompiler`, and
  * `returnType`, `description`, `allowedCallers` and `requiresUserActivation`
  * are read from it.
  *
  * A copy made with object spread is an ordinary function defined in code: it
  * keeps the views' values but not the definition.
+ *
+ * @template S The type of the compiled schema.
  */
-export class JsonFunctionApi {
+export class JsonFunctionApi<S extends EntrySchema = z.ZodTypeAny> {
   /** Name of the function as it appears in A2UI JSON payloads. */
   readonly name: string;
-  /** Zod schema of the function's arguments, derived from `jsonSchema`. */
-  declare readonly schema: z.ZodTypeAny;
+  /** Schema of the function's arguments, compiled from `jsonSchema`. */
+  declare readonly schema: S;
   /** Return type identifier, as the definition declares it, or `'any'`. */
   declare readonly returnType: string;
   /** The definition's description. */
@@ -147,13 +154,13 @@ export class JsonFunctionApi {
   /**
    * @param name The function's name.
    * @param jsonSchema The function's definition, deeply frozen.
-   * @param deriveSchema Derives the Zod schema of the function's arguments
-   *     from its definition.
+   * @param deriveSchema Compiles the schema of the function's arguments from
+   *     its definition.
    */
   constructor(
     name: string,
     jsonSchema: JsonSchemaObject,
-    deriveSchema: (jsonSchema: JsonSchemaObject) => z.ZodTypeAny,
+    deriveSchema: (jsonSchema: JsonSchemaObject) => S,
   ) {
     this.name = name;
     definitions.set(this, jsonSchema);

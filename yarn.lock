@@ -574,6 +574,8 @@ __metadata:
     "@types/js-yaml": "npm:^4.0.9"
     "@types/jsdom": "npm:^28.0.3"
     "@types/node": "npm:^25.9.3"
+    ajv: "npm:^8.17.1"
+    ajv-formats: "npm:^3.0.1"
     c8: "npm:^11.0.0"
     eslint: "npm:^10.4.1"
     google-artifactregistry-auth: "npm:^3.5.0"
