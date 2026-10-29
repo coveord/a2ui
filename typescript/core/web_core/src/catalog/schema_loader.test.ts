@@ -18,7 +18,7 @@ import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {A2uiCatalogError} from '../errors.js';
 import {Catalog} from './types.js';
 import {analyzeChildRefSchema} from './reference-map.js';

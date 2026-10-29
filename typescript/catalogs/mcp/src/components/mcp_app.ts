@@ -21,7 +21,7 @@ import {
   type WebComponentImplementation,
 } from '@a2ui/web_core/v1_0';
 import type {CallToolResult} from '@modelcontextprotocol/sdk/types.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {getMcpCatalogConfig} from '../mcp_catalog_config.js';
 import {ComponentContextFrameHost} from '../shared/sandbox/component_context_frame_host.js';
 import type {

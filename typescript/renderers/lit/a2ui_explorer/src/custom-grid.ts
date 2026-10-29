@@ -16,7 +16,7 @@
 
 import {html, css, nothing} from 'lit';
 import {customElement} from 'lit/decorators.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {A2uiLitElement} from '@a2ui/lit/v0_9';
 import {ComponentApi, DynamicStringSchema, ChildListSchema} from '@a2ui/web_core/v0_9';
 import {WebComponentImplementation} from '@a2ui/web_core/v0_9/universal';

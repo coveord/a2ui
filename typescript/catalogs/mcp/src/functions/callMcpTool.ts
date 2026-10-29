@@ -129,7 +129,7 @@ import {
 import type {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {CallToolResultSchema} from '@modelcontextprotocol/sdk/types.js';
 import type {CallToolResult, ReadResourceResult} from '@modelcontextprotocol/sdk/types.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 import {isFunctionCall, isRecord, resolveDynamicRecord} from '../dynamic-values.js';
 import {DEFAULT_MESSAGE_VERSION, getMcpCatalogConfig} from '../mcp_catalog_config.js';

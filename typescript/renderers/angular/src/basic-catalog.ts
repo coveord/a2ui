@@ -54,7 +54,7 @@ import {
   A2uiDateTimeInput,
 } from '@a2ui/web_core/catalogs/basic/v1';
 import {FunctionImplementation} from '@a2ui/web_core/v1_0';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 /**
  * The set of default Angular universal implementations for each component in the v1.0 basic catalog.

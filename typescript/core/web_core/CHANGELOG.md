@@ -1,5 +1,6 @@
 ## Unreleased
 
+- **BREAKING CHANGE**: Depends on `zod@^4.6.7` and imports the Zod 3 API from its `zod/v3` entry point, instead of depending on `zod@^3.25.76`. Schemas passed to this package must come from the same `zod` copy: install `zod@^4.6.7` and write `import {z} from 'zod/v3'` where you wrote `import {z} from 'zod'`. The schemas and their behavior are unchanged.
 - **BREAKING CHANGE** (v0_9): A v0.9 catalog loaded with `Catalog.fromJson` resolves `common_types.json` accessibility attributes and checks to their v0.9 definitions, as the code basic catalog does. It now rejects `accessibility.live` and `accessibility.hidden`, which v1.0 added, and a check without a `message`. Remove those fields from v0.9 payloads, or move the surface to v1.0.
 - A property that a catalog loaded with `Catalog.fromJson` declares as an `allOf` narrowing one referenced type, such as `DateTimeInput.min` and `max` (a `DynamicString` with a conditional date format), loads as that type instead of accepting any value, so it binds to the data model. The conditional members are not enforced.
 - `GenericBinder` reads a `oneOf` loaded with `Catalog.fromJson` as it reads a `z.union`, so a property such as v1.0 `Icon.name` binds to the data model instead of being treated as static.

@@ -801,7 +801,7 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
   }
 
   let out = HEADER;
-  out += `import {z} from 'zod';
+  out += `import {z} from 'zod/v3';
 
 ${reproduce ? `import {${defsCode ? 'spec, specDef' : 'spec'}} from '${specImportPath}';\n` : ''}import {${reproduce ? 'CatalogDocumentOptions, ' : ''}ComponentApi} from '${typesImportPath}';
 import {
@@ -916,7 +916,7 @@ export function generateFunctionsFile(version, catalogJson, commonDefs, options 
   }
 
   let out = HEADER;
-  out += `import {z} from 'zod';\n`;
+  out += `import {z} from 'zod/v3';\n`;
   if (reproduce || usedImports.size > 0) {
     out += '\n';
   }

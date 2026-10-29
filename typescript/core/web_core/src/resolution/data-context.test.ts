@@ -17,7 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it, beforeEach} from 'node:test';
 import {signal, computed, peekValue, getValue, setValue, effect} from '../reactivity/signals.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {DataModel} from '../state/data-model.js';
 import {SurfaceModel} from '../state/surface-model.js';
 import {

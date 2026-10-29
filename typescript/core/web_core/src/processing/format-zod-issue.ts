@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod';
+import {z} from 'zod/v3';
 
 /**
  * Formats a single Zod issue into a human-readable diagnostic message.

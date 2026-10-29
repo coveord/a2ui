@@ -40,7 +40,7 @@ import {
   type Implementation,
   type LoggingMessageNotification,
 } from '@modelcontextprotocol/sdk/types.js';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {DataModelSync, type DataModelUpdate} from '../shared/sandbox/data_model_sync.js';
 import type {FrameHost} from '../shared/sandbox/frame_host.js';
 import {

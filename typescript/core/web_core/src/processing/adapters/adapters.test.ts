@@ -16,7 +16,7 @@
 
 import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
-import {z} from 'zod';
+import {z} from 'zod/v3';
 import {A2uiValidationError} from '../../errors.js';
 import {VersionAdapterFactory} from './factory.js';
 import {
