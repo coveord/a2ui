@@ -17,7 +17,10 @@
 import {z} from 'zod/v3';
 
 /**
- * Formats a single Zod issue into a human-readable diagnostic message.
+ * Formats a single Zod issue into a human-readable diagnostic message. It
+ * reads a Zod 3 issue or a Zod 4 one, which nests the issues of a union's
+ * branches under `errors`, with paths relative to the union, and does not
+ * report the type it received apart from its message.
  *
  * Direct attribute extraction is used so that issue details (such as unrecognized
  * property keys or invalid enum options) are preserved even when running in
@@ -32,7 +35,10 @@ export function formatZodIssue(err: z.ZodIssue): string {
 
   switch (err.code) {
     case z.ZodIssueCode.invalid_union: {
-      const unionIssues = (err as z.ZodInvalidUnionIssue).unionErrors?.flatMap(uErr => uErr.issues);
+      const zod4Errors = (err as {errors?: z.ZodIssue[][]}).errors;
+      const unionIssues =
+        (err as z.ZodInvalidUnionIssue).unionErrors?.flatMap(uErr => uErr.issues) ??
+        zod4Errors?.flat().map(issue => ({...issue, path: [...err.path, ...issue.path]}));
       if (unionIssues && unionIssues.length > 0) {
         return unionIssues.map(formatZodIssue).join('; ');
       }
@@ -52,6 +58,7 @@ export function formatZodIssue(err: z.ZodIssue): string {
 
     case z.ZodIssueCode.invalid_type: {
       const issue = err as z.ZodInvalidTypeIssue;
+      if (issue.received === undefined) return `${path}: ${err.message}`;
       return `${path}: Expected ${issue.expected}, received ${issue.received}`;
     }
 

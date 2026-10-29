@@ -22,10 +22,10 @@ import {z} from 'zod/v3';
 import {normalizeSchema} from '../catalog/a2ui_schema.js';
 import {componentSchemaOf} from '../catalog/entry_schema.js';
 import {Catalog} from '../catalog/types.js';
-import {basicCatalog as v10BasicCatalog} from '../catalogs/basic/v1/catalog.js';
 import {A2uiCatalogError} from '../errors.js';
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
 import {ComponentIdSchema, DynamicStringSchema} from '../types/common-types.js';
+import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {fromZod3} from './index.js';
 
@@ -94,7 +94,9 @@ describe('fromZod3', () => {
       ...entry,
       schema: fromZod3(entry.schema as never),
     });
-    const source = v10BasicCatalog;
+    // The v0.9 basic catalog is written with Zod 3 and spec(), catalog
+    // mixins included.
+    const source = v09BasicCatalog;
     const wrapped = new Catalog(
       source.id,
       source.protocolVersion,

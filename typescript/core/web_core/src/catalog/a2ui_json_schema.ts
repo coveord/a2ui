@@ -39,6 +39,7 @@ import {
 import {exclusiveUnionOverride} from './exclusive_union.js';
 import {
   getSpecAnnotationOfDef,
+  SPEC_KEYWORD,
   type JsonSchemaObject,
   type SpecAnnotation,
 } from './spec_annotations.js';
@@ -122,6 +123,15 @@ export function a2uiJsonSchemaOf(
   schema: EntrySchema,
   options: A2uiJsonSchemaOptions = {},
 ): JsonSchemaObject {
+  const computeJson = definitionJsons.get(schema as object);
+  if (computeJson) {
+    let json = computedDefinitionJsons.get(schema as object);
+    if (!json) {
+      json = deepFreeze(computeJson());
+      computedDefinitionJsons.set(schema as object, json);
+    }
+    return json;
+  }
   const cache = options.expandReferences ? expandedReferenceViews : views;
   let view = cache.get(schema as object);
   if (!view) {
@@ -139,15 +149,29 @@ const definitionViews = new WeakMap<object, () => JsonSchemaObject>();
 const computedDefinitionViews = new WeakMap<object, JsonSchemaObject>();
 
 /**
+ * The JSON Schema views of the schemas compiled from a catalog definition,
+ * computed from that definition on first use, by compiled schema.
+ */
+const definitionJsons = new WeakMap<object, () => JsonSchemaObject>();
+const computedDefinitionJsons = new WeakMap<object, JsonSchemaObject>();
+
+/**
  * Records that `schema` was compiled from a catalog definition, and how to
- * compute the view of that definition that `inspectionSchemaOf` returns for
- * it.
+ * compute the views of that definition: the one `inspectionSchemaOf` returns
+ * for it, and its JSON Schema view, which `a2uiJsonSchemaOf` returns for it
+ * instead of converting the compiled schema.
  *
  * @param schema The compiled schema.
- * @param computeView Computes the definition's view.
+ * @param computeView Computes the definition's inspection view.
+ * @param computeJson Computes the definition's JSON Schema view.
  */
-export function setDefinitionView(schema: object, computeView: () => JsonSchemaObject): void {
+export function setDefinitionView(
+  schema: object,
+  computeView: () => JsonSchemaObject,
+  computeJson?: () => JsonSchemaObject,
+): void {
   definitionViews.set(schema, computeView);
+  if (computeJson) definitionJsons.set(schema, computeJson);
 }
 
 /** Whether `schema` was compiled from a catalog definition web_core inspects it through. */
@@ -192,7 +216,51 @@ function convert(schema: EntrySchema, options: A2uiJsonSchemaOptions): Record<st
   // A schema implementing Standard JSON Schema, or a JSON Schema object, is
   // read through `normalizeSchema`, which throws for a Standard Schema that
   // implements no JSON Schema conversion.
-  return {...(normalizeSchema(schema as A2uiSchema) as Record<string, unknown>)};
+  return liftSpecKeywords(normalizeSchema(schema as A2uiSchema), options) as Record<
+    string,
+    unknown
+  >;
+}
+
+/** The largest and smallest integers some libraries write as an integer's bounds. */
+const SAFE_INTEGER_BOUNDS: Readonly<Record<string, number>> = {
+  minimum: Number.MIN_SAFE_INTEGER,
+  maximum: Number.MAX_SAFE_INTEGER,
+};
+
+/**
+ * Returns a copy of the JSON Schema of a schema written without Zod 3, with
+ * the annotation each node carries under `SPEC_KEYWORD` read out of it: the
+ * keyword is removed and the keywords the annotation adds are written, as for
+ * a Zod 3 `spec()` annotation. A spec view also holds the annotation under
+ * `SPEC_ANNOTATION`, writes an object that accepts any unknown key as
+ * `additionalProperties: true`, and leaves out the safe-integer bounds a
+ * library writes for an integer it does not bound.
+ */
+function liftSpecKeywords(value: unknown, options: A2uiJsonSchemaOptions): unknown {
+  if (Array.isArray(value)) return value.map(item => liftSpecKeywords(item, options));
+  if (!isJsonObject(value)) return value;
+  const result: Record<string | symbol, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (key !== SPEC_KEYWORD) result[key] = liftSpecKeywords(child, options);
+  }
+  const annotation = value[SPEC_KEYWORD] as SpecAnnotation | undefined;
+  if (isJsonObject(annotation) && isJsonObject(annotation.keywords)) {
+    Object.assign(result, structuredClone(annotation.keywords));
+  }
+  if (options.forSpec) {
+    if (isJsonObject(annotation)) result[SPEC_ANNOTATION] = annotation;
+    const additional = result['additionalProperties'];
+    if (isJsonObject(additional) && Object.keys(additional).length === 0) {
+      result['additionalProperties'] = true;
+    }
+    if (result['type'] === 'integer') {
+      for (const [bound, limit] of Object.entries(SAFE_INTEGER_BOUNDS)) {
+        if (result[bound] === limit) delete result[bound];
+      }
+    }
+  }
+  return result;
 }
 
 /**

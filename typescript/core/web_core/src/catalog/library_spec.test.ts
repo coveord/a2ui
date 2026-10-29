@@ -1,0 +1,196 @@
+/*
+ * Copyright 2026 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import * as assert from 'node:assert';
+import {readFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {describe, it} from 'node:test';
+
+import {z} from 'zod/v4';
+
+import {basicCatalog} from '../catalogs/basic/v1/catalog.js';
+import {getKnownSchemaKeys} from '../resolution/data-context.js';
+import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
+import {extractRefFields} from '../resolution/ref-fields.js';
+import {STRICT_VALIDATION} from '../validation/integrity-checker.js';
+import {PayloadValidator} from '../validation/payload-validator.js';
+import {a2uiJsonSchemaOf, specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
+import {componentSchemaOf} from './entry_schema.js';
+import {SPEC_KEYWORD, specMeta} from './spec_annotations.js';
+import {Catalog, type ComponentApi} from './types.js';
+
+// v1.0 common types written with Zod 4. Each names its definition with a
+// `$ref`, which Zod 4 writes into its JSON Schema, as a Zod 3 common type
+// does with a `REF:` description.
+const DataBinding = z
+  .object({'@path': z.string().optional(), 'path': z.string().optional()})
+  .meta({$ref: '#/$defs/DataBinding'});
+const FunctionCall = z
+  .looseObject({'@call': z.string().optional(), 'call': z.string().optional()})
+  .meta({$ref: '#/$defs/FunctionCall'});
+const DynamicString = z
+  .union([z.string(), DataBinding, FunctionCall])
+  .meta({$ref: '#/$defs/DynamicString'});
+const ComponentId = z.string().meta({$ref: '#/$defs/ComponentId'});
+const CheckRule = z
+  .object({condition: z.union([z.boolean(), DataBinding, FunctionCall]), message: z.string()})
+  .meta({$ref: '#/$defs/CheckRule'});
+const ChildList = z
+  .union([z.array(ComponentId), z.strictObject({componentId: ComponentId, path: z.string()})])
+  .meta({$ref: '#/$defs/ChildList'});
+
+// A leaf definition of the catalog itself, which its components carry.
+const Weight = z
+  .number()
+  .describe(
+    "The relative weight of this component within a Row or Column. This is similar to the CSS 'flex-grow' property. Note: this may ONLY be set when the component is a direct descendant of a Row or Column.",
+  )
+  .meta(specMeta({defName: 'Weight'}));
+
+// Three v1.0 basic components written with Zod 4, as the generated Zod 3
+// ones are.
+const TextApi: ComponentApi = {
+  name: 'Text',
+  schema: z
+    .strictObject({
+      text: DynamicString.describe(
+        'The text content to display. While simple Markdown formatting is supported (i.e. without HTML, images, or links), utilizing dedicated UI components is generally preferred for a richer and more structured presentation.',
+      ),
+      variant: z
+        .enum(['caption', 'body'])
+        .default('body')
+        .describe('A hint for the base text style.')
+        .optional(),
+      weight: Weight.optional(),
+    })
+    .meta(specMeta({mixins: [], defs: [Weight]})),
+};
+
+const ColumnApi: ComponentApi = {
+  name: 'Column',
+  schema: z
+    .strictObject({
+      children: ChildList.describe(
+        'Defines the children. Use an array of strings for a fixed set of children, or a template object to generate children from a data list. Children cannot be defined inline, they must be referred to by ID.',
+      ),
+      justify: z
+        .enum(['start', 'center', 'end', 'spaceBetween', 'spaceAround', 'spaceEvenly', 'stretch'])
+        .default('start')
+        .describe(
+          "Defines the arrangement of children along the main axis (vertically). Use 'spaceBetween' to push items to the edges (e.g. header at top, footer at bottom), or 'start'/'end'/'center' to pack them together.",
+        )
+        .optional(),
+      align: z
+        .enum(['center', 'end', 'start', 'stretch'])
+        .default('stretch')
+        .describe(
+          "Defines the alignment of children along the cross axis (horizontally). This is similar to the CSS 'align-items' property.",
+        )
+        .optional(),
+      weight: Weight.optional(),
+    })
+    .describe(
+      'A layout component that arranges its children vertically. To create a grid layout, nest Rows within this Column.',
+    )
+    .meta(specMeta({mixins: [], defs: [Weight]})),
+};
+
+const TextFieldApi: ComponentApi = {
+  name: 'TextField',
+  schema: z
+    .strictObject({
+      // Declared here too, as the generated Zod 3 component does; the
+      // document writes it through the Checkable mixin instead.
+      checks: z
+        .array(CheckRule)
+        .describe('A list of validation check rules to perform on the component.')
+        .optional(),
+      label: DynamicString.describe('The text label for the input field.'),
+      value: DynamicString.describe('The value of the text field.').optional(),
+      placeholder: DynamicString.describe('The placeholder text for the input field.').optional(),
+      variant: z
+        .enum(['longText', 'number', 'shortText', 'obscured'])
+        .default('shortText')
+        .describe('The type of input field to display.')
+        .optional(),
+      weight: Weight.optional(),
+    })
+    .meta(specMeta({mixins: ['Checkable'], defs: [Weight]})),
+};
+
+const zod4Catalog = new Catalog('urn:zod4-basic', '1.0', [TextApi, ColumnApi, TextFieldApi], [], {
+  commonTypesUri: 'common_types.json',
+});
+
+const published = JSON.parse(
+  readFileSync(resolve(process.cwd(), '../../../catalogs/basic/v1/catalog.json'), 'utf-8'),
+) as {components: Record<string, unknown>};
+
+describe('catalog entries annotated with specMeta', () => {
+  it('write the definitions of the published catalog', () => {
+    const components = zod4Catalog.toJson()['components'] as Record<string, unknown>;
+    for (const name of ['Text', 'Column', 'TextField']) {
+      assert.deepStrictEqual(components[name], published.components[name], name);
+    }
+  });
+
+  it('bind and find child references as the Zod 3 catalog does', () => {
+    for (const api of [TextApi, ColumnApi, TextFieldApi]) {
+      const zod4 = componentSchemaOf(zod4Catalog, api);
+      const zod3 = componentSchemaOf(basicCatalog, basicCatalog.components.get(api.name)!);
+      for (const view of [scrapeSchemaBehavior, extractRefFields, getKnownSchemaKeys]) {
+        assert.deepStrictEqual(view(zod4), view(zod3), `${api.name} ${view.name}`);
+      }
+    }
+  });
+
+  it('validate with the document and with the Zod 4 schema', () => {
+    const validator = new PayloadValidator(zod4Catalog, STRICT_VALIDATION);
+    validator.validateComponent({id: 't', component: 'Text', text: {path: '/greeting'}});
+    validator.validateComponent({
+      id: 'f',
+      component: 'TextField',
+      label: 'Name',
+      checks: [{condition: true, message: 'Required.'}],
+    });
+    assert.throws(
+      () => validator.validateComponent({id: 't', component: 'Text', text: 'x', size: 1}),
+      /Validation failed for component 'Text'/,
+    );
+  });
+});
+
+describe('the JSON Schema of a schema annotated with specMeta', () => {
+  const schema = z
+    .object({a: z.string()})
+    .meta(specMeta({mixins: ['Checkable'], keywords: {minProperties: 1}}));
+
+  it('carries the annotation in its spec view, and writes its keywords', () => {
+    const view = specJsonSchemaOf(schema);
+    assert.deepStrictEqual(specAnnotationOf(view), {
+      mixins: ['Checkable'],
+      keywords: {minProperties: 1},
+    });
+    assert.strictEqual(view['minProperties'], 1);
+    assert.ok(!(SPEC_KEYWORD in view));
+  });
+
+  it('leaves the annotation out of the JSON Schema view, and writes its keywords', () => {
+    const view = a2uiJsonSchemaOf(schema);
+    assert.ok(!(SPEC_KEYWORD in view));
+    assert.strictEqual(view['minProperties'], 1);
+  });
+});

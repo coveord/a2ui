@@ -252,7 +252,7 @@ describe('Catalog.fromJson with a schema compiler', () => {
   });
 
   it('loads Zod schemas without a compiler, as before', () => {
-    const catalog = Catalog.fromJson(json);
-    assert.ok(zod3SchemaOf(catalog.components.get('Text')!.schema));
+    const text = Catalog.fromJson(json).components.get('Text')!.schema;
+    assert.strictEqual(text['~standard'].vendor, 'zod');
   });
 });

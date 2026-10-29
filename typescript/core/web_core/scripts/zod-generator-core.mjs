@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-import {readdirSync, writeFileSync} from 'node:fs';
-import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {mkdirSync, readdirSync, writeFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {dirname, join} from 'node:path';
 import {jsonSchemaToZod} from 'json-schema-to-zod';
 
 /**
@@ -73,6 +75,58 @@ export function transformZodSyntax(code) {
  * @param {Set<string>} deps Set of accumulated dependencies.
  * @returns {Set<string>} The dependency set.
  */
+/**
+ * Rewrites generated Zod 3 common types as Zod 4 code for catalogs: it
+ * imports `zod/v4`, and a schema names its definition in its metadata
+ * (`.meta({$ref})`) instead of with a `REF:` description marker, which also
+ * makes the child reference marks of `markChildRef` unnecessary. `Child`
+ * names its own definition rather than reusing `ComponentId`'s.
+ *
+ * @param {string} code Generated Zod 3 code.
+ * @returns {string} The Zod 4 code.
+ */
+export function toZod4Code(code) {
+  let clean = code.replace("import {z} from 'zod/v3';", "import {z} from 'zod/v4';");
+  clean = clean.replace(/import \{markChildRef\} from '[^']+';\n/, '');
+  clean = clean.replace(
+    /markChildRef\(\n\s*([\s\S]*?),\n\s*'(?:component-id|child-list)',\n\)/g,
+    '$1',
+  );
+  clean = clean.replace(
+    /\.describe\(\s*(['"])REF:([^'"#|]*#\/\$defs\/[A-Za-z0-9_]+)(?:\|((?:\\.|(?!\1)[^\\])*))?\1,?\s*\)/g,
+    (_match, quote, ref, description) =>
+      description === undefined
+        ? `.meta({$ref: '${ref}'})`
+        : `.meta({$ref: '${ref}', description: ${quote}${description}${quote}})`,
+  );
+  clean = clean.replace(
+    'export const ChildSchema = ComponentIdSchema;',
+    "export const ChildSchema = ComponentIdSchema.meta({$ref: '#/$defs/Child'});",
+  );
+  clean = clean.replace(/z\.ZodIssueCode\.custom/g, "'custom'");
+  // Doc comments repeat the markers: keep only their descriptions.
+  clean = clean.replace(/^\/\*\* REF:[^|*]*\*\/\n/gm, '');
+  clean = clean.replace(/^\/\*\* REF:[^|*]*\|/gm, '/** ');
+  return clean;
+}
+
+/**
+ * Writes generated Zod 4 code to `path`, formatted with Prettier to a fixed
+ * point: Prettier formats the method chains `toZod4Code` rewrites in two
+ * passes, and the build's single pass then leaves the file unchanged.
+ *
+ * @param {string} path The file to write.
+ * @param {string} code The code.
+ */
+export function writeFormattedZod4(path, code) {
+  mkdirSync(dirname(path), {recursive: true});
+  writeFileSync(path, code);
+  const prettier = createRequire(import.meta.url).resolve('prettier/bin/prettier.cjs');
+  for (let pass = 0; pass < 2; pass++) {
+    execFileSync(process.execPath, [prettier, '--write', '--log-level', 'warn', path]);
+  }
+}
+
 export function getDependencies(node, deps = new Set(), parentDefName) {
   if (!node || typeof node !== 'object') return deps;
   if (Array.isArray(node)) {

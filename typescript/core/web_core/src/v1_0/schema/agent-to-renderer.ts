@@ -16,14 +16,14 @@
 
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated from specification/v1.0/json/ via src/v1_0/scripts/generate-schemas.mjs
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   CallIdSchema,
   ExtensionsSchema,
   FunctionCallSchema,
   FunctionResponseSchema,
-} from './common-types.js';
-import {ComponentsListSchema} from './helpers.js';
+} from '../zod4/common-types.js';
+import {ComponentsListSchema} from '../zod4/helpers.js';
 
 export const CreateSurfaceMessageSchema = z
   .object({

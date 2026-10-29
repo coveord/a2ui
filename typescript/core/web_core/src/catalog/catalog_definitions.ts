@@ -739,3 +739,85 @@ export function compiledEntrySchema(
     }),
   });
 }
+
+/**
+ * Returns a copy of `value` as the JSON Schema view of a compiled schema
+ * writes it: a reference to a common type, wherever its definition is
+ * written, is a reference into `common_types.json`, and any other reference
+ * into `document` is replaced by its target, the reference's own keywords
+ * winning. A reference back into a target already being replaced is kept.
+ */
+function definitionJson(
+  value: unknown,
+  document: Readonly<Record<string, unknown>>,
+  isCommonTypeName: (name: string) => boolean,
+  visited: ReadonlySet<string>,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map(item => definitionJson(item, document, isCommonTypeName, visited));
+  }
+  if (!isRecord(value)) return value;
+  const copy: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (key !== '$ref') copy[key] = definitionJson(child, document, isCommonTypeName, visited);
+  }
+  const ref = value['$ref'];
+  if (typeof ref !== 'string') return copy;
+  const name = definitionNameOf(ref);
+  if (name !== undefined && isCommonTypeName(name)) {
+    return {$ref: `common_types.json#/$defs/${name}`, ...copy};
+  }
+  const target = new RefScope().resolve(ref, document);
+  const resolved = target ? resolveJsonPointer(document, target.pointer) : undefined;
+  if (!target || !resolved || visited.has(target.key)) return {$ref: ref, ...copy};
+  const inlined = definitionJson(
+    resolved,
+    document,
+    isCommonTypeName,
+    new Set(visited).add(target.key),
+  );
+  return {...(inlined as Record<string, unknown>), ...copy};
+}
+
+/**
+ * Returns the JSON Schema view of a schema compiled from a resolved object
+ * definition: the object's properties as its definition writes them, its
+ * pieces merged in order without its omitted properties, with the names it
+ * requires, and closed unless open. Common types are references into
+ * `common_types.json`, and the catalog's own definitions are inlined.
+ *
+ * @param model The resolved object definition.
+ * @param commonTypes The JSON Schema definitions of the protocol's common types.
+ * @param isCommonTypeName Whether a definition name stands for a common type.
+ */
+export function objectDefinitionJson(
+  model: ResolvedObjectDefinition,
+  commonTypes: Readonly<Record<string, unknown>>,
+  isCommonTypeName: (name: string) => boolean,
+): JsonSchemaObject {
+  const commonTypesDocument = {$defs: commonTypes};
+  const properties: Record<string, unknown> = {};
+  for (const piece of model.pieces) {
+    const [source, document] =
+      piece.kind === 'commonType'
+        ? [commonTypes[piece.name], commonTypesDocument]
+        : [{properties: piece.properties}, model.document];
+    const declared = isRecord(source) ? source['properties'] : undefined;
+    if (!isRecord(declared)) continue;
+    const names =
+      piece.kind === 'commonType'
+        ? (piece.properties ?? Object.keys(declared))
+        : Object.keys(declared);
+    for (const name of names) {
+      if (model.omittedProperties.has(name) || declared[name] === undefined) continue;
+      properties[name] = definitionJson(declared[name], document, isCommonTypeName, new Set());
+    }
+  }
+  const required = [...model.required].filter(name => name in properties);
+  return {
+    type: 'object',
+    properties,
+    ...(required.length > 0 ? {required} : {}),
+    additionalProperties: model.open,
+  };
+}

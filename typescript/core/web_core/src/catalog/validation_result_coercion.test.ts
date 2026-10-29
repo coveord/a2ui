@@ -77,7 +77,7 @@ describe('isDynamicBooleanSchema', () => {
         },
       },
     });
-    const schema = catalog.functions.get('flag')!.schema as z.ZodObject<z.ZodRawShape>;
+    const schema = catalog.functions.get('flag')!.schema as unknown as z.ZodObject<z.ZodRawShape>;
     assert.ok(isDynamicBooleanSchema(schema.shape['on']));
   });
 

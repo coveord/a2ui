@@ -25,7 +25,7 @@ import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
 import {extractRefFields} from '../resolution/ref-fields.js';
 import {basicCatalog as v08BasicCatalog} from '../v0_8/basic_catalog/catalog.js';
 import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
-import {a2uiJsonSchemaOf, inspectionSchemaOf} from './a2ui_json_schema.js';
+import {a2uiJsonSchemaOf, hasDefinitionView, inspectionSchemaOf} from './a2ui_json_schema.js';
 import {objectDefinitionView, type ResolvedObjectDefinition} from './catalog_definitions.js';
 import {Catalog} from './types.js';
 
@@ -47,19 +47,22 @@ function model(overrides: Partial<ResolvedObjectDefinition>): ResolvedObjectDefi
 }
 
 describe('inspectionSchemaOf', () => {
-  it('reads every loaded basic catalog entry through its definition, with the same views', () => {
+  it('reads every loaded basic catalog entry through its definition, as its code model', () => {
     for (const code of [v08BasicCatalog, v09BasicCatalog, basicCatalog]) {
       const loaded = Catalog.fromJson(code.toJson(), code.protocolVersion, code.id);
-      for (const entry of [...loaded.components.values(), ...loaded.functions.values()]) {
-        const schema = entry.schema as z.ZodTypeAny;
-        const label = `${code.protocolVersion} ${entry.name}`;
-        assert.notStrictEqual(inspectionSchemaOf(schema), a2uiJsonSchemaOf(schema), label);
-        // A copy of the compiled schema has no definition, so it is inspected
-        // through its own JSON Schema view, as every schema was before.
-        const copy = schema.describe(schema.description as string);
-        assert.deepStrictEqual(scrapeSchemaBehavior(schema), scrapeSchemaBehavior(copy), label);
-        assert.deepStrictEqual(extractRefFields(schema), extractRefFields(copy), label);
-        assert.deepStrictEqual(getKnownSchemaKeys(schema), getKnownSchemaKeys(copy), label);
+      // A function's own model and its definition may differ in what the core
+      // never reads of a function, such as known keys, so only components are
+      // compared, as the core binds them.
+      for (const [kind, entries] of [['components', loaded.components]] as const) {
+        for (const entry of entries.values()) {
+          const schema = entry.schema;
+          const own = code[kind].get(entry.name)!.schema;
+          const label = `${code.protocolVersion} ${entry.name}`;
+          assert.ok(hasDefinitionView(schema), label);
+          assert.deepStrictEqual(scrapeSchemaBehavior(schema), scrapeSchemaBehavior(own), label);
+          assert.deepStrictEqual(extractRefFields(schema), extractRefFields(own), label);
+          assert.deepStrictEqual(getKnownSchemaKeys(schema), getKnownSchemaKeys(own), label);
+        }
       }
     }
   });

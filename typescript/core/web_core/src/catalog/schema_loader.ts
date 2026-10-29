@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {isAtLeastVersion} from '../common/semver.js';
 import {assertUax31Identifier} from '../common/uax31.js';
 import {A2uiCatalogError} from '../errors.js';
-import {CommonSchemas} from '../types/common-types.js';
-import {CommonSchemas as V09CommonSchemas} from '../v0_9/schema/common-types.js';
+import {CommonSchemas} from '../types/zod4/common-types.js';
+import {CommonSchemas as V09CommonSchemas} from '../v0_9/zod4/common-types.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
 import {setDefinitionView} from './a2ui_json_schema.js';
@@ -29,6 +29,7 @@ import {
   compiledEntrySchema,
   isShorthandParameterMap,
   narrowedReference,
+  objectDefinitionJson,
   objectDefinitionView,
   objectValidationSchema,
   resolveComponentDefinition,
@@ -39,7 +40,6 @@ import {
   type ResolvedObjectDefinition,
 } from './catalog_definitions.js';
 import {RefScope, resolveJsonPointer} from './catalog_references.js';
-import {exclusiveUnion} from './exclusive_union.js';
 import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import {
   buildComponentUnion,
@@ -298,6 +298,24 @@ function convertRefToZod(
 }
 
 /**
+ * Returns a union that accepts a value exactly one of `branches` accepts, as
+ * a JSON Schema `oneOf` does.
+ */
+function exclusiveUnion(
+  branches: readonly [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]],
+): z.ZodTypeAny {
+  return z.union(branches).superRefine((value, ctx) => {
+    let matches = 0;
+    for (const branch of branches) {
+      if (branch.safeParse(value).success && ++matches > 1) {
+        ctx.addIssue({code: 'custom', message: 'Value matched more than one schema in oneOf'});
+        return;
+      }
+    }
+  });
+}
+
+/**
  * Converts `oneOf` or `anyOf` JSON Schema unions into a Zod schema.
  *
  * Enforces mutual exclusivity for `oneOf` unions by verifying that valid values
@@ -489,7 +507,9 @@ function convertPropertyToZod(
     }
     if (propSchema.uniqueItems === true) {
       arr = arr.refine(
-        (items: unknown[]) => new Set(items.map(canonicalJsonStringify)).size === items.length,
+        items =>
+          new Set((items as unknown[]).map(canonicalJsonStringify)).size ===
+          (items as unknown[]).length,
         {message: 'Array items must be unique'},
       );
     }
@@ -563,7 +583,7 @@ function convertPropertyToZod(
           propSchema.additionalProperties === false || propSchema.unevaluatedProperties === false;
         obj = forbidExtra ? baseObj.strict() : baseObj.passthrough();
       } else {
-        obj = z.record(z.unknown());
+        obj = z.record(z.string(), z.unknown());
       }
       return finalizePropertyZod(obj, propSchema, rootDoc, visitedPointers, defCache);
     }
@@ -642,7 +662,7 @@ function buildObjectZod(
     if (piece.kind === 'commonType') {
       const mirror = defCache.commonTypes[piece.name];
       if (!(mirror instanceof z.ZodObject)) continue;
-      const mirrorShape = (mirror as z.AnyZodObject).shape as Record<string, z.ZodTypeAny>;
+      const mirrorShape = (mirror as z.ZodObject).shape as Record<string, z.ZodTypeAny>;
       for (const propName of piece.properties ?? Object.keys(mirrorShape)) {
         if (model.omittedProperties.has(propName) || !mirrorShape[propName]) continue;
         shape[propName] = mirrorShape[propName];
@@ -663,19 +683,20 @@ function buildObjectZod(
   }
   const obj = z.object(shape);
   const zod = model.open ? obj.passthrough() : obj.strict();
-  // The binder inspects the definition this object was built from rather
-  // than the Zod object itself.
-  setDefinitionView(zod, () =>
-    objectDefinitionView(model, defCache.commonTypeDefinitions, name =>
-      Object.hasOwn(defCache.commonTypes, name),
-    ),
+  // The binder inspects, and the JSON Schema view writes, the definition this
+  // object was built from rather than the Zod object itself.
+  const isCommonTypeName = (name: string) => Object.hasOwn(defCache.commonTypes, name);
+  setDefinitionView(
+    zod,
+    () => objectDefinitionView(model, defCache.commonTypeDefinitions, isCommonTypeName),
+    () => objectDefinitionJson(model, defCache.commonTypeDefinitions, isCommonTypeName),
   );
   return zod;
 }
 
 /**
  * How a catalog's entries are compiled: by `compiler` when one is given, to
- * Zod 3 otherwise, at the catalog's protocol version.
+ * Zod 4 otherwise, at the catalog's protocol version.
  */
 interface Compilation {
   readonly compiler?: CatalogSchemaCompiler;
@@ -713,7 +734,7 @@ function compileObject(
 /** The schema of a function that declares no arguments: any object. */
 function anyArguments(compilation: Compilation, name: string): EntrySchema {
   const {compiler, protocolVersion} = compilation;
-  if (!compiler) return z.record(z.unknown());
+  if (!compiler) return z.record(z.string(), z.unknown());
   const jsonSchema = {type: 'object'};
   return compiledEntrySchema(
     compiler.compile({type: 'object'}, {kind: 'functionArgs', name, protocolVersion}),

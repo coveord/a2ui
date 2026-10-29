@@ -18,9 +18,11 @@ import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
-  getHeader,
   analyzeDependencies,
   compileDefToZod,
+  getHeader,
+  toZod4Code,
+  writeFormattedZod4,
   writeIndexFile,
 } from '../../../scripts/zod-generator-core.mjs';
 
@@ -32,6 +34,21 @@ const destDir = join(v09Dir, 'schema');
 
 const VERSION_TAG = 'v0.9';
 const SCRIPT_SOURCE = 'src/v0_9/scripts/generate-schemas.mjs';
+
+/**
+ * Writes a generated message schema file in Zod 4, on the Zod 4 copies of the
+ * common types.
+ *
+ * @param {string} file The file name in the schema directory.
+ * @param {string} code The generated Zod 3 code.
+ */
+function writeMessageSchemas(file, code) {
+  const zod4 = toZod4Code(code).replace(
+    "from './common-types.js'",
+    "from '../zod4/common-types.js'",
+  );
+  writeFormattedZod4(join(destDir, file), zod4);
+}
 
 /**
  * Generates v0.9 common-types.ts.
@@ -116,6 +133,8 @@ function generateCommonTypes() {
   commonTs += `export const CommonSchemas = {\n${commonEntries}\n};\n\n`;
 
   writeFileSync(join(destDir, 'common-types.ts'), commonTs);
+  // The same common types in Zod 4, which the catalog loader builds on.
+  writeFormattedZod4(join(v09Dir, 'zod4', 'common-types.ts'), toZod4Code(commonTs));
 
   const allExportNames = new Set(Object.keys(commonJson.$defs));
   const helpersPath = join(destDir, 'helpers.ts');
@@ -166,7 +185,7 @@ function generateIncomingMessageSchemas(commonDefNames) {
   }
   outTs += bodyCode;
 
-  writeFileSync(join(destDir, 'server-to-client.ts'), outTs);
+  writeMessageSchemas('server-to-client.ts', outTs);
 }
 
 /**
@@ -207,7 +226,7 @@ function generateOutgoingMessageSchemas() {
   c2sTs += `export const A2uiClientMessageListSchema = z\n  .array(A2uiClientMessageSchema)\n  .describe('A list of client messages.');\nexport type A2uiClientMessageList = z.infer<typeof A2uiClientMessageListSchema>;\n\n`;
   c2sTs += `export const A2uiClientMessageListWrapperSchema = z\n  .object({\n    messages: A2uiClientMessageListSchema,\n  })\n  .strict()\n  .describe('An object wrapping a list of client messages.');\nexport type A2uiClientMessageListWrapper = z.infer<typeof A2uiClientMessageListWrapperSchema>;\n`;
 
-  writeFileSync(join(destDir, 'client-to-server.ts'), c2sTs);
+  writeMessageSchemas('client-to-server.ts', c2sTs);
 }
 
 /**
@@ -229,7 +248,7 @@ function generateCapabilitiesSchemas() {
   v09CapsCode = v09CapsCode.replace(/CatalogSchema/g, 'InlineCatalogSchema');
   ccTs += v09CapsCode + '\n';
 
-  writeFileSync(join(destDir, 'client-capabilities.ts'), ccTs);
+  writeMessageSchemas('client-capabilities.ts', ccTs);
 }
 
 export function generateSchemas() {

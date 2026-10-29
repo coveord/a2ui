@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 /**
  * Base primitives
@@ -24,7 +24,7 @@ const exactlyOneKey = (val: any, ctx: z.RefinementCtx) => {
   const keys = Object.keys(val).filter(k => val[k] !== undefined);
   if (keys.length !== 1) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: `Must define exactly one property, found ${keys.length} (${keys.join(', ')}).`,
     });
   }
@@ -58,7 +58,7 @@ const DataValueMapItemSchema: z.ZodType<any> = z.lazy(() =>
       if (val.valueMap !== undefined) count++;
       if (count !== 1) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: `Value map item must have exactly one value property (valueString, valueNumber, valueBoolean, valueMap), found ${count}.`,
         });
       }
@@ -71,7 +71,7 @@ export function createDataValueSchema(options: {maxDepth?: number} = {}) {
     const checkDepth = (v: any, currentDepth: number) => {
       if (currentDepth > maxDepth) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: `valueMap recursion exceeded maximum depth of ${maxDepth}.`,
         });
         return;
@@ -189,13 +189,13 @@ export const TabsSchema = z.object({
         .superRefine((val: any, ctx: z.RefinementCtx) => {
           if (!val.title) {
             ctx.addIssue({
-              code: z.ZodIssueCode.custom,
+              code: 'custom',
               message: "Tab item is missing 'title'.",
             });
           }
           if (!val.child) {
             ctx.addIssue({
-              code: z.ZodIssueCode.custom,
+              code: 'custom',
               message: "Tab item is missing 'child'.",
             });
           }

@@ -20,6 +20,7 @@ import {resolve} from 'node:path';
 import {describe, it} from 'node:test';
 
 import {z} from 'zod/v3';
+import {z as z4} from 'zod/v4';
 
 import {basicCatalog as v10BasicCatalog} from '../catalogs/basic/v1/catalog.js';
 import {A2uiText as V10Text} from '../catalogs/basic/v1/components/index.js';
@@ -248,7 +249,9 @@ describe('Catalog.toJson', () => {
     assert.strictEqual(out.catalogId, v10BasicCatalog.id);
     assert.strictEqual(out.protocolVersion, '1.0');
     assert.strictEqual(out.theme, undefined);
+    // The components carry the leaf definitions they use.
     assert.deepStrictEqual(Object.keys(out.$defs as object).sort(), [
+      'Weight',
       'anyComponent',
       'anyFunction',
     ]);
@@ -260,7 +263,8 @@ describe('Catalog.toJson', () => {
       assert.ok(
         ref.startsWith('common_types.json#/$defs/') ||
           ref.startsWith('#/components/') ||
-          ref.startsWith('#/functions/'),
+          ref.startsWith('#/functions/') ||
+          ref === '#/$defs/Weight',
         `unexpected reference '${ref}'`,
       );
     }
@@ -835,7 +839,7 @@ describe('composite catalogs', () => {
         );
 
         const reloaded = Catalog.fromJson(doc, version);
-        const shape = (reloaded.components.get('Text')!.schema as z.AnyZodObject).shape;
+        const shape = (reloaded.components.get('Text')!.schema as z4.ZodObject).shape;
         assert.ok('weight' in shape, 'fromJson(toJson()) keeps weight');
         assert.ok(
           reloaded.components.get('Text')!.schema.safeParse({text: 'hi', weight: 1}).success,

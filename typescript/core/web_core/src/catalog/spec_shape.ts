@@ -35,7 +35,7 @@ import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
 import {specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
 import type {EntrySchema} from './a2ui_schema.js';
-import type {SpecAnnotation, SpecMixin} from './spec_annotations.js';
+import {getSpecModels, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -328,6 +328,19 @@ export class SpecShaper {
   }
 
   /**
+   * The definition models the schemas shaped so far carry through
+   * `specMeta({defs})`, by definition name.
+   */
+  private readonly carriedModels = new Map<string, EntrySchema>();
+
+  /** Records the definition models `schema` carries. */
+  private collectCarriedModels(schema: EntrySchema): void {
+    for (const [name, model] of getSpecModels(schema) ?? []) {
+      this.carriedModels.set(name, model as EntrySchema);
+    }
+  }
+
+  /**
    * Returns the definition a catalog document writes for a component.
    *
    * @param name The component's name.
@@ -341,6 +354,7 @@ export class SpecShaper {
     allowedParents?: readonly string[],
     allowedChildren?: readonly string[],
   ): SpecSchema {
+    this.collectCarriedModels(schema);
     const catalogDefs = new Map<string, EntrySchema>();
     let result: JsonObject;
     if (this.isV08) {
@@ -491,6 +505,7 @@ export class SpecShaper {
     catalogDefs?: Map<string, EntrySchema>,
     isDefRoot = false,
   ): JsonObject {
+    this.collectCarriedModels(schema);
     return this.nodeJson(viewOf(schema), catalogDefs, isDefRoot);
   }
 
@@ -502,8 +517,10 @@ export class SpecShaper {
   ): JsonObject {
     const annotation = specAnnotationOf(node) ?? {};
     const defName = isDefRoot ? undefined : annotation.defName;
-    if (defName !== undefined && annotation.defModel !== undefined) {
-      return this.defRefJson(node, defName, annotation.defModel, catalogDefs);
+    const defModel =
+      defName === undefined ? undefined : (annotation.defModel ?? this.carriedModels.get(defName));
+    if (defName !== undefined && defModel !== undefined) {
+      return this.defRefJson(node, defName, defModel, catalogDefs);
     }
     const ref = node['$ref'];
     // The keywords an annotation adds are written after what the schema
