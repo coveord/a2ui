@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type {A2uiValidator} from '../../catalog/a2ui_schema.js';
 import {A2uiValidationError} from '../../errors.js';
 import {normalizeVersionString, toCanonicalVersion} from '../../common/semver.js';
 import {
@@ -27,15 +28,34 @@ import {V0Point9Adapter} from './v0_9.js';
 import {V1Point0Adapter} from './v1_0.js';
 
 /**
+ * The schemas that validate messages for each canonical protocol version.
+ * The v0.9 schema also validates v0.9.1 messages. A `null` value skips
+ * validation for that version.
+ */
+export interface ProtocolSchemas {
+  readonly '0.8'?: A2uiValidator | null;
+  readonly '0.9'?: A2uiValidator | null;
+  readonly '1.0'?: A2uiValidator | null;
+}
+
+/**
  * Resolves version adapters for protocol specification versions.
  */
 export class VersionAdapterFactory implements VersionAdapterResolver {
-  private readonly adapters = new Map<string, VersionAdapter>([
-    ['0.8', new V0Point8Adapter()],
-    ['0.9', new V0Point9Adapter()],
-    ['0.9.1', new V0Point9Adapter()],
-    ['1.0', new V1Point0Adapter()],
-  ]);
+  private readonly adapters: Map<string, VersionAdapter>;
+
+  /**
+   * @param protocolSchemas Optional validators for protocol messages. A version
+   *     left out keeps its built-in Zod 3 validator.
+   */
+  constructor(protocolSchemas: ProtocolSchemas = {}) {
+    this.adapters = new Map<string, VersionAdapter>([
+      ['0.8', new V0Point8Adapter(protocolSchemas['0.8'])],
+      ['0.9', new V0Point9Adapter(protocolSchemas['0.9'])],
+      ['0.9.1', new V0Point9Adapter(protocolSchemas['0.9'])],
+      ['1.0', new V1Point0Adapter(protocolSchemas['1.0'])],
+    ]);
+  }
 
   /**
    * Returns the aggregated set of all action keys supported by all registered adapters.

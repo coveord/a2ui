@@ -26,12 +26,27 @@ import {
 } from '../types/common-types.js';
 import {childRefKindOf} from '../types/child-ref-helpers.js';
 import type {Action as V1Action, CheckRule as V1CheckRule} from '../v1_0/schema/common-types.js';
+import type {EntrySchema} from '../catalog/a2ui_schema.js';
+import {componentSchemaOf, zodSchemaFor} from '../catalog/entry_schema.js';
 import {exclusiveUnionOf} from '../catalog/exclusive_union.js';
 import {extractRefDefName} from '../catalog/reference-map.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
 
 // --- Schema Scraping ---
+
+/**
+ * Returns the Zod schema a binder for `context` reads `schema` with: the one
+ * derived from the catalog document when `schema` is the context's component
+ * entry's schema, or `schema` itself otherwise.
+ */
+function bindingSchemaOf(context: ComponentContext, schema: EntrySchema): z.ZodTypeAny {
+  const model = context?.componentModel;
+  const entry = model?.catalog?.components.get(model.type);
+  return entry && entry.schema === schema
+    ? componentSchemaOf(model.catalog, entry)
+    : zodSchemaFor(schema);
+}
 
 /**
  * Represents the intended runtime behavior of a property parsed from its Zod
@@ -70,10 +85,12 @@ const behaviorCache = new WeakMap<z.ZodTypeAny, BehaviorNode>();
  * Enables GenericBinder to determine how to handle raw JSON properties
  * without hardcoding logic for specific component types.
  *
- * @param schema Zod schema to inspect.
+ * @param input Schema to inspect: a Zod 3 schema, or any other `EntrySchema`,
+ *   read as JSON Schema.
  * @returns Root BehaviorNode describing schema properties.
  */
-export function scrapeSchemaBehavior(schema: z.ZodTypeAny): BehaviorNode {
+export function scrapeSchemaBehavior(input: EntrySchema): BehaviorNode {
+  const schema = zodSchemaFor(input);
   const cached = behaviorCache.get(schema);
   if (cached) {
     return cached;
@@ -492,12 +509,17 @@ export class GenericBinder<T> {
   /**
    * Creates a new binder for the given component context and schema.
    *
+   * When `schema` is the schema of the context's component in its catalog,
+   * the binder reads it through the catalog's document, as the core does
+   * (see `componentSchemaOf`). Any other schema is read as is: a Zod 3 schema
+   * directly, and any other `EntrySchema` as JSON Schema.
+   *
    * @param context Component context providing state and event dispatching.
-   * @param schema Zod schema defining the component properties.
+   * @param schema Schema defining the component properties.
    */
-  constructor(context: ComponentContext, schema: z.ZodTypeAny) {
+  constructor(context: ComponentContext, schema: EntrySchema) {
     this.context = context;
-    this.behaviorTree = scrapeSchemaBehavior(schema);
+    this.behaviorTree = scrapeSchemaBehavior(bindingSchemaOf(context, schema));
 
     if (this.behaviorTree.type !== 'OBJECT') {
       this.behaviorTree = {type: 'OBJECT', shape: {}};

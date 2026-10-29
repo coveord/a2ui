@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type {ZodTypeAny} from 'zod/v3';
+import type {EntrySchema} from '@a2ui/web_core/v0_9';
 import {
   isWebComponentImplementation,
   type WebComponentImplementation,
@@ -43,7 +43,7 @@ function computeTagName(name: string): string {
  * defined in `customElements` here; renderers define it with
  * `registerUniversalElement` when they render it.
  */
-export function toWebComponent<Schema extends ZodTypeAny = ZodTypeAny>(
+export function toWebComponent<Schema extends EntrySchema = EntrySchema>(
   implementation: ReactComponentImplementation<Schema> | WebComponentImplementation<Schema>,
 ): WebComponentImplementation<Schema> {
   if (isWebComponentImplementation(implementation)) {

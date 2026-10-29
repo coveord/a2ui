@@ -14,39 +14,43 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod/v3';
+import {z} from 'zod/v3';
 
+import {
+  validateA2uiSchema,
+  zod3SchemaOf,
+  type A2uiSchemaResult,
+  type A2uiValidator,
+  type EntrySchema,
+} from './a2ui_schema.js';
 import {loadedDefinition} from './json_entries.js';
-import {parseCatalogSchema} from './schema_loader.js';
+import {DEFAULT_PROTOCOL_VERSION, parseCatalogSchema} from './schema_loader.js';
+import {serializeCatalogDocument} from './schema_serializer.js';
 import type {CatalogInterface, ComponentApi, FunctionApi} from './types.js';
 
-/** The entries of a catalog reloaded from its own document, by name. */
+/** The entries and theme of a catalog reloaded from its own document. */
 interface ReloadedEntries {
   readonly components: ReadonlyMap<string, ComponentApi>;
   readonly functions: ReadonlyMap<string, FunctionApi>;
+  readonly themeSchema?: z.ZodTypeAny;
 }
 
 const reloaded = new WeakMap<object, ReloadedEntries>();
 
 /**
  * Whether the core reads `entry`'s schema from `catalog`'s document: the
- * catalog can write one, and the entry has a Zod schema of its own rather than
- * one loaded from a document or a plain JSON Schema.
+ * catalog can write one, and the entry was not itself loaded from one.
  */
 function readsThroughDocument(
   catalog: CatalogInterface<ComponentApi, FunctionApi> | undefined,
   entry: ComponentApi | FunctionApi,
 ): catalog is CatalogInterface<ComponentApi, FunctionApi> {
-  return (
-    typeof catalog?.toJson === 'function' &&
-    typeof (entry.schema as {safeParse?: unknown} | undefined)?.safeParse === 'function' &&
-    !loadedDefinition(entry)
-  );
+  return typeof catalog?.toJson === 'function' && !loadedDefinition(entry);
 }
 
 /**
- * Returns the entries of `catalog` as `Catalog.fromJson` loads them from the
- * catalog's own `toJson()` document. Computed once per catalog.
+ * Returns the entries and theme of `catalog` as `Catalog.fromJson` loads them
+ * from the catalog's own `toJson()` document. Computed once per catalog.
  */
 function reloadedEntries(catalog: CatalogInterface<ComponentApi, FunctionApi>): ReloadedEntries {
   let entries = reloaded.get(catalog);
@@ -59,22 +63,78 @@ function reloadedEntries(catalog: CatalogInterface<ComponentApi, FunctionApi>): 
     entries = {
       components: new Map(parsed.components.map(byName)),
       functions: new Map(parsed.functions.map(byName)),
+      themeSchema: parsed.themeSchema,
     };
     reloaded.set(catalog, entries);
   }
   return entries;
 }
 
+/** The schemas derived from schemas read without a catalog, by schema and kind. */
+const standalone = {
+  component: new WeakMap<object, z.ZodTypeAny>(),
+  function: new WeakMap<object, z.ZodTypeAny>(),
+};
+
+/**
+ * Returns the Zod schema the core reads an entry with when no catalog document
+ * is at hand. See {@link zodSchemaFor}.
+ */
+function standaloneSchemaOf(
+  entry: ComponentApi | FunctionApi,
+  kind: 'component' | 'function',
+): z.ZodTypeAny {
+  return zodSchemaFor(entry.schema, kind);
+}
+
+/**
+ * Returns the Zod schema the core reads an `EntrySchema` with when no catalog
+ * document is at hand: a Zod 3 schema as is, or the one derived from a
+ * document that holds an entry with that schema alone, at the default
+ * protocol version.
+ *
+ * @param schema A component's or function's schema.
+ * @param kind Whether the schema is a component's properties or a function's
+ *   arguments.
+ */
+export function zodSchemaFor(
+  schema: EntrySchema,
+  kind: 'component' | 'function' = 'component',
+): z.ZodTypeAny {
+  const zod3 = zod3SchemaOf(schema);
+  if (zod3) return zod3;
+  let derivedSchema = standalone[kind].get(schema);
+  if (!derivedSchema) {
+    const id = 'urn:a2ui:standalone';
+    const entry = {name: 'Entry', returnType: 'any', schema};
+    const components = new Map<string, ComponentApi>();
+    const functions = new Map<string, FunctionApi>();
+    if (kind === 'component') components.set(entry.name, entry);
+    else functions.set(entry.name, entry);
+    const document = serializeCatalogDocument({
+      id,
+      protocolVersion: DEFAULT_PROTOCOL_VERSION,
+      components,
+      functions,
+    });
+    const parsed = parseCatalogSchema(document, DEFAULT_PROTOCOL_VERSION, id);
+    const derived = kind === 'component' ? parsed.components[0] : parsed.functions[0];
+    derivedSchema = derived.schema as z.ZodTypeAny;
+    standalone[kind].set(schema, derivedSchema);
+  }
+  return derivedSchema;
+}
+
 /**
  * Returns the Zod schema that the core binds and validates a component
  * against: the one derived from the component's definition in its catalog's
  * document, so that a catalog defined in code behaves as the document it
- * publishes.
+ * publishes, whatever library wrote the component's schema.
  *
  * An entry `Catalog.fromJson` loaded already derives its schema from its
  * definition, and is returned as is. Without a catalog that writes a
- * document, or for a component the document does not define, the component's
- * own schema is returned.
+ * document, a Zod 3 schema is returned as is, and any other schema is read
+ * from a document that holds the component alone.
  *
  * @param catalog The catalog the component resolves against.
  * @param component The component.
@@ -83,31 +143,12 @@ export function componentSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi> | undefined,
   component: ComponentApi,
 ): z.ZodTypeAny {
-  if (!readsThroughDocument(catalog, component)) return component.schema;
-  return reloadedEntries(catalog).components.get(component.name)?.schema ?? component.schema;
-}
-
-/**
- * Parses `value` with the schema derived from an entry's document, then, when
- * it is a different schema, with the entry's own, so that the checks only
- * code expresses, such as a `refine`, still run.
- *
- * @param documentSchema The schema from `componentSchemaOf` or `functionSchemaOf`.
- * @param ownSchema The entry's own schema.
- * @param value The value to parse.
- * @returns The first failure, or the entry's own parse result, whose data
- *   carries the defaults its implementation is typed for.
- */
-export function safeParseEntry(
-  documentSchema: z.ZodTypeAny,
-  ownSchema: z.ZodTypeAny,
-  value: unknown,
-): z.SafeParseReturnType<unknown, unknown> {
-  if (documentSchema !== ownSchema) {
-    const result = documentSchema.safeParse(value);
-    if (!result.success) return result;
-  }
-  return ownSchema.safeParse(value);
+  if (loadedDefinition(component)) return component.schema as z.ZodTypeAny;
+  if (!readsThroughDocument(catalog, component)) return standaloneSchemaOf(component, 'component');
+  return (
+    (reloadedEntries(catalog).components.get(component.name)?.schema as z.ZodTypeAny) ??
+    standaloneSchemaOf(component, 'component')
+  );
 }
 
 /**
@@ -122,6 +163,77 @@ export function functionSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi> | undefined,
   fn: FunctionApi,
 ): z.ZodTypeAny {
-  if (!readsThroughDocument(catalog, fn)) return fn.schema;
-  return reloadedEntries(catalog).functions.get(fn.name)?.schema ?? fn.schema;
+  if (loadedDefinition(fn)) return fn.schema as z.ZodTypeAny;
+  if (!readsThroughDocument(catalog, fn)) return standaloneSchemaOf(fn, 'function');
+  return (
+    (reloadedEntries(catalog).functions.get(fn.name)?.schema as z.ZodTypeAny) ??
+    standaloneSchemaOf(fn, 'function')
+  );
+}
+
+/**
+ * Returns the Zod schema that the core validates a catalog's theme against:
+ * the catalog's own Zod 3 theme schema, or the one derived from the theme its
+ * document writes, for a theme written with another library or as JSON
+ * Schema.
+ *
+ * @param catalog The catalog.
+ */
+export function themeSchemaOf(
+  catalog: CatalogInterface<ComponentApi, FunctionApi>,
+): z.ZodTypeAny | undefined {
+  if (!catalog.themeSchema) return undefined;
+  const zod3 = zod3SchemaOf(catalog.themeSchema);
+  if (zod3) return zod3;
+  return typeof catalog.toJson === 'function' ? reloadedEntries(catalog).themeSchema : undefined;
+}
+
+/** Reads a synchronous Standard Schema result as a Zod parse result. */
+function asParseResult(result: A2uiSchemaResult<unknown>): z.SafeParseReturnType<unknown, unknown> {
+  if (!result.issues) return {success: true, data: result.value};
+  return {
+    success: false,
+    error: new z.ZodError(
+      result.issues.map(issue => ({
+        code: z.ZodIssueCode.custom,
+        message: issue.message,
+        path: (issue.path ?? []).map(segment =>
+          typeof segment === 'object' && segment !== null && 'key' in segment
+            ? ((segment as {key: unknown}).key as string | number)
+            : (segment as string | number),
+        ),
+      })),
+    ),
+  };
+}
+
+/**
+ * Parses `value` with the schema derived from an entry's document, then with
+ * the entry's own schema, so that the checks only the entry's library
+ * expresses, such as a `refine`, still run.
+ *
+ * A Zod 3 own schema parses `value` itself, a library schema validates it
+ * through Standard Schema, and a JSON Schema object adds nothing to the
+ * document's check.
+ *
+ * @param documentSchema The schema from `componentSchemaOf`,
+ *   `functionSchemaOf` or `themeSchemaOf`.
+ * @param ownSchema The entry's own schema.
+ * @param value The value to parse.
+ * @returns The first failure, or the own schema's result, whose data carries
+ *   the defaults the entry's implementation is typed for.
+ * @throws {A2uiCatalogError} If the own schema validates asynchronously.
+ */
+export function safeParseEntry(
+  documentSchema: z.ZodTypeAny,
+  ownSchema: EntrySchema,
+  value: unknown,
+): z.SafeParseReturnType<unknown, unknown> {
+  const zod3 = zod3SchemaOf(ownSchema);
+  if (documentSchema !== zod3) {
+    const result = documentSchema.safeParse(value);
+    if (!result.success || (!zod3 && !('~standard' in ownSchema))) return result;
+  }
+  if (zod3) return zod3.safeParse(value);
+  return asParseResult(validateA2uiSchema(ownSchema as A2uiValidator, value));
 }

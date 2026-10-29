@@ -24,8 +24,7 @@
  */
 
 import type React from 'react';
-import type {ZodTypeAny} from 'zod/v3';
-import type {ComponentApi, ComponentContext, ComponentNode} from '@a2ui/web_core/v0_9';
+import type {ComponentApi, ComponentContext, ComponentNode, EntrySchema} from '@a2ui/web_core/v0_9';
 import type {WebComponentImplementation} from '@a2ui/web_core/v0_9/universal';
 
 /** Renders a resolved child node, or falls back for an unresolved id. */
@@ -48,7 +47,7 @@ export type ReactRenderProps = {
 
 /** A catalog entry implemented as a React component. */
 export interface ReactComponentImplementation<
-  Schema extends ZodTypeAny = ZodTypeAny,
+  Schema extends EntrySchema = EntrySchema,
 > extends ComponentApi<Schema> {
   /** The framework-specific rendering wrapper. */
   render: React.FC<ReactRenderProps>;
@@ -62,7 +61,7 @@ export interface ReactComponentImplementation<
 }
 
 /** Any entry a React catalog can hold: a React component or a Web Component. */
-export type ReactCatalogComponent<Schema extends ZodTypeAny = ZodTypeAny> =
+export type ReactCatalogComponent<Schema extends EntrySchema = EntrySchema> =
   | ReactComponentImplementation<Schema>
   | WebComponentImplementation<Schema>;
 

@@ -232,7 +232,7 @@ describe('MessageProcessor', () => {
           },
         },
       };
-      const proc = new MessageProcessor([Catalog.fromJson(document) as Catalog<any>]);
+      const proc = new MessageProcessor([Catalog.fromJson(document) as unknown as Catalog<any>]);
       const caps = proc.getRendererCapabilities({versions: ['1.0'], includeInlineCatalogs: true});
       const inlineCat = (caps['1.0'] as any).inlineCatalogs?.[0];
 
@@ -266,7 +266,7 @@ describe('MessageProcessor', () => {
         components: {Label: label},
         $defs: unionsOnly,
       };
-      const inlineCat = inlineV10Catalog(Catalog.fromJson(document) as Catalog<any>);
+      const inlineCat = inlineV10Catalog(Catalog.fromJson(document) as unknown as Catalog<any>);
       assert.strictEqual(inlineCat.catalogId, 'https://example.com/by-id.json');
       assert.strictEqual(inlineCat.protocolVersion, '1.0');
       assertConformsToV10CatalogDefinition(inlineCat);
@@ -278,7 +278,7 @@ describe('MessageProcessor', () => {
         {components: {Label: label}, $defs: unionsOnly},
       ]) {
         const catalog = Catalog.fromJson(document, '1.0', 'https://example.com/override');
-        const inlineCat = inlineV10Catalog(catalog as Catalog<any>);
+        const inlineCat = inlineV10Catalog(catalog as unknown as Catalog<any>);
         assert.strictEqual(inlineCat.catalogId, 'https://example.com/override');
         assert.strictEqual(inlineCat.protocolVersion, '1.0');
         assertConformsToV10CatalogDefinition(inlineCat);

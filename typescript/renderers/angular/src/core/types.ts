@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
-import {Signal} from '@angular/core';
-import {z} from 'zod/v3';
-import {ComponentApi, DataBindingSchema, FunctionCallSchema} from '@a2ui/web_core/v0_9';
-import {Child} from './component-binder.service';
+import { Signal } from '@angular/core';
+import { z } from 'zod/v3';
+import {
+  ComponentApi,
+  DataBindingSchema,
+  FunctionCallSchema,
+  type InferredComponentApiSchemaType,
+} from '@a2ui/web_core/v0_9';
+import { Child } from './component-binder.service';
 
 /** Data structure that represents a template used to render a collection of children. */
 export interface ComponentTemplate {
@@ -90,7 +95,7 @@ interface CheckProps {
 }
 
 /** The binder can add some properties to the Props object. This util adds them to the type. */
-export type ExtendedProps<ComponentProps extends {[key: string]: unknown}> =
+export type ExtendedProps<ComponentProps extends { [key: string]: unknown }> =
   'checks' extends keyof ComponentProps ? ComponentProps & CheckProps : ComponentProps;
 
 /**
@@ -109,5 +114,5 @@ export type ExtendedProps<ComponentProps extends {[key: string]: unknown}> =
  * export type TextComponentProps = ComponentApiToProps<typeof TextComponentApi>; // outputs { text: BoundProperty<string>; }
  */
 export type ComponentApiToProps<Api extends ComponentApi> = InferredInterfaceToProps<
-  ExtendedProps<z.infer<Api['schema']>>
+  ExtendedProps<InferredComponentApiSchemaType<Api>>
 >;

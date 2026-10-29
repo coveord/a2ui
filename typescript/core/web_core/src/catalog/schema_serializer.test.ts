@@ -28,12 +28,14 @@ import {basicCatalog as v08BasicCatalog} from '../v0_8/basic_catalog/catalog.js'
 import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {A2uiText as V09Text} from '../v0_9/basic_catalog/components/index.js';
 import {exclusiveUnion} from './exclusive_union.js';
+import {zodSchemaFor} from './entry_schema.js';
 import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import {DEFAULT_PROTOCOL_VERSION} from './schema_loader.js';
 import {spec, specDef} from './spec_annotations.js';
 import {
   Catalog,
   createFunctionImplementation,
+  type CatalogApi,
   type ComponentApi,
   type FunctionApi,
 } from './types.js';
@@ -47,7 +49,8 @@ function readRepoJson(relativePath: string): Record<string, any> {
  * annotation, so that the catalog generates its definition from Zod.
  */
 function plain<E extends ComponentApi | FunctionApi>(entry: E): E {
-  return {...entry, schema: entry.schema.describe(entry.schema.description as string)};
+  const own = entry.schema as z.ZodTypeAny;
+  return {...entry, schema: own.describe(own.description as string)};
 }
 
 function collectRefs(node: unknown, refs: string[] = []): string[] {
@@ -153,7 +156,7 @@ describe('Catalog.toJson', () => {
       functions: {f: {returnType: 'string'}},
     });
     const label: ComponentApi = {name: 'Label', schema: z.object({text: z.string()})};
-    const derived = loaded.withEntries([label], [...loaded.functions.values()]);
+    const derived = (loaded as CatalogApi).withEntries([label], [...loaded.functions.values()]);
     assert.strictEqual(derived.declaresComponents, false);
     assert.deepStrictEqual(Object.keys(derived.toJson().components as object), ['Label']);
     assert.ok(!('components' in loaded.withEntries([], []).toJson()));
@@ -332,7 +335,10 @@ describe('Catalog.toJson', () => {
       name: 'Text',
       schema: z.object({text: z.string().describe('REF:common_types.json#/$defs/DynamicString')}),
     };
-    const derived = loaded.withEntries([rewritten, loaded.components.get('Image')!], []);
+    const derived = (loaded as CatalogApi).withEntries(
+      [rewritten, loaded.components.get('Image')!],
+      [],
+    );
     const out = derived.toJson();
     assert.strictEqual(out.title, document.title);
     assert.strictEqual(out.instructions, document.instructions);
@@ -387,7 +393,7 @@ describe('union export', () => {
     catalog: {readonly components: ReadonlyMap<string, ComponentApi>},
     radius: unknown,
   ): boolean {
-    return catalog.components.get('Box')!.schema.safeParse({radius}).success;
+    return zodSchemaFor(catalog.components.get('Box')!.schema).safeParse({radius}).success;
   }
 
   /** The `radius` property of the `Box` component in a catalog document. */
@@ -1016,7 +1022,7 @@ describe('specification annotations', () => {
 
   it('computes a v1.0 definition without mixins as a flat object', () => {
     const out = new Catalog('https://example.com/badges', '1.0', [
-      {...Badge, schema: spec(Badge.schema, {mixins: []})},
+      {...Badge, schema: spec(Badge.schema as z.ZodTypeAny, {mixins: []})},
     ]).toJson();
     const badge = (out.components as Record<string, any>).Badge;
     assert.strictEqual(badge.description, 'A badge.');
@@ -1034,8 +1040,8 @@ describe('specification annotations', () => {
   it('does not change validation', () => {
     const annotated = spec(z.string(), {keywords: {format: 'uri'}});
     assert.ok(annotated.safeParse('not a uri').success);
-    assert.ok(Badge.schema.safeParse({label: 'x', tone: 'info'}).success);
-    assert.ok(!Badge.schema.safeParse({label: 'x', tone: 'other'}).success);
+    assert.ok(zodSchemaFor(Badge.schema).safeParse({label: 'x', tone: 'info'}).success);
+    assert.ok(!zodSchemaFor(Badge.schema).safeParse({label: 'x', tone: 'other'}).success);
   });
 
   it('recomputes an out-of-order authored union when withEntries changes entries', () => {
@@ -1344,7 +1350,9 @@ describe('built-in basic catalogs', () => {
 });
 
 describe('Catalog.derive', () => {
-  const basic = Catalog.fromJson(readRepoJson('catalogs/basic/v1/catalog.json'));
+  const basic: Catalog<ComponentApi, FunctionApi> = Catalog.fromJson(
+    readRepoJson('catalogs/basic/v1/catalog.json'),
+  );
   const label: ComponentApi = {name: 'Label', schema: z.object({text: z.string()})};
 
   it('keeps the named entries and adds new ones under the new ID', () => {
