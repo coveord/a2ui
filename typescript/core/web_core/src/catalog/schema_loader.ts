@@ -1096,7 +1096,7 @@ function assertSupportedV10Refs(node: unknown, pointer: string): void {
  * @param catalogIdOverride Catalog ID to use instead of the one the schema
  *   declares. The schema itself is kept as written.
  * @param schemaCompiler Compiles the entries' and theme's schemas instead of
- *   the built-in Zod 3 compiler.
+ *   the built-in Zod 4 compiler.
  * @returns Parsed catalog fields ready to construct a `Catalog` instance.
  * @throws {Error} If the catalog ID is missing or not a string.
  * @throws {A2uiCatalogError} If a v1.0+ catalog has a `$ref` to a document

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
 import type {ProtocolVersion} from '../processing/adapters/base.js';
 import {DataContext} from '../resolution/data-context.js';
 import {Signal} from '../reactivity/signals.js';
@@ -22,12 +21,7 @@ import {A2uiCatalogError, A2uiExpressionError} from '../errors.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {isThenable, settleDeep} from '../common/settle_deep.js';
 import {SpecVersion} from '../spec_versions.js';
-import {
-  zod3SchemaOf,
-  type A2uiStandardSchema,
-  type EntrySchema,
-  type InferEntrySchema,
-} from './a2ui_schema.js';
+import {type A2uiStandardSchema, type EntrySchema, type InferEntrySchema} from './a2ui_schema.js';
 import type {CatalogSchemaCompiler} from './catalog_definitions.js';
 import {functionSchemaOf, validateEntry} from './entry_schema.js';
 import {parseCatalogSchema} from './schema_loader.js';
@@ -187,7 +181,7 @@ export interface ComponentApi<Schema extends EntrySchema = EntrySchema> {
 
   /**
    * Schema describing the properties of this component: an `A2uiSchema`,
-   * such as a Zod 4 schema or a JSON Schema object, or a Zod 3 schema.
+   * such as a Zod 4 schema or a JSON Schema object.
    *
    * Must include catalog-specific common properties (e.g. 'weight', 'accessibility')
    * and must omit envelope fields like 'component' or 'id'.
@@ -305,8 +299,8 @@ export interface CatalogDocumentOptions {
   themeLocation?: 'defs' | 'styles';
   /**
    * Models of named definitions that the document declares under `$defs`
-   * besides those its components' mixins name, each named with `specDef`,
-   * or with `specMeta({defName})` in its metadata, such as the theme of the
+   * besides those its components' mixins name, each named with
+   * `specMeta({defName})` in its metadata, such as the theme of the
    * v0.9 basic catalog's document. `toJson` computes the definitions from
    * them. A component's `specMeta` mixin names one of them by its name.
    */
@@ -742,7 +736,7 @@ export class Catalog<
     protocolVersion: ProtocolVersion | string,
     components?: ReadonlyArray<T>,
     functions?: ReadonlyArray<F>,
-    themeSchemaOrOptions?: z.ZodTypeAny | A2uiStandardSchema | CatalogOptions,
+    themeSchemaOrOptions?: A2uiStandardSchema | CatalogOptions,
     instructions?: string,
   );
   /**
@@ -762,29 +756,21 @@ export class Catalog<
     id: string,
     components?: ReadonlyArray<T>,
     functions?: ReadonlyArray<F>,
-    themeSchemaOrOptions?: z.ZodTypeAny | A2uiStandardSchema | CatalogOptions,
+    themeSchemaOrOptions?: A2uiStandardSchema | CatalogOptions,
     instructions?: string,
   );
   constructor(
     id: string,
     protocolVersionOrComponents?: ProtocolVersion | string | ReadonlyArray<T>,
     componentsOrFunctions?: ReadonlyArray<T> | ReadonlyArray<F>,
-    functionsOrThemeSchemaOrOptions?:
-      | ReadonlyArray<F>
-      | z.ZodTypeAny
-      | A2uiStandardSchema
-      | CatalogOptions,
-    themeSchemaOrOptionsOrInstructions?:
-      | z.ZodTypeAny
-      | A2uiStandardSchema
-      | CatalogOptions
-      | string,
+    functionsOrThemeSchemaOrOptions?: ReadonlyArray<F> | A2uiStandardSchema | CatalogOptions,
+    themeSchemaOrOptionsOrInstructions?: A2uiStandardSchema | CatalogOptions | string,
     instructions?: string,
   ) {
     let protocolVersion: ProtocolVersion | string;
     let components: ReadonlyArray<T>;
     let functions: ReadonlyArray<F>;
-    let themeSchemaOrOptions: z.ZodTypeAny | A2uiStandardSchema | CatalogOptions | undefined;
+    let themeSchemaOrOptions: A2uiStandardSchema | CatalogOptions | undefined;
     let resolvedInstructions: string | undefined;
 
     if (typeof protocolVersionOrComponents !== 'string') {
@@ -793,7 +779,7 @@ export class Catalog<
       components = protocolVersionOrComponents ?? [];
       functions = (componentsOrFunctions as ReadonlyArray<F>) ?? [];
       themeSchemaOrOptions = functionsOrThemeSchemaOrOptions as
-        | z.ZodTypeAny
+        | A2uiStandardSchema
         | CatalogOptions
         | undefined;
       resolvedInstructions = themeSchemaOrOptionsOrInstructions as string | undefined;
@@ -802,7 +788,7 @@ export class Catalog<
       components = (componentsOrFunctions as ReadonlyArray<T>) ?? [];
       functions = (functionsOrThemeSchemaOrOptions as ReadonlyArray<F> | undefined) ?? [];
       themeSchemaOrOptions = themeSchemaOrOptionsOrInstructions as
-        | z.ZodTypeAny
+        | A2uiStandardSchema
         | CatalogOptions
         | undefined;
       resolvedInstructions = instructions;
@@ -874,7 +860,7 @@ export class Catalog<
    *   `catalogId` in `toJson`; a document that declares none still has none
    *   in `toJson`.
    * @param options `schemaCompiler` compiles the entries' and theme's schemas
-   *   instead of the built-in Zod 3 compiler, so that the loaded catalog
+   *   instead of the built-in Zod 4 compiler, so that the loaded catalog
    *   validates with the compiler's validators. It applies to this catalog,
    *   and to the copies `withPeerCatalogs` links to peers.
    * @returns A new Catalog populated with component and function schemas,
@@ -945,13 +931,10 @@ export type CatalogApi = Catalog<ComponentApi, FunctionApi>;
 
 /**
  * Whether the constructor's theme argument is a schema rather than
- * `CatalogOptions`: a Zod 3 schema or a library schema.
+ * `CatalogOptions`: a library schema.
  */
-function isSchemaArgument(value: unknown): value is z.ZodTypeAny | A2uiStandardSchema {
-  return (
-    zod3SchemaOf(value) !== undefined ||
-    (typeof value === 'object' && value !== null && '~standard' in value)
-  );
+function isSchemaArgument(value: unknown): value is A2uiStandardSchema {
+  return typeof value === 'object' && value !== null && '~standard' in value;
 }
 
 /**
@@ -986,10 +969,10 @@ function createCatalogInvoker<F extends FunctionApi>(
     }
 
     const parseAndExecute = (resolvedArgs: unknown): unknown => {
+      const documentSchema = functionSchemaOf(catalog, fn);
       // From v1.0 a `DynamicBoolean` argument may resolve to the
       // `ValidationResult` a validation function returns; it is read by its
       // validity, as the specification defines the type.
-      const documentSchema = functionSchemaOf(catalog, fn);
       const args = isAtLeastVersion(catalog.protocolVersion, SpecVersion.V1_0)
         ? coerceValidationResults(documentSchema, resolvedArgs)
         : resolvedArgs;
@@ -1005,11 +988,11 @@ function createCatalogInvoker<F extends FunctionApi>(
       try {
         return execute.call(fn, parsed.value as Record<string, unknown>, ctx, abortSignal);
       } catch (e: any) {
-        if (e?.name === 'ZodError' || e instanceof z.ZodError) {
+        if (e?.name === 'ZodError') {
           throw new A2uiExpressionError(
             `Validation failed for function '${name}': ${e.message}`,
             name,
-            e.errors ?? e.issues,
+            e.issues,
           );
         }
         throw e;

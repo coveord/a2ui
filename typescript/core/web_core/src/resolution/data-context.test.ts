@@ -17,7 +17,7 @@
 import * as assert from 'node:assert';
 import {describe, it, beforeEach} from 'node:test';
 import {signal, computed, peekValue, getValue, setValue, effect} from '../reactivity/signals.js';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {DataModel} from '../state/data-model.js';
 import {SurfaceModel} from '../state/surface-model.js';
 import {
@@ -436,7 +436,6 @@ describe('DataContext', () => {
           {
             code: 'invalid_type',
             expected: 'string',
-            received: 'number',
             path: ['foo'],
             message: 'Expected string, received number',
           },
@@ -699,7 +698,7 @@ describe('DataContext', () => {
   });
 
   describe('Function Argument Stripping & Resource Consumption (Issue #2384)', () => {
-    it('getKnownSchemaKeys extracts keys from ZodObject and ZodEffects', () => {
+    it('getKnownSchemaKeys extracts keys from objects, refined objects, unions and intersections', () => {
       const objSchema = z.object({a: z.string(), b: z.number()});
       assert.deepStrictEqual(getKnownSchemaKeys(objSchema), new Set(['a', 'b']));
 
@@ -720,11 +719,7 @@ describe('DataContext', () => {
       );
       assert.deepStrictEqual(getKnownSchemaKeys(intersectionSchema), new Set(['a', 'b']));
 
-      const intersectionWithPassthrough = z.intersection(
-        z.object({a: z.string()}),
-        z.object({b: z.number()}).passthrough(),
-      );
-      assert.strictEqual(getKnownSchemaKeys(intersectionWithPassthrough), null);
+      assert.strictEqual(getKnownSchemaKeys(z.looseObject({a: z.string()})), null);
     });
 
     it('validateFunctionArgs allows valid keys when schema is available', () => {

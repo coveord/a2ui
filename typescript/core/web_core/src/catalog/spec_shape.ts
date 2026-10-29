@@ -211,7 +211,7 @@ function viewOf(schema: EntrySchema): JsonObject {
   return specJsonSchemaOf(schema) as JsonObject;
 }
 
-/** Returns the `spec()` annotation of a schema, read from its spec view. */
+/** Returns the `specMeta()` annotation of a schema, read from its spec view. */
 function annotationOf(schema: EntrySchema): SpecAnnotation {
   return specAnnotationOf(viewOf(schema)) ?? {};
 }
@@ -305,7 +305,7 @@ export interface SpecSchema {
  * Builds specification-shaped definitions of models for a protocol version.
  *
  * It reads a model through its spec view (see `specJsonSchemaOf`): its JSON
- * Schema, and the `spec()` annotations its nodes hold.
+ * Schema, and the `specMeta()` annotations its nodes hold.
  */
 export class SpecShaper {
   private readonly isV08: boolean;
@@ -473,28 +473,19 @@ export class SpecShaper {
 
   /** Returns the reference a component's definition makes to a mixin. */
   private mixinRef(mixin: SpecMixin, catalogDefs: Map<string, EntrySchema>): string {
-    if (typeof mixin === 'string') {
-      const model = this.defModels.get(mixin);
-      if (model === undefined) return `${this.commonTypesUri}#/$defs/${mixin}`;
-      catalogDefs.set(mixin, model);
-      return `#/$defs/${mixin}`;
-    }
-    const name = annotationOf(mixin).defName;
-    if (name === undefined) {
-      throw new Error('A component mixin model must be named with specDef().');
-    }
-    catalogDefs.set(name, mixin);
-    return `#/$defs/${name}`;
+    const model = this.defModels.get(mixin);
+    if (model === undefined) return `${this.commonTypesUri}#/$defs/${mixin}`;
+    catalogDefs.set(mixin, model);
+    return `#/$defs/${mixin}`;
   }
 
   /** Returns the names of the properties a mixin declares. */
   private mixinProperties(mixin: SpecMixin): string[] {
-    const model = typeof mixin === 'string' ? this.defModels.get(mixin) : mixin;
+    const model = this.defModels.get(mixin);
     if (model !== undefined) {
       const properties = viewOf(model)['properties'];
       return isObject(properties) ? Object.keys(properties) : [];
     }
-    if (typeof mixin !== 'string') return [];
     const names: string[] = [];
     const collect = (def: unknown, seen: Set<unknown>): void => {
       if (!isObject(def) || seen.has(def)) return;
@@ -542,8 +533,7 @@ export class SpecShaper {
   ): JsonObject {
     const annotation = specAnnotationOf(node) ?? {};
     const defName = isDefRoot ? undefined : annotation.defName;
-    const defModel =
-      defName === undefined ? undefined : (annotation.defModel ?? this.defModels.get(defName));
+    const defModel = defName === undefined ? undefined : this.defModels.get(defName);
     if (defName !== undefined && defModel !== undefined) {
       return this.defRefJson(node, defName, defModel, catalogDefs);
     }
@@ -676,12 +666,7 @@ export class SpecShaper {
       const written = node['anyOf']
         .filter(isObject)
         .map(branch => this.nodeJson(branch, catalogDefs));
-      const resolve = (ref: string) => {
-        const model = ref.startsWith('#/$defs/')
-          ? catalogDefs?.get(ref.substring('#/$defs/'.length))
-          : undefined;
-        return model !== undefined ? this.defSchema(model, catalogDefs) : this.resolveRef(ref);
-      };
+      const resolve = (ref: string) => this.resolveRef(ref);
       const disjoint = written.every((branch, i) =>
         written.slice(i + 1).every(other => provablyDisjoint(branch, other, resolve)),
       );

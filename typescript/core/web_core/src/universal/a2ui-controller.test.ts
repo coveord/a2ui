@@ -22,7 +22,7 @@ import type {MessageProcessor, ComponentContext, Catalog, SurfaceModel} from '..
 import type {WebComponentImplementation} from './web_component_implementation.js';
 import type {A2uiLitElement as A2uiLitElementType} from './a2ui-lit-element.js';
 import type {A2uiController as A2uiControllerType} from './a2ui-controller.js';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import type {ComponentApi} from '../catalog/types.js';
 
 const MockTextApi = {
@@ -30,7 +30,7 @@ const MockTextApi = {
   schema: z.object({
     text: z
       .union([z.string(), z.record(z.string(), z.any())])
-      .describe('REF:#/$defs/DynamicString')
+      .meta({$ref: '#/$defs/DynamicString'})
       .default(''),
   }),
 };

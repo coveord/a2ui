@@ -220,8 +220,8 @@ function checkDescriptionChildRef(
  * determine if it represents a single component child reference (ComponentId)
  * or child list (ChildList).
  *
- * Reads the JSON Schema view of an `A2uiSchema`, in which `markChildRef` marks
- * and `REF:` description markers are `$ref`s. Inspects $ref pointer targets
+ * Reads the JSON Schema view of an `A2uiSchema`, in which a schema that names
+ * its definition is a `$ref`. Inspects $ref pointer targets
  * (e.g. `common_types.json#/$defs/ChildList`,
  * `common_types.json#/$defs/ComponentId`, `common_types.json#/$defs/Child`),
  * structural unions (`{ componentId, path }` templates), and arrays of

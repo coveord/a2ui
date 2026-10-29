@@ -30,12 +30,10 @@ export {
 export type {CatalogSchemaCompileContext, CatalogSchemaCompiler} from './catalog_definitions.js';
 export {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 export {
-  spec,
-  specDef,
   specMeta,
   SPEC_KEYWORD,
   type JsonSpecAnnotation,
-  type SpecAnnotation,
   type SpecMetaAnnotation,
+  type SpecAnnotation,
   type SpecMixin,
 } from './spec_annotations.js';

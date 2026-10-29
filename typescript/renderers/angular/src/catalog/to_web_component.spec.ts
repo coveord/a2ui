@@ -17,7 +17,7 @@
 import {Component, Injector} from '@angular/core';
 
 import {TestBed} from '@angular/core/testing';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   Catalog,
   ComponentContext,

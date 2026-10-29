@@ -1,6 +1,6 @@
 ## Unreleased
 
-- **BREAKING CHANGE**: Depends on `zod@^4.6.7` and imports the Zod 3 API from its `zod/v3` entry point, instead of depending on `zod@^3.25.76`. Schemas passed to this package must come from the same `zod` copy: install `zod@^4.6.7` and write `import {z} from 'zod/v3'` where you wrote `import {z} from 'zod'`. The schemas and their behavior are unchanged.
+- **BREAKING CHANGE**: Depends on `zod@^4.6.7` instead of `zod@^3.25.76`, and its schemas are Zod 4. Schemas passed to this package must be written with the same `zod` copy's Zod 4 API: install `zod@^4.6.7` and write `import {z} from 'zod/v4'`.
 - `<a2ui-surface>` tolerates a surface whose `componentsModel` has no `onCreated` or `onDeleted` event source, such as a partial test double, instead of throwing while subscribing to the root ([#3658](https://github.com/a2ui-project/a2ui/pull/3658)).
 - `<a2ui-surface>` manages a per-surface `NodeResolver` and renders the resolved root `ComponentNode` via `renderA2uiNode`. [#3705](https://github.com/a2ui-project/a2ui/pull/3705)
 

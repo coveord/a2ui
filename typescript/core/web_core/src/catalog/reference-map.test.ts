@@ -35,7 +35,6 @@ import {CommonSchemas} from '../types/common-types.js';
 import {V08_CHILD_REF_OPTIONS} from '../v0_8/standard_defs.js';
 import {V09_CHILD_REF_OPTIONS} from '../v0_9/standard_defs.js';
 import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
-import {z as z3} from 'zod/v3';
 import {z} from 'zod/v4';
 
 describe('reference-map schema introspection', () => {
@@ -76,10 +75,10 @@ describe('reference-map schema introspection', () => {
     assert.strictEqual(isChildOrChildListSchema(nonChildRef, V09_CHILD_REF_OPTIONS), false);
   });
 
-  it('identifies Zod schemas for ComponentId and ChildList via REF pointers and structure', () => {
+  it('identifies Zod schemas for ComponentId and ChildList via $ref pointers and structure', () => {
     const singleChildApi = z
       .string()
-      .describe('REF:#/$defs/ComponentId|Custom child reference slot.');
+      .meta({$ref: '#/$defs/ComponentId', description: 'Custom child reference slot.'});
     const childListUnion = z.union([
       z.array(singleChildApi),
       z.object({componentId: z.string(), path: z.string()}),
@@ -93,20 +92,6 @@ describe('reference-map schema introspection', () => {
     assert.strictEqual(isChildSchema(childListUnion, V09_CHILD_REF_OPTIONS), false);
 
     assert.strictEqual(isChildOrChildListSchema(normalString, V09_CHILD_REF_OPTIONS), false);
-  });
-
-  it('identifies Zod schemas stamped with markChildRef metadata without description', () => {
-    const markedChild = z3.string();
-    (markedChild._def as any).a2uiChildRef = 'component-id';
-
-    const markedList = z3.union([z3.array(z3.string()), z3.any()]);
-    (markedList._def as any).a2uiChildRef = 'child-list';
-
-    assert.strictEqual(isChildSchema(markedChild, V10_CHILD_REF_OPTIONS), true);
-    assert.strictEqual(isChildListSchema(markedChild, V10_CHILD_REF_OPTIONS), false);
-
-    assert.strictEqual(isChildListSchema(markedList, V10_CHILD_REF_OPTIONS), true);
-    assert.strictEqual(isChildSchema(markedList, V10_CHILD_REF_OPTIONS), false);
   });
 
   it('reads ChildList mixins through the catalog document', () => {
@@ -128,10 +113,10 @@ describe('reference-map schema introspection', () => {
   it('builds dynamic ref map for custom components with non-standard property names', () => {
     const customSplitPaneApi = {
       name: 'CustomSplitPane',
-      schema: z3.object({
-        topSlot: z3.string().describe('REF:#/$defs/ComponentId'),
-        bottomSlot: z3.string().describe('REF:#/$defs/ComponentId'),
-        sidePanels: z3.array(z3.string().describe('REF:#/$defs/ComponentId')),
+      schema: z.object({
+        topSlot: z.string().meta({$ref: '#/$defs/ComponentId'}),
+        bottomSlot: z.string().meta({$ref: '#/$defs/ComponentId'}),
+        sidePanels: z.array(z.string().meta({$ref: '#/$defs/ComponentId'})),
       }),
     };
 
@@ -287,7 +272,7 @@ describe('reference-map schema introspection', () => {
     const treeNodeSchema: z.ZodType<TreeNodeSchema> = z.lazy(() =>
       z.object({
         label: z.string(),
-        childSlot: z.string().describe('REF:common_types.json#/$defs/ComponentId').optional(),
+        childSlot: z.string().meta({$ref: 'common_types.json#/$defs/ComponentId'}).optional(),
         nestedNode: treeNodeSchema.optional(),
       }),
     );
@@ -309,7 +294,7 @@ describe('reference-map schema introspection', () => {
       schema: z.object({
         childCount: z.number().describe('The total count of child components in this view'),
         hasChildren: z.boolean().describe('Whether child component is rendered'),
-        mainSlot: z.string().describe('REF:common_types.json#/$defs/ComponentId'),
+        mainSlot: z.string().meta({$ref: 'common_types.json#/$defs/ComponentId'}),
       }),
     };
 
