@@ -29,7 +29,7 @@ import {extractRefFields} from '../resolution/ref-fields.js';
 import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {STRICT_VALIDATION} from '../validation/integrity-checker.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
-import {normalizeSchema, zod3SchemaOf} from './a2ui_schema.js';
+import {normalizeSchema} from './a2ui_schema.js';
 import type {CatalogSchemaCompileContext, CatalogSchemaCompiler} from './catalog_definitions.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
 import {Catalog, type CatalogApi} from './types.js';
@@ -200,7 +200,6 @@ describe('Catalog.fromJson with a schema compiler', () => {
         {kind: 'functionArgs', name: 'formatString', protocolVersion: '1.0'},
       ],
     );
-    assert.strictEqual(zod3SchemaOf(text), undefined);
     assert.strictEqual(text['~standard'].vendor, 'ajv');
   });
 

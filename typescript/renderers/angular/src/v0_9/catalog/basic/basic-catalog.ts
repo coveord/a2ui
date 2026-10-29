@@ -24,7 +24,6 @@ import {
   BASIC_FUNCTIONS,
   createBasicCatalogFunctions,
   BasicCatalogThemeSchema,
-  type BasicCatalogTheme,
   A2uiText,
   A2uiRow,
   A2uiColumn,
@@ -44,8 +43,7 @@ import {
   A2uiSlider,
   A2uiDateTimeInput,
 } from '@a2ui/web_core/v0_9/basic_catalog';
-import {FunctionImplementation} from '@a2ui/web_core/v0_9';
-import {z} from 'zod/v3';
+import {type EntrySchema, FunctionImplementation} from '@a2ui/web_core/v0_9';
 
 import {TextComponent} from './text.component';
 import {RowComponent} from './row.component';
@@ -131,7 +129,7 @@ export interface BasicCatalogOptions {
   /**
    * Optional theme schema to override default basic catalog theme schema.
    */
-  themeSchema?: z.ZodType<BasicCatalogTheme>;
+  themeSchema?: EntrySchema;
 }
 
 /**

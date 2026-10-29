@@ -19,13 +19,12 @@ import {
   Catalog,
   ComponentApi,
   FunctionImplementation,
-  type A2uiStandardSchema,
+  type EntrySchema,
 } from '@a2ui/web_core/v0_9';
 import {
   WebComponentImplementation,
   isWebComponentImplementation,
 } from '@a2ui/web_core/v0_9/universal';
-import { z } from 'zod/v3';
 import { CatalogComponentInstance } from '../core/catalog_component_instance';
 import { toWebComponent } from './to_web_component';
 import { UniversalOnlyComponent } from './universal_only.component';
@@ -71,7 +70,7 @@ export class AngularCatalog extends Catalog<AngularComponentImplementation> {
     protocolVersion: string,
     components?: ReadonlyArray<AngularComponentImplementation | WebComponentImplementation>,
     functions?: FunctionImplementation[],
-    themeSchema?: z.ZodTypeAny | A2uiStandardSchema,
+    themeSchema?: EntrySchema,
     instructions?: string,
   );
   /**
@@ -85,7 +84,7 @@ export class AngularCatalog extends Catalog<AngularComponentImplementation> {
     id: string,
     components?: ReadonlyArray<AngularComponentImplementation | WebComponentImplementation>,
     functions?: FunctionImplementation[],
-    themeSchema?: z.ZodTypeAny | A2uiStandardSchema,
+    themeSchema?: EntrySchema,
     instructions?: string,
   );
   constructor(
@@ -96,8 +95,8 @@ export class AngularCatalog extends Catalog<AngularComponentImplementation> {
     componentsOrFunctions?:
       | ReadonlyArray<AngularComponentImplementation | WebComponentImplementation>
       | FunctionImplementation[],
-    functionsOrThemeSchema?: FunctionImplementation[] | z.ZodTypeAny | A2uiStandardSchema,
-    themeSchemaOrInstructions?: z.ZodTypeAny | A2uiStandardSchema | string,
+    functionsOrThemeSchema?: FunctionImplementation[] | EntrySchema,
+    themeSchemaOrInstructions?: EntrySchema | string,
     instructions?: string,
   ) {
     if (typeof protocolVersionOrComponents !== 'string') {
@@ -107,7 +106,7 @@ export class AngularCatalog extends Catalog<AngularComponentImplementation> {
         '0.9',
         (protocolVersionOrComponents ?? []).map(toAngularComponentImplementation),
         componentsOrFunctions as FunctionImplementation[] | undefined,
-        functionsOrThemeSchema as z.ZodTypeAny | A2uiStandardSchema | undefined,
+        functionsOrThemeSchema as EntrySchema | undefined,
         themeSchemaOrInstructions as string | undefined,
       );
     } else {
@@ -119,7 +118,7 @@ export class AngularCatalog extends Catalog<AngularComponentImplementation> {
         protocolVersionOrComponents,
         components.map(toAngularComponentImplementation),
         functionsOrThemeSchema as FunctionImplementation[] | undefined,
-        themeSchemaOrInstructions as z.ZodTypeAny | A2uiStandardSchema | undefined,
+        themeSchemaOrInstructions as EntrySchema | undefined,
         instructions,
       );
     }

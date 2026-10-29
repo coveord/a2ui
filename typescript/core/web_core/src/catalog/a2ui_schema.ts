@@ -15,10 +15,9 @@
  */
 
 import type {StandardJSONSchemaV1, StandardSchemaV1, StandardTypedV1} from '@standard-schema/spec';
-import type {z} from 'zod/v3';
 
 import {A2uiCatalogError} from '../errors.js';
-import {formatZodIssue} from '../processing/format-zod-issue.js';
+import {formatZodIssue, type ZodIssue} from '../processing/format-zod-issue.js';
 import type {JsonSchemaObject} from './spec_annotations.js';
 
 export type {StandardJSONSchemaV1, StandardSchemaV1};
@@ -44,23 +43,16 @@ export type A2uiStandardSchema<Output = unknown> = StandardSchemaV1<unknown, Out
 export type A2uiSchema<Output = unknown> = A2uiStandardSchema<Output> | JsonSchemaObject;
 
 /**
- * The schema of a catalog entry or theme: an `A2uiSchema`, or a schema written
- * with the Zod 3 API of `zod/v3`.
- *
- * A2UI reads a Zod 3 schema as it always has, including its `spec()`
- * annotations. Accepting Zod 3 here is transitional: `fromZod3` presents one
- * as an `A2uiSchema`, which is the form to move to.
+ * The schema of a catalog entry or theme: an `A2uiSchema`.
  *
  * @template Output The type of a value the schema accepts.
  */
-export type EntrySchema<Output = unknown> =
-  | A2uiSchema<Output>
-  | z.ZodType<Output, z.ZodTypeDef, unknown>;
+export type EntrySchema<Output = unknown> = A2uiSchema<Output>;
 
 /**
  * The type of a value an `EntrySchema` accepts, as it outputs it: inferred
- * through Standard Schema for a library or Zod 3 schema, which gives what
- * `z.infer` gives, and `Record<string, unknown>` for a JSON Schema object.
+ * through Standard Schema for a library schema, and `Record<string, unknown>`
+ * for a JSON Schema object.
  * A schema typed only as `EntrySchema` infers `any`, as `z.infer` does for
  * `z.ZodTypeAny`.
  */
@@ -128,32 +120,8 @@ function issuePathSegment(segment: unknown): string {
   return String(segment);
 }
 
-function isZodIssue(issue: A2uiSchemaIssue): issue is A2uiSchemaIssue & z.ZodIssue {
+function isZodIssue(issue: A2uiSchemaIssue): issue is ZodIssue {
   return typeof (issue as {code?: unknown}).code === 'string' && Array.isArray(issue.path);
-}
-
-/**
- * The key under which `fromZod3` keeps the Zod 3 schema it presents, so that
- * A2UI reads the schema itself rather than its JSON Schema.
- */
-export const ZOD3_SOURCE: unique symbol = Symbol.for('a2ui.zod3Source');
-
-/** Whether `value` is a schema written with the Zod 3 API. */
-function isZod3Schema(value: unknown): value is z.ZodTypeAny {
-  const def = isObject(value) ? value['_def'] : undefined;
-  return isObject(def) && typeof def['typeName'] === 'string';
-}
-
-/**
- * Returns the Zod 3 schema an entry's schema is, or presents through
- * `fromZod3`, or `undefined` for any other schema, such as a Zod 4 one.
- *
- * @param schema An entry's or theme's schema.
- */
-export function zod3SchemaOf(schema: unknown): z.ZodTypeAny | undefined {
-  if (isZod3Schema(schema)) return schema;
-  const source = isObject(schema) ? (schema as Record<symbol, unknown>)[ZOD3_SOURCE] : undefined;
-  return isZod3Schema(source) ? source : undefined;
 }
 
 /** The JSON Schema version catalog documents are written in. */
@@ -213,13 +181,13 @@ function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
 /**
  * Whether a value is a schema that A2UI reads through its JSON Schema view
  * rather than as a plain JSON Schema object: one implementing Standard Schema
- * (`~standard`), or a Zod 3 schema.
+ * (`~standard`).
  *
  * @param value The value to test.
  */
 export function isA2uiSchema(value: unknown): value is A2uiStandardSchema {
   if (typeof value !== 'object' || value === null) return false;
-  return '~standard' in value || zod3SchemaOf(value) !== undefined;
+  return '~standard' in value;
 }
 
 /**

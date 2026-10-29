@@ -33,8 +33,7 @@ import {SPEC_KEYWORD, specMeta} from './spec_annotations.js';
 import {Catalog, type ComponentApi} from './types.js';
 
 // v1.0 common types written with Zod 4. Each names its definition with a
-// `$ref`, which Zod 4 writes into its JSON Schema, as a Zod 3 common type
-// does with a `REF:` description.
+// `$ref`, which Zod 4 writes into its JSON Schema.
 const DataBinding = z
   .object({'@path': z.string().optional(), 'path': z.string().optional()})
   .meta({$ref: '#/$defs/DataBinding'});
@@ -60,7 +59,7 @@ const Weight = z
   )
   .meta(specMeta({defName: 'Weight'}));
 
-// Three v1.0 basic components written with Zod 4, as the generated Zod 3
+// Three v1.0 basic components written by hand with Zod 4, as the generated
 // ones are.
 const TextApi: ComponentApi = {
   name: 'Text',
@@ -112,7 +111,7 @@ const TextFieldApi: ComponentApi = {
   name: 'TextField',
   schema: z
     .strictObject({
-      // Declared here too, as the generated Zod 3 component does; the
+      // Declared here too, as the generated component does; the
       // document writes it through the Checkable mixin instead.
       checks: z
         .array(CheckRule)
@@ -147,12 +146,12 @@ describe('catalog entries annotated with specMeta', () => {
     }
   });
 
-  it('bind and find child references as the Zod 3 catalog does', () => {
+  it('bind and find child references as the generated basic catalog does', () => {
     for (const api of [TextApi, ColumnApi, TextFieldApi]) {
-      const zod4 = componentSchemaOf(zod4Catalog, api);
-      const zod3 = componentSchemaOf(basicCatalog, basicCatalog.components.get(api.name)!);
+      const written = componentSchemaOf(zod4Catalog, api);
+      const generated = componentSchemaOf(basicCatalog, basicCatalog.components.get(api.name)!);
       for (const view of [scrapeSchemaBehavior, extractRefFields, getKnownSchemaKeys]) {
-        assert.deepStrictEqual(view(zod4), view(zod3), `${api.name} ${view.name}`);
+        assert.deepStrictEqual(view(written), view(generated), `${api.name} ${view.name}`);
       }
     }
   });
@@ -259,5 +258,36 @@ describe('the JSON Schema of a Zod 4 schema on a cycle', () => {
     assert.deepStrictEqual(a2uiJsonSchemaOf(z.object({value: Value}))['properties'], {
       value: {$ref: '#/$defs/Value', description: 'A value.'},
     });
+  });
+});
+
+describe('an exclusive union written with z.xor', () => {
+  const Sized = {
+    name: 'Sized',
+    schema: z
+      .strictObject({size: z.xor([z.enum(['s', 'm']), z.string().max(1)])})
+      .meta(specMeta({mixins: ['ComponentCommon']})),
+  };
+  const catalog = new Catalog('sized', '1.0', [Sized]);
+
+  it('is written as oneOf, even when its branches overlap', () => {
+    const sized = (catalog.toJson()['components'] as Record<string, unknown>)['Sized'] as {
+      allOf: {properties?: Record<string, unknown>}[];
+    };
+    assert.deepStrictEqual(sized.allOf[1].properties?.['size'], {
+      oneOf: [
+        {type: 'string', enum: ['s', 'm']},
+        {type: 'string', maxLength: 1},
+      ],
+    });
+  });
+
+  it('rejects a value more than one branch accepts', () => {
+    const validator = new PayloadValidator(catalog, STRICT_VALIDATION);
+    validator.validateComponent({id: 'a', component: 'Sized', size: 'x'});
+    assert.throws(
+      () => validator.validateComponent({id: 'b', component: 'Sized', size: 's'}),
+      /size: Invalid input: more than one option matched/,
+    );
   });
 });

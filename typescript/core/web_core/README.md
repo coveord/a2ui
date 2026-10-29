@@ -53,8 +53,8 @@ The code generator uses **Schema Flattening** to remain version-, catalog-, and 
 - **`$defs` Scope**:
   - Reusable type schemas reside under `$defs`. Definition names are not hardcoded; any definition present in `$defs` is resolved dynamically when referenced.
 - **Reference Annotations**:
-  - When a component property references `$defs/<DefName>`, the generator maps it to `<DefName>Schema` and attaches a `.describe('REF:#/$defs/<DefName>|<description>')` annotation.
-  - At runtime, `generateValidationSchema` inspects these markers to emit `$ref` pointers and tree-shake unused `$defs` definitions.
+  - When a component property references `$defs/<DefName>`, the generator maps it to `<DefName>Schema`, a Zod 4 schema that names its definition with `.meta({$ref: '#/$defs/<DefName>', description})`.
+  - At runtime, `generateValidationSchema` reads these references to emit `$ref` pointers and tree-shake unused `$defs` definitions.
 - **Child References**:
   - Single child references and child collections are identified when their `$defs` reference targets or descriptions indicate a child component relationship (such as references to `ComponentId`, `Child`, or `ChildList`).
 
@@ -63,7 +63,7 @@ The code generator uses **Schema Flattening** to remain version-, catalog-, and 
 A `Catalog` has three serialization entry points:
 
 - `Catalog.fromJson(json, protocolVersion?, catalogId?)` loads a catalog document into the catalog's model. Each entry is a `JsonComponentApi` or `JsonFunctionApi` whose model is its JSON Schema definition as written (`jsonSchema`); its Zod `schema` is derived from the definition on first use. The catalog keeps the document-level fields (metadata, named `$defs`, other top-level keys). `protocolVersion`, when given, takes precedence over the version the document declares and selects the loading rules, while `toJson` still writes the document's own `protocolVersion`; without it the document's version applies, then `DEFAULT_PROTOCOL_VERSION`. `catalogId` replaces the document's own ID.
-- `catalog.toJson()` assembles the unbundled catalog document from the model, computing the `anyComponent` and `anyFunction` unions. A catalog loaded with `fromJson` returns its document unchanged (minus any entries omitted from the document's `anyComponent.oneOf` or `anyFunction.oneOf` unions, which `fromJson` filters out on load). An entry defined in code whose Zod schema is annotated with `spec()` has its definition computed from the model in the layout of the catalog's protocol version; any other entry defined in code is generated from its Zod schema. The result is computed once per catalog; each call returns a fresh copy.
+- `catalog.toJson()` assembles the unbundled catalog document from the model, computing the `anyComponent` and `anyFunction` unions. A catalog loaded with `fromJson` returns its document unchanged (minus any entries omitted from the document's `anyComponent.oneOf` or `anyFunction.oneOf` unions, which `fromJson` filters out on load). An entry defined in code whose schema is annotated with `specMeta()` has its definition computed from the model in the layout of the catalog's protocol version; any other entry defined in code is generated from its schema's JSON Schema. The result is computed once per catalog; each call returns a fresh copy.
 - `catalog.validationSchema` is the self-contained schema used to validate payloads: common types and the catalog's own `$defs` are bundled into `$defs` and every `$ref` is local. It is computed once per catalog; each read returns a fresh copy.
 
 ```ts
@@ -89,22 +89,27 @@ const chatCatalog = basicCatalog.derive({
 
 ### Specification annotations
 
-`spec(schema, annotation)` returns a copy of a Zod schema that records what a catalog document writes about it beyond the schema itself, without changing validation: `mixins` (the common types, such as `'ComponentCommon'`, and the `specDef()` models a component's definition composes with `allOf`), `closure` (`additionalProperties` or `unevaluatedProperties`), `required` (the order of the `required` list), `allOf` (schemas that follow the schema's own, such as a format rule) and `keywords` (such as `format`). `specDef(name, schema)` names a model that the document declares under `$defs`. The descriptions come from `.describe()`, and common types references from `REF:#/$defs/<Name>` description markers.
+`specMeta(annotation)` returns the metadata that records what a catalog document writes about a schema beyond the schema itself, without changing validation. With Zod 4, pass it to `.meta()`. Its fields are:
+
+- `mixins`: the common types, such as `'ComponentCommon'`, and the models a component's definition composes with `allOf`;
+- `closure`: `additionalProperties` or `unevaluatedProperties`;
+- `required`: the order of the `required` list;
+- `allOf`: schemas that follow the schema's own, such as a format rule;
+- `keywords`: such as `format`.
+
+`specMeta({defName})` names a model that the document declares under `$defs`. The descriptions come from `.describe()`. A common type names its definition in its metadata (`.meta({$ref})`), and `.describe()` keeps that reference. A union written with `z.xor` is written as `oneOf`, and one written with `z.union` as `anyOf`.
 
 ```ts
-import {Catalog, spec, specDef} from '@a2ui/web_core/catalog';
-import {z} from 'zod/v3';
+import {Catalog, specMeta} from '@a2ui/web_core/catalog';
+import {z} from 'zod/v4';
 
-const Common = specDef('Common', z.object({weight: z.number().optional()}));
+const Common = z.object({weight: z.number().optional()}).meta(specMeta({defName: 'Common'}));
 const Badge = {
   name: 'Badge',
-  schema: spec(
-    z
-      .object({...Common.shape, label: z.string()})
-      .describe('A badge.')
-      .strict(),
-    {mixins: ['ComponentCommon', Common]},
-  ),
+  schema: z
+    .strictObject({...Common.shape, label: z.string()})
+    .describe('A badge.')
+    .meta(specMeta({mixins: ['ComponentCommon', Common]})),
 };
 // Badge's definition composes ComponentCommon and #/$defs/Common with allOf,
 // and $defs.Common is computed from the Common model.

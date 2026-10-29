@@ -124,7 +124,7 @@ A2UI v0.9 strictly separates a component's API (Schema) from its implementation.
 Use Zod to define the properties. Using `CommonSchemas` from `web_core` enables automatic binding for A2UI primitives.
 
 ```typescript
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {CommonSchemas} from '@a2ui/web_core/v0_9';
 
 export const MyProfileApi = {
@@ -213,7 +213,7 @@ Group your components and logic functions into a `Catalog` to be used by the `Me
 
 ```typescript
 import {Catalog, createFunctionImplementation} from '@a2ui/web_core/v0_9';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 // 1. Implement a custom logic function
 const myCheckFunc = createFunctionImplementation(

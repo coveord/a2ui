@@ -589,7 +589,7 @@ export interface CatalogSchemaCompileContext {
 
 /**
  * Compiles the schemas of a catalog `Catalog.fromJson` loads into validators,
- * in place of the built-in Zod 3 compiler.
+ * in place of the built-in Zod 4 compiler.
  *
  * A2UI resolves each entry's definition first: its references, its mixins
  * and `allOf` members, and the closure

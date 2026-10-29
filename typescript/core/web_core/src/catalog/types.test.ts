@@ -23,7 +23,7 @@ import {
   createFunctionImplementation,
 } from './types.js';
 import {A2uiExpressionError} from '../errors.js';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 describe('Catalog Types', () => {
   it('creates a catalog with functions', () => {
@@ -168,7 +168,7 @@ describe('Catalog Types', () => {
     const mockComponent = {
       name: 'CustomButton',
       schema: z.object({
-        label: z.string().describe('REF:#/$defs/DynamicString'),
+        label: z.string().meta({$ref: '#/$defs/DynamicString'}),
       }),
     } satisfies ComponentApi;
 

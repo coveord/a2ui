@@ -46,7 +46,7 @@ export class VersionAdapterFactory implements VersionAdapterResolver {
 
   /**
    * @param protocolSchemas Optional validators for protocol messages. A version
-   *     left out keeps its built-in Zod 3 validator.
+   *     left out keeps its built-in validator.
    */
   constructor(protocolSchemas: ProtocolSchemas = {}) {
     this.adapters = new Map<string, VersionAdapter>([
