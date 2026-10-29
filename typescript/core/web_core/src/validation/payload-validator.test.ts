@@ -18,6 +18,8 @@ import {describe, it} from 'node:test';
 import * as assert from 'node:assert';
 import {z} from 'zod/v3';
 import {Catalog} from '../catalog/types.js';
+import {basicCatalog as v10BasicCatalog} from '../catalogs/basic/v1/catalog.js';
+import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {nestedCallRunsInCatalog, PayloadValidator} from './payload-validator.js';
 import {STRICT_VALIDATION} from './integrity-checker.js';
 import {A2uiValidationError} from '../errors.js';
@@ -414,5 +416,50 @@ describe('PayloadValidator', () => {
         );
       }
     });
+  });
+});
+
+describe('PayloadValidator.validateTheme', () => {
+  for (const [label, catalog] of [
+    ['v0.9', v09BasicCatalog],
+    ['v1.0', v10BasicCatalog],
+  ] as const) {
+    it(`validates the ${label} basic theme with its own schema, which accepts any CSS color`, () => {
+      const validator = new PayloadValidator(catalog);
+      for (const primaryColor of ['#00BFFF', '#17e', 'red', 'rgb(255, 0, 0)']) {
+        assert.deepStrictEqual(validator.validateTheme({primaryColor}), {primaryColor});
+      }
+      assert.throws(
+        () => validator.validateTheme({primaryColor: 'nope'}),
+        /primaryColor must be a valid CSS color/,
+      );
+    });
+  }
+
+  it('accepts a CSS color the v0.9 document, which writes a hexadecimal one, rejects', () => {
+    const documentTheme = (v09BasicCatalog.toJson().$defs as Record<string, unknown>)['theme'] as {
+      properties: Record<string, {pattern?: string}>;
+    };
+    assert.strictEqual(documentTheme.properties['primaryColor'].pattern, '^#[0-9a-fA-F]{6}$');
+    assert.deepStrictEqual(
+      new PayloadValidator(v09BasicCatalog).validateTheme({primaryColor: 'red'}),
+      {
+        primaryColor: 'red',
+      },
+    );
+  });
+
+  it('validates a theme written as JSON Schema with the theme its document writes', () => {
+    const catalog = new Catalog('json-theme', '0.9', [], [], {
+      themeSchema: {
+        type: 'object',
+        properties: {primaryColor: {type: 'string', pattern: '^#[0-9a-fA-F]{6}$'}},
+      },
+    });
+    const validator = new PayloadValidator(catalog);
+    assert.deepStrictEqual(validator.validateTheme({primaryColor: '#00BFFF'}), {
+      primaryColor: '#00BFFF',
+    });
+    assert.throws(() => validator.validateTheme({primaryColor: 'red'}), A2uiValidationError);
   });
 });
