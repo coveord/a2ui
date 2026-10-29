@@ -23,6 +23,7 @@
 import {z} from 'zod';
 
 import {
+  AccessibilityAttributesSchema,
   Catalog,
   type ComponentApi,
   DynamicNumberSchema,
@@ -70,6 +71,9 @@ export const VegaChartApi = {
   schema: spec(
     z
       .object({
+        accessibility: AccessibilityAttributesSchema.describe(
+          'REF:#/$defs/AccessibilityAttributes',
+        ).optional(),
         spec: SpecSchema,
         height: DynamicNumberSchema.describe(
           'REF:#/$defs/DynamicNumber|Optional height of the chart in pixels. Defaults to 290.',

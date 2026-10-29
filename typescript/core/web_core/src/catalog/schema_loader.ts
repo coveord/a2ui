@@ -19,7 +19,8 @@ import {z} from 'zod';
 import {isAtLeastVersion} from '../common/semver.js';
 import {assertUax31Identifier} from '../common/uax31.js';
 import {A2uiCatalogError} from '../errors.js';
-import {CommonSchemas, ComponentCommonSchema} from '../types/common-types.js';
+import {CommonSchemas} from '../types/common-types.js';
+import {CommonSchemas as V09CommonSchemas} from '../v0_9/schema/common-types.js';
 import {exclusiveUnion} from './exclusive_union.js';
 import {JsonComponentApi, JsonFunctionApi} from './json_entries.js';
 import {
@@ -50,6 +51,51 @@ export interface ParsedCatalogSchema extends CatalogDocumentOptions {
  * that omits it predates that field.
  */
 export const DEFAULT_PROTOCOL_VERSION = '0.9';
+
+/**
+/**
+ * The Zod mirrors of the `common_types.json` definitions, by definition name.
+ */
+type CommonTypeSchemas = Readonly<Record<string, z.ZodTypeAny>>;
+
+/**
+ * The common types of a v0.9 catalog: the shared mirrors, with the v0.9
+ * definitions where the shared ones follow later versions. The v0.9
+ * accessibility attributes lack the `live` and `hidden` that v1.0 added, and
+ * a v0.9 check requires its `message`. The other v0.9 mirrors are not used, as
+ * some are looser than the published schema: their `FunctionCall` accepts keys
+ * that the catalog's function definitions reject.
+ */
+const V09_COMMON_TYPE_SCHEMAS: CommonTypeSchemas = Object.freeze({
+  ...CommonSchemas,
+  AccessibilityAttributes: V09CommonSchemas.AccessibilityAttributes,
+  ComponentCommon: V09CommonSchemas.ComponentCommon,
+  CheckRule: V09CommonSchemas.CheckRule,
+  Checkable: V09CommonSchemas.Checkable,
+});
+
+/**
+ * Returns the Zod mirrors of the common types that a catalog of
+ * `protocolVersion` references.
+ *
+ * @param protocolVersion The catalog's protocol version.
+ */
+function commonTypeSchemasFor(protocolVersion: string): CommonTypeSchemas {
+  return isAtLeastVersion(protocolVersion, '0.9') && !isAtLeastVersion(protocolVersion, '1.0')
+    ? V09_COMMON_TYPE_SCHEMAS
+    : CommonSchemas;
+}
+
+/**
+ * Zod schemas converted for a catalog, keyed by the reference they were
+ * converted from, together with the common type mirrors the catalog's
+ * common-type references convert to.
+ */
+class ConversionCache extends Map<string, z.ZodTypeAny> {
+  constructor(readonly commonTypes: CommonTypeSchemas = CommonSchemas) {
+    super();
+  }
+}
 
 /**
  * Resolves a JSON Pointer within a root JSON document.
@@ -85,13 +131,12 @@ function resolveJsonPointer(
  * Resolves a standard protocol `$ref` to its corresponding common type schema.
  *
  * @param ref JSON Schema reference string.
+ * @param commonTypes The common type schemas of the catalog's protocol version.
  * @returns The matching Zod schema, or undefined if not a known protocol definition.
  */
-function resolveProtocolRef(ref: string): z.ZodTypeAny | undefined {
+function resolveProtocolRef(ref: string, commonTypes: CommonTypeSchemas): z.ZodTypeAny | undefined {
   const defName = ref.split(/#\/(?:\$defs|definitions)\//)[1];
-  return defName && Object.hasOwn(CommonSchemas, defName)
-    ? (CommonSchemas as Record<string, z.ZodTypeAny>)[defName]
-    : undefined;
+  return defName && Object.hasOwn(commonTypes, defName) ? commonTypes[defName] : undefined;
 }
 
 /**
@@ -157,7 +202,7 @@ function finalizePropertyZod(
   propSchema: Record<string, unknown>,
   rootDoc?: Record<string, unknown>,
   visitedPointers?: Set<string>,
-  defCache?: Map<string, z.ZodTypeAny>,
+  defCache?: ConversionCache,
 ): z.ZodTypeAny {
   let result = baseZod;
   if (propSchema.not && typeof propSchema.not === 'object') {
@@ -199,9 +244,9 @@ function convertRefToZod(
   propSchema: Record<string, unknown>,
   rootDoc: Record<string, unknown> | undefined,
   visitedPointers: Set<string>,
-  defCache: Map<string, z.ZodTypeAny>,
+  defCache: ConversionCache,
 ): z.ZodTypeAny | undefined {
-  const resolvedProtocol = resolveProtocolRef(ref);
+  const resolvedProtocol = resolveProtocolRef(ref, defCache.commonTypes);
   if (resolvedProtocol) {
     const defName = ref.split(/#\/(?:\$defs|definitions)\//)[1];
     const desc =
@@ -265,7 +310,7 @@ function convertUnionToZod(
   propSchema: Record<string, unknown>,
   rootDoc: Record<string, unknown> | undefined,
   visitedPointers: Set<string>,
-  defCache: Map<string, z.ZodTypeAny>,
+  defCache: ConversionCache,
 ): z.ZodTypeAny | undefined {
   const isOneOf = Array.isArray(propSchema.oneOf);
   const rawBranches = (propSchema.oneOf || propSchema.anyOf) as unknown[];
@@ -299,6 +344,38 @@ function convertUnionToZod(
   return desc ? unionZod.describe(desc) : unionZod;
 }
 
+/** Keywords that only constrain the values a schema accepts. */
+const CONDITIONAL_KEYWORDS = new Set(['if', 'then', 'else', 'not', 'description', '$comment']);
+
+/**
+ * Returns a property schema that narrows one referenced type with an `allOf`,
+ * such as a `DynamicString` with a conditional date format, as a reference to
+ * that type with the property's own keywords, or `undefined` for any other
+ * schema.
+ *
+ * Loading the property as the referenced type keeps what the type means to
+ * the binder, such as a data binding. The conditional members are not
+ * enforced.
+ *
+ * @param propSchema Raw JSON Schema property definition.
+ */
+function narrowedReference(
+  propSchema: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const {allOf, ...rest} = propSchema;
+  if (!Array.isArray(allOf) || rest.$ref !== undefined) return undefined;
+  const refs = allOf.filter(
+    (member): member is {$ref: string} =>
+      typeof (member as Record<string, unknown> | null)?.$ref === 'string',
+  );
+  const conditionalOnly = allOf.every(
+    member =>
+      refs.includes(member) ||
+      Object.keys(member as Record<string, unknown>).every(key => CONDITIONAL_KEYWORDS.has(key)),
+  );
+  return refs.length === 1 && conditionalOnly ? {...rest, $ref: refs[0].$ref} : undefined;
+}
+
 /**
  * Converts an `allOf`-composed JSON Schema property or leaf `$defs` entry into a Zod schema.
  *
@@ -311,7 +388,7 @@ function convertAllOfPropertyToZod(
   propSchema: Record<string, unknown>,
   rootDoc: Record<string, unknown> | undefined,
   visitedPointers: Set<string>,
-  defCache: Map<string, z.ZodTypeAny>,
+  defCache: ConversionCache,
 ): z.ZodTypeAny | undefined {
   const rawBranches = propSchema.allOf as unknown[];
   const branches = rawBranches.filter(
@@ -325,6 +402,7 @@ function convertAllOfPropertyToZod(
       rootDoc,
       new Set(visitedPointers),
       false,
+      defCache.commonTypes,
     );
     if (subSchemas.length > 0) {
       const requiredSet = new Set<string>();
@@ -398,7 +476,7 @@ function convertPropertyToZod(
   propSchema: Record<string, unknown>,
   rootDoc?: Record<string, unknown>,
   visitedPointers = new Set<string>(),
-  defCache = new Map<string, z.ZodTypeAny>(),
+  defCache = new ConversionCache(),
 ): z.ZodTypeAny {
   if (!propSchema || typeof propSchema !== 'object') {
     return z.unknown();
@@ -416,6 +494,11 @@ function convertPropertyToZod(
       defCache,
     );
     if (resolvedRef) return resolvedRef;
+  }
+
+  const narrowedRef = narrowedReference(propSchema);
+  if (narrowedRef) {
+    return convertPropertyToZod(narrowedRef, rootDoc, visitedPointers, defCache);
   }
 
   // oneOf / anyOf inspection
@@ -578,7 +661,7 @@ function convertPropertiesToShape(
   omitEnvelopeFields = false,
   rootDoc?: Record<string, unknown>,
   visitedPointers?: Set<string>,
-  defCache = new Map<string, z.ZodTypeAny>(),
+  defCache = new ConversionCache(),
 ): Record<string, z.ZodTypeAny> {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const [propName, propSchema] of Object.entries(properties)) {
@@ -643,6 +726,7 @@ function collectComponentSubSchemas(
   rootDoc: Record<string, unknown>,
   visitedPointers = new Set<string>(),
   isAtLeastV10 = false,
+  commonTypes: CommonTypeSchemas = CommonSchemas,
 ): ComponentSubSchema[] {
   if (!schema || typeof schema !== 'object') return [];
   const mixins: ComponentSubSchema[] = [];
@@ -659,7 +743,8 @@ function collectComponentSubSchemas(
           // Protocol common properties: accessibility attributes, and from
           // v1.0 also the component's metadata. `catalogId` is an envelope
           // field, like `id`.
-          const {accessibility, metadata} = ComponentCommonSchema.shape;
+          const {accessibility, metadata} = (commonTypes['ComponentCommon'] as z.AnyZodObject)
+            .shape;
           mixins.push({
             kind: 'zod',
             properties: isAtLeastV10 ? {accessibility, metadata} : {accessibility},
@@ -670,7 +755,13 @@ function collectComponentSubSchemas(
             const target = resolveJsonPointer(rootDoc, ref);
             if (target) {
               local.push(
-                ...collectComponentSubSchemas(target, rootDoc, visitedPointers, isAtLeastV10),
+                ...collectComponentSubSchemas(
+                  target,
+                  rootDoc,
+                  visitedPointers,
+                  isAtLeastV10,
+                  commonTypes,
+                ),
               );
             }
           }
@@ -679,13 +770,15 @@ function collectComponentSubSchemas(
           // The referenced document is not loaded here, so fall back to the zod mirror of
           // the canonical type. Without this the mixin is dropped with no error, which is
           // how `checks` used to disappear from every Checkable component.
-          const mirror = resolveProtocolRef(ref);
+          const mirror = resolveProtocolRef(ref, commonTypes);
           if (mirror instanceof z.ZodObject) {
             mixins.push({kind: 'zod', properties: {...mirror.shape}});
           }
         }
       } else {
-        inline.push(...collectComponentSubSchemas(sub, rootDoc, visitedPointers, isAtLeastV10));
+        inline.push(
+          ...collectComponentSubSchemas(sub, rootDoc, visitedPointers, isAtLeastV10, commonTypes),
+        );
       }
     }
   }
@@ -714,11 +807,17 @@ function convertComponentJsonSchemaToZod(
   rawSchema: Record<string, unknown>,
   rootDoc: Record<string, unknown>,
   omitEnvelopeFields = true,
-  defCache = new Map<string, z.ZodTypeAny>(),
+  defCache = new ConversionCache(),
   isAtLeastV10 = false,
 ): z.ZodObject<z.ZodRawShape> {
   const shape: Record<string, z.ZodTypeAny> = {};
-  const schemasToMerge = collectComponentSubSchemas(rawSchema, rootDoc, undefined, isAtLeastV10);
+  const schemasToMerge = collectComponentSubSchemas(
+    rawSchema,
+    rootDoc,
+    undefined,
+    isAtLeastV10,
+    defCache.commonTypes,
+  );
 
   const requiredSet = new Set<string>();
   for (const s of schemasToMerge) {
@@ -889,7 +988,7 @@ function collectArgSubSchemas(
 function convertFunctionArgsJsonSchemaToZod(
   rawSchema: Record<string, unknown>,
   rootDoc?: Record<string, unknown>,
-  defCache = new Map<string, z.ZodTypeAny>(),
+  defCache = new ConversionCache(),
 ): z.ZodObject<z.ZodRawShape> {
   const collected = collectArgSubSchemas(rawSchema, rootDoc);
   const requiredSet = new Set<string>();
@@ -993,6 +1092,7 @@ function functionParameterNames(schema: unknown, rootDoc?: Record<string, unknow
  * @param rootDoc Optional root schema document for reference resolution.
  * @param permittedNames Optional set of allowed function names from `anyFunction.oneOf`.
  * @param atLeastV10 Whether the catalog targets protocol v1.0 or higher.
+ * @param commonTypes The common type schemas of the catalog's protocol version.
  * @returns Array of parsed FunctionApi objects.
  * @throws {A2uiCatalogError} If a function or argument identifier fails UAX #31 validation in v1.0+.
  */
@@ -1001,10 +1101,11 @@ function parseFunctionDefinitions(
   rootDoc?: Record<string, unknown>,
   permittedNames?: Set<string>,
   atLeastV10 = false,
+  commonTypes: CommonTypeSchemas = CommonSchemas,
 ): FunctionApi[] {
   const result: FunctionApi[] = [];
   if (!rawFunctions) return result;
-  const defCache = new Map<string, z.ZodTypeAny>();
+  const defCache = new ConversionCache(commonTypes);
 
   /** Validates a function's own name and its declared argument names. */
   const assertFunctionIdentifiers = (name: string, paramNames: string[]): void => {
@@ -1130,6 +1231,7 @@ function extractPermittedNames(oneOf: unknown, prefix: string): Set<string> | un
  * @param catalogSchema Enclosing raw catalog schema for resolving local references.
  * @param atLeastV10 Whether the catalog targets protocol v1.0 or higher.
  * @param permittedNames Optional set of allowed component names from anyComponent.oneOf.
+ * @param commonTypes The common type schemas of the catalog's protocol version.
  * @returns Array of parsed ComponentApi objects with validation schemas and hierarchy constraints.
  * @throws {A2uiCatalogError} If a component or property identifier fails UAX #31 validation in v1.0+.
  */
@@ -1138,9 +1240,10 @@ function parseCatalogComponents(
   catalogSchema: Record<string, unknown>,
   atLeastV10: boolean,
   permittedNames?: Set<string>,
+  commonTypes: CommonTypeSchemas = CommonSchemas,
 ): ComponentApi[] {
   const components: ComponentApi[] = [];
-  const defCache = new Map<string, z.ZodTypeAny>();
+  const defCache = new ConversionCache(commonTypes);
 
   for (const [name, rawCompSchema] of Object.entries(componentsMap)) {
     const rawComp = (rawCompSchema as Record<string, unknown>) || {};
@@ -1314,6 +1417,7 @@ export function parseCatalogSchema(
     // followed.
     assertSupportedV10Refs(catalogSchema, '');
   }
+  const commonTypes = commonTypeSchemasFor(resolvedVersion);
 
   const componentsMap = (catalogSchema.components as Record<string, unknown>) ?? {};
   const components = parseCatalogComponents(
@@ -1321,6 +1425,7 @@ export function parseCatalogSchema(
     catalogSchema,
     atLeastV10,
     permittedNames,
+    commonTypes,
   );
 
   // Filter permitted functions via anyFunction.oneOf if declared
@@ -1332,6 +1437,7 @@ export function parseCatalogSchema(
     catalogSchema,
     permittedFunctionNames,
     atLeastV10,
+    commonTypes,
   );
 
   const themeSchema = parseThemeSchema(catalogSchema, defs);

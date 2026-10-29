@@ -52,6 +52,18 @@ export function exclusiveUnion(
 }
 
 /**
+ * Returns the union inside a schema made with {@link exclusiveUnion}, or
+ * `undefined` for any other schema. Code that inspects a schema's structure
+ * reads the union through it, as it would a plain `z.union`.
+ *
+ * @param schema The schema to inspect.
+ */
+export function exclusiveUnionOf(schema: z.ZodTypeAny): z.ZodTypeAny | undefined {
+  const pipe = schema?._def as Partial<z.ZodPipelineDef<z.ZodTypeAny, z.ZodTypeAny>> | undefined;
+  return pipe?.in && pipe.out && exclusiveGuards.has(pipe.in._def) ? pipe.out : undefined;
+}
+
+/**
  * A `zod-to-json-schema` override that writes a union made with
  * {@link exclusiveUnion} as `oneOf`, so that it keeps its semantics. Every
  * other schema, including a plain `z.union`, which `zod-to-json-schema`

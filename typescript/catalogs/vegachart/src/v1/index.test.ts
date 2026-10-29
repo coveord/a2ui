@@ -21,6 +21,7 @@ import {describe, it} from 'node:test';
 
 import {Catalog} from '@a2ui/web_core/v1_0';
 
+import {assertBindsAlike} from '../test/binding_parity.js';
 import catalogJson from './catalog.json' with {type: 'json'};
 import {
   A2uiVegaChartV1,
@@ -39,6 +40,14 @@ describe('VegaChart v1.0 catalog', () => {
     assert.strictEqual(loaded.id, VEGACHART_V1_CATALOG_ID);
     assert.strictEqual(loaded.protocolVersion, '1.0');
     assert.deepStrictEqual(loaded.toJson(), catalogJson);
+  });
+
+  it('binds VegaChart loaded with Catalog.fromJson as the code catalog does', () => {
+    const loaded = Catalog.fromJson(catalogJson, '1.0');
+    assertBindsAlike(
+      loaded.components.get('VegaChart')!,
+      vegachartV1Catalog.components.get('VegaChart')!,
+    );
   });
 
   it('validates VegaChart properties', () => {
