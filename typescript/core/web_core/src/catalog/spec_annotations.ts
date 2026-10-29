@@ -122,12 +122,31 @@ export function specDef<T extends z.ZodTypeAny>(
 export const SPEC_KEYWORD = 'x-a2ui-spec';
 
 /**
- * An annotation as a schema carries it in its JSON Schema: its mixins are the
- * names of common types, such as `Checkable`.
+ * An annotation as a schema carries it in its JSON Schema: its mixins are
+ * names, each that of one of the catalog's `defModels`, such as the v0.9
+ * basic catalog's `CatalogComponentCommon`, or else of a common type, such as
+ * `Checkable`.
  */
 export type JsonSpecAnnotation = Omit<SpecAnnotation, 'mixins'> & {
   readonly mixins?: readonly string[];
 };
+
+/**
+ * An annotation as `specMeta` takes it: a mixin is a common type's name, or a
+ * model named with `specMeta({defName})` that the catalog document declares
+ * under `$defs`.
+ */
+export type SpecMetaAnnotation = Omit<SpecAnnotation, 'mixins'> & {
+  readonly mixins?: readonly (string | SpecMetaSchema)[];
+};
+
+/** A schema that reports its metadata, as a Zod 4 schema does with `meta()`. */
+interface SpecMetaSchema {
+  meta(): Readonly<Record<string, unknown>> | undefined;
+}
+
+/** The mixin models of the annotations `specMeta` returned, by mixin name. */
+const mixinModels = new WeakMap<object, ReadonlyMap<string, object>>();
 
 /**
  * Returns the metadata that annotates a schema written with a library that
@@ -138,12 +157,50 @@ export type JsonSpecAnnotation = Omit<SpecAnnotation, 'mixins'> & {
  * z.object({...}).strict().meta(specMeta({mixins: ['Checkable']}))
  * ```
  *
+ * A mixin model is written to the schema's JSON Schema as its name. A2UI
+ * finds the model through the schema's `meta()`, so a component reused in
+ * another catalog brings its mixins along; with a library whose schemas have
+ * no `meta()`, list the models in the catalog's `defModels` instead.
+ *
  * @param annotation What the catalog document writes about the schema.
  */
-export function specMeta(annotation: JsonSpecAnnotation): {
+export function specMeta(annotation: SpecMetaAnnotation): {
   readonly [SPEC_KEYWORD]: JsonSpecAnnotation;
 } {
-  return {[SPEC_KEYWORD]: annotation};
+  if (annotation.mixins === undefined) return {[SPEC_KEYWORD]: annotation as JsonSpecAnnotation};
+  const models = new Map<string, object>();
+  const mixins = annotation.mixins.map(mixin => {
+    if (typeof mixin === 'string') return mixin;
+    const defName = specMetaOf(mixin)?.defName;
+    if (defName === undefined) {
+      throw new Error('A mixin model must be named with specMeta({defName}).');
+    }
+    models.set(defName, mixin);
+    return defName;
+  });
+  const json: JsonSpecAnnotation = {...annotation, mixins};
+  if (models.size > 0) mixinModels.set(json, models);
+  return {[SPEC_KEYWORD]: json};
+}
+
+/** Returns the `specMeta` annotation a schema reports through `meta()`. */
+function specMetaOf(schema: unknown): JsonSpecAnnotation | undefined {
+  const meta = (schema as Partial<SpecMetaSchema> | null)?.meta?.();
+  const annotation = meta?.[SPEC_KEYWORD];
+  return typeof annotation === 'object' && annotation !== null
+    ? (annotation as JsonSpecAnnotation)
+    : undefined;
+}
+
+/**
+ * Returns the mixin models, by name, of a schema annotated with `specMeta`.
+ *
+ * @internal
+ * @param schema The annotated schema.
+ */
+export function getSpecMixinModels(schema: unknown): ReadonlyMap<string, object> | undefined {
+  const annotation = specMetaOf(schema);
+  return annotation ? mixinModels.get(annotation) : undefined;
 }
 
 /**

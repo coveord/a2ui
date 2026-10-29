@@ -35,7 +35,7 @@ import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
 import {specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
 import type {EntrySchema} from './a2ui_schema.js';
-import type {SpecAnnotation, SpecMixin} from './spec_annotations.js';
+import {getSpecMixinModels, type SpecAnnotation, type SpecMixin} from './spec_annotations.js';
 
 type JsonObject = Record<string, unknown>;
 
@@ -317,10 +317,13 @@ export class SpecShaper {
    * @param protocolVersion The catalog's protocol version.
    * @param commonTypesUri How the catalog's document writes the common types
    *     document in references, such as `common_types.json`.
+   * @param defModels The catalog's definition models by name, which a
+   *     component's mixin can name instead of a common type.
    */
   constructor(
     protocolVersion: string,
     private readonly commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
+    private readonly defModels: ReadonlyMap<string, EntrySchema> = new Map(),
   ) {
     this.isV08 = !isAtLeastVersion(protocolVersion, '0.9');
     this.isV10 = isAtLeastVersion(protocolVersion, '1.0');
@@ -362,9 +365,15 @@ export class SpecShaper {
       const mixins = annotation.mixins ?? [];
       const inherited = new Set<string>(ENVELOPE_PROPERTIES);
       const refs: JsonObject[] = [];
+      // A mixin name is that of a model the schema carries, of one of the
+      // catalog's models, or else of a common type.
+      const models = new Map(this.defModels);
+      for (const [mixinName, model] of getSpecMixinModels(schema) ?? []) {
+        models.set(mixinName, model as EntrySchema);
+      }
       for (const mixin of mixins) {
-        refs.push({$ref: this.mixinRef(mixin, catalogDefs)});
-        for (const key of this.mixinProperties(mixin)) inherited.add(key);
+        refs.push({$ref: this.mixinRef(mixin, models, catalogDefs)});
+        for (const key of this.mixinProperties(mixin, models)) inherited.add(key);
       }
       const description = plainDescription(view);
       const own = this.objectSchema(view, annotation, key => !inherited.has(key));
@@ -446,8 +455,17 @@ export class SpecShaper {
   }
 
   /** Returns the reference a component's definition makes to a mixin. */
-  private mixinRef(mixin: SpecMixin, catalogDefs: Map<string, EntrySchema>): string {
-    if (typeof mixin === 'string') return `${this.commonTypesUri}#/$defs/${mixin}`;
+  private mixinRef(
+    mixin: SpecMixin,
+    models: ReadonlyMap<string, EntrySchema>,
+    catalogDefs: Map<string, EntrySchema>,
+  ): string {
+    if (typeof mixin === 'string') {
+      const model = models.get(mixin);
+      if (model === undefined) return `${this.commonTypesUri}#/$defs/${mixin}`;
+      catalogDefs.set(mixin, model);
+      return `#/$defs/${mixin}`;
+    }
     const name = annotationOf(mixin).defName;
     if (name === undefined) {
       throw new Error('A component mixin model must be named with specDef().');
@@ -457,11 +475,13 @@ export class SpecShaper {
   }
 
   /** Returns the names of the properties a mixin declares. */
-  private mixinProperties(mixin: SpecMixin): string[] {
-    if (typeof mixin !== 'string') {
-      const properties = viewOf(mixin)['properties'];
+  private mixinProperties(mixin: SpecMixin, models: ReadonlyMap<string, EntrySchema>): string[] {
+    const model = typeof mixin === 'string' ? models.get(mixin) : mixin;
+    if (model !== undefined) {
+      const properties = viewOf(model)['properties'];
       return isObject(properties) ? Object.keys(properties) : [];
     }
+    if (typeof mixin !== 'string') return [];
     const names: string[] = [];
     const collect = (def: unknown, seen: Set<unknown>): void => {
       if (!isObject(def) || seen.has(def)) return;

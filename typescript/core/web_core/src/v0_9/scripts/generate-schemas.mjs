@@ -133,8 +133,17 @@ function generateCommonTypes() {
   commonTs += `export const CommonSchemas = {\n${commonEntries}\n};\n\n`;
 
   writeFileSync(join(destDir, 'common-types.ts'), commonTs);
-  // The same common types in Zod 4, which the catalog loader builds on.
-  writeFormattedZod4(join(v09Dir, 'zod4', 'common-types.ts'), toZod4Code(commonTs));
+  // The same common types in Zod 4, which the catalog loader builds on. Their
+  // recursive types are those of the Zod 3 file, which the package exports, so
+  // types inferred from the Zod 4 schemas can be named by their users.
+  const zod4CommonTs = toZod4Code(commonTs)
+    .replace(/\nexport interface FunctionCall \{[^}]*\}\n/, '\n')
+    .replace(/\nexport type DynamicValue = [^;]*;\n/, '\n')
+    .replace(
+      "import {z} from 'zod/v4';\n",
+      "import {z} from 'zod/v4';\n\nimport type {DynamicValue, FunctionCall} from '../schema/common-types.js';\n\nexport type {DynamicValue, FunctionCall};\n",
+    );
+  writeFormattedZod4(join(v09Dir, 'zod4', 'common-types.ts'), zod4CommonTs);
 
   const allExportNames = new Set(Object.keys(commonJson.$defs));
   const helpersPath = join(destDir, 'helpers.ts');

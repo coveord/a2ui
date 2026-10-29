@@ -21,11 +21,11 @@ import {z} from 'zod/v3';
 
 import {normalizeSchema} from '../catalog/a2ui_schema.js';
 import {componentSchemaOf} from '../catalog/entry_schema.js';
+import {spec, specDef} from '../catalog/spec_annotations.js';
 import {Catalog} from '../catalog/types.js';
 import {A2uiCatalogError} from '../errors.js';
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
 import {ComponentIdSchema, DynamicStringSchema} from '../types/common-types.js';
-import {basicCatalog as v09BasicCatalog} from '../v0_9/basic_catalog/catalog.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {fromZod3} from './index.js';
 
@@ -94,34 +94,35 @@ describe('fromZod3', () => {
       ...entry,
       schema: fromZod3(entry.schema as never),
     });
-    // The v0.9 basic catalog is written with Zod 3 and spec(), catalog
-    // mixins included.
-    const source = v09BasicCatalog;
-    const wrapped = new Catalog(
-      source.id,
-      source.protocolVersion,
-      [...source.components.values()].map(wrap),
-      [...source.functions.values()].map(wrap),
-      {
-        themeSchema: fromZod3(source.themeSchema as never),
-        instructions: source.instructions,
-        schemaUri: source.schemaUri,
-        schemaId: source.schemaId,
-        title: source.title,
-        description: source.description,
-        declaredProtocolVersion: source.declaredProtocolVersion,
-        declaresCatalogId: source.declaresCatalogId,
-        declaresComponents: source.declaresComponents,
-        functionsLayout: source.functionsLayout,
-        unions: source.unions,
-        defs: source.defs,
-        extensionFields: source.extensionFields,
-        commonTypesUri: source.commonTypesUri,
-        themeLocation: source.themeLocation,
-        defModels: source.defModels,
-      },
+    // A catalog written with Zod 3 and spec(), catalog mixins included.
+    const commonDef = specDef(
+      'CatalogComponentCommon',
+      z.object({weight: z.number().describe('The weight.').optional()}),
     );
-    assert.deepStrictEqual(wrapped.toJson(), source.toJson());
+    const themeDef = specDef('theme', z.object({primaryColor: z.string().optional()}));
+    const badge = {
+      name: 'Badge',
+      schema: spec(
+        z
+          .object({...commonDef.shape, label: DynamicStringSchema})
+          .strict()
+          .describe('A badge.'),
+        {mixins: ['ComponentCommon', commonDef]},
+      ),
+    };
+    const options = {
+      themeSchema: themeDef,
+      defModels: [themeDef],
+      commonTypesUri: 'https://a2ui.org/specification/v0_9/common_types.json',
+    };
+    const source = new Catalog('https://example.com/badges', '0.9', [badge], [], options);
+    const wrapped = new Catalog('https://example.com/badges', '0.9', [badge].map(wrap), [], {
+      ...options,
+      themeSchema: fromZod3(themeDef),
+    });
+    const document = source.toJson();
+    assert.ok('CatalogComponentCommon' in (document.$defs as Record<string, unknown>));
+    assert.deepStrictEqual(wrapped.toJson(), document);
     assert.deepStrictEqual(wrapped.validationSchema, source.validationSchema);
   });
 

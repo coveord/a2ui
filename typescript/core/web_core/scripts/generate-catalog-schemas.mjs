@@ -612,6 +612,10 @@ function generateDefModel(name, schema, ctx) {
   const node = generateObjectNode(schema, ctx, '    ');
   const {code, prediction} = withModifiers(node.code, node.prediction, schema);
   const annotation = annotationFor(schema, prediction);
+  if (ctx.zod4) {
+    const meta = literal({defName: name, ...annotation});
+    return `export const ${defModelName(name)} = ${code}.meta(specMeta(${meta}));\n\n`;
+  }
   const extra = annotation ? `, ${literal(annotation)}` : '';
   return `export const ${defModelName(name)} = specDef('${name}', ${code}${extra});\n\n`;
 }
@@ -700,9 +704,6 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
     }
     if (!zod4) bodyCode += `    .strict()`;
     if (reproduce) {
-      if (zod4 && spreads.length > 0) {
-        throw new Error(`Zod 4 cannot name the catalog mixins of '${compName}'.`);
-      }
       const annotation = [`mixins: [${mixins.join(', ')}]`];
       const authoredRequired = (own.required || []).filter(
         name => name !== discriminatorProp && name !== idProp,

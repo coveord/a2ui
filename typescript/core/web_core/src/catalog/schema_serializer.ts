@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-import type {z} from 'zod/v3';
-
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
 import {copyA2uiJsonSchemaOf, specAnnotationOf, specJsonSchemaOf} from './a2ui_json_schema.js';
 import {zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
@@ -63,7 +61,7 @@ export interface SerializableCatalog {
   readonly extensionFields?: Readonly<Record<string, unknown>>;
   readonly commonTypesUri?: string;
   readonly themeLocation?: 'defs' | 'styles';
-  readonly defModels?: readonly z.ZodTypeAny[];
+  readonly defModels?: readonly EntrySchema[];
 }
 
 type JsonObject = Record<string, unknown>;
@@ -474,7 +472,15 @@ export function catalogDocumentModel(catalog: SerializableCatalog): CatalogDocum
 }
 
 function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel {
-  const shaper = new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri);
+  const defModels = new Map<string, EntrySchema>();
+  for (const defModel of catalog.defModels ?? []) {
+    const defName = specAnnotationOf(specJsonSchemaOf(defModel))?.defName;
+    if (defName === undefined) {
+      throw new Error('A catalog definition model must be named with specDef() or specMeta().');
+    }
+    defModels.set(defName, defModel);
+  }
+  const shaper = new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri, defModels);
   const computedDefs = new Map<string, EntrySchema>();
   const shapedComponents = new Map<string, JsonSchemaObject>();
   for (const [name, comp] of catalog.components) {
@@ -493,13 +499,7 @@ function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel 
     shapedComponents.set(name, deepFreeze(schema));
     for (const [defName, defModel] of catalogDefs) computedDefs.set(defName, defModel);
   }
-  for (const defModel of catalog.defModels ?? []) {
-    const defName = specAnnotationOf(specJsonSchemaOf(defModel))?.defName;
-    if (defName === undefined) {
-      throw new Error('A catalog definition model must be named with specDef().');
-    }
-    computedDefs.set(defName, defModel);
-  }
+  for (const [defName, defModel] of defModels) computedDefs.set(defName, defModel);
 
   const defs: JsonObject = {...catalog.defs};
   for (const [defName, defModel] of computedDefs) {

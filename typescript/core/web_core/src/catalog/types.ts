@@ -314,10 +314,11 @@ export interface CatalogDocumentOptions {
   /**
    * Models of named definitions that the document declares under `$defs`
    * besides those its components' mixins name, each named with `specDef`,
-   * such as the theme of the v0.9 basic catalog's document. `toJson`
-   * computes the definitions from them.
+   * or with `specMeta({defName})` in its metadata, such as the theme of the
+   * v0.9 basic catalog's document. `toJson` computes the definitions from
+   * them. A component's `specMeta` mixin names one of them by its name.
    */
-  defModels?: readonly z.ZodTypeAny[];
+  defModels?: readonly EntrySchema[];
   /**
    * Top-level document keys the fields above do not cover, as written: for
    * example `extensions`, or the theme of a v0.8 catalog (`styles`).
@@ -384,7 +385,7 @@ export declare interface CatalogInterface<
   /** See {@link CatalogDocumentOptions.themeLocation}. */
   readonly themeLocation?: 'defs' | 'styles';
   /** See {@link CatalogDocumentOptions.defModels}. */
-  readonly defModels?: readonly z.ZodTypeAny[];
+  readonly defModels?: readonly EntrySchema[];
   /** Self-contained, bundled JSON Schema used to validate payloads against this catalog. */
   readonly validationSchema: Record<string, unknown>;
   /**
@@ -513,7 +514,7 @@ export class Catalog<
   readonly themeLocation?: 'defs' | 'styles';
 
   /** See {@link CatalogDocumentOptions.defModels}. */
-  readonly defModels?: readonly z.ZodTypeAny[];
+  readonly defModels?: readonly EntrySchema[];
 
   private cachedValidationSchema?: Record<string, unknown>;
 
