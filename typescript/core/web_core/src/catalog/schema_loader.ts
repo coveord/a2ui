@@ -330,7 +330,7 @@ function convertRefToZod(
     if (!ref.startsWith('#')) return undefined;
     return z.unknown().superRefine((_val, ctx) => {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `Unresolvable schema reference: '${ref}'`,
       });
     });

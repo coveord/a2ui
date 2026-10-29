@@ -101,7 +101,7 @@ console.log('Generating v0.8 Basic Catalog APIs...');
 
 const catalogJson = JSON.parse(readFileSync(catalogPath, 'utf8'));
 // The document has no references, so no common types are written.
-const ctx = {commonDefs: {}, usedImports: new Set(), commonTypesUri: '', zod4: true};
+const ctx = {commonDefs: {}, usedImports: new Set(), commonTypesUri: ''};
 
 let out = HEADER;
 out += `import {z} from 'zod/v4';

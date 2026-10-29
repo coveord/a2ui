@@ -76,44 +76,29 @@ export function transformZodSyntax(code) {
  * @returns {Set<string>} The dependency set.
  */
 /**
- * Rewrites generated Zod 3 common types as Zod 4 code for catalogs: it
- * imports `zod/v4`, and a schema names its definition in its metadata
- * (`.meta({$ref})`) instead of with a `REF:` description marker, which also
- * makes the child reference marks of `markChildRef` unnecessary. `Child`
- * names its own definition rather than reusing `ComponentId`'s.
+ * Returns the code that names a schema's definition in its metadata, with the
+ * reference's description: `.meta({$ref: ref, description})`.
  *
- * @param {string} code Generated Zod 3 code.
- * @returns {string} The Zod 4 code.
+ * @param {string} ref The definition's `$ref`, such as `#/$defs/DynamicString`.
+ * @param {string} [description] The reference's description.
+ * @returns {string} The `.meta()` call.
  */
-export function toZod4Code(code) {
-  let clean = code.replace("import {z} from 'zod/v3';", "import {z} from 'zod/v4';");
-  clean = clean.replace(/import \{markChildRef\} from '[^']+';\n/, '');
-  clean = clean.replace(
-    /markChildRef\(\n\s*([\s\S]*?),\n\s*'(?:component-id|child-list)',\n\)/g,
-    '$1',
-  );
-  clean = clean.replace(
-    /\.describe\(\s*(['"])REF:([^'"#|]*#\/\$defs\/[A-Za-z0-9_]+)(?:\|((?:\\.|(?!\1)[^\\])*))?\1,?\s*\)/g,
-    (_match, quote, ref, description) =>
-      description === undefined
-        ? `.meta({$ref: '${ref}'})`
-        : `.meta({$ref: '${ref}', description: ${quote}${description}${quote}})`,
-  );
-  clean = clean.replace(
-    'export const ChildSchema = ComponentIdSchema;',
-    "export const ChildSchema = ComponentIdSchema.meta({$ref: '#/$defs/Child'});",
-  );
-  clean = clean.replace(/z\.ZodIssueCode\.custom/g, "'custom'");
-  // Doc comments repeat the markers: keep only their descriptions.
-  clean = clean.replace(/^\/\*\* REF:[^|*]*\*\/\n/gm, '');
-  clean = clean.replace(/^\/\*\* REF:[^|*]*\|/gm, '/** ');
-  return clean;
+export function refMetaCode(ref, description) {
+  return description === undefined
+    ? `.meta({$ref: '${ref}'})`
+    : `.meta({$ref: '${ref}', description: ${JSON.stringify(description)}})`;
 }
 
 /**
+ * The marker under which `compileDefToZod` passes a definition's `$ref`
+ * through `json-schema-to-zod`, which writes a description but no metadata.
+ */
+const REF_MARKER = '__A2UI_REF__:';
+
+/**
  * Writes generated Zod 4 code to `path`, formatted with Prettier to a fixed
- * point: Prettier formats the method chains `toZod4Code` rewrites in two
- * passes, and the build's single pass then leaves the file unchanged.
+ * point: Prettier formats the generated method chains in two passes, and the
+ * build's single pass then leaves the file unchanged.
  *
  * @param {string} path The file to write.
  * @param {string} code The code.
@@ -291,18 +276,27 @@ export function prepareRef(node, parentDefName, lazyEdges, topologicalOrder) {
 }
 
 /**
- * Compiles a single schema definition into Zod TypeScript code.
+ * Compiles a single schema definition into Zod 4 TypeScript code.
  *
  * @param {object} rawDef JSON Schema definition object.
  * @param {string} name Definition identifier.
  * @param {object} [options] Options for compilation.
  * @param {Set<string>} [options.lazyEdges] Detected cyclic edges.
  * @param {string[]} [options.topologicalOrder] Topologically sorted definition names.
+ * @param {string} [options.ref] The `$ref` that names the definition in the
+ *     schema's metadata, with the definition's description.
  * @param {function} [options.transformCode] Custom code transform callback.
  * @returns {string} Generated TypeScript code string.
  */
 export function compileDefToZod(rawDef, name, options = {}) {
-  const prep = prepareRef(rawDef, name, options.lazyEdges, options.topologicalOrder);
+  const def =
+    options.ref === undefined
+      ? rawDef
+      : {
+          ...rawDef,
+          description: `${REF_MARKER}${options.ref}|${rawDef.description ?? ''}`,
+        };
+  const prep = prepareRef(def, name, options.lazyEdges, options.topologicalOrder);
   const zOptions = {
     module: 'esm',
     name: `${name}Schema`,
@@ -313,10 +307,28 @@ export function compileDefToZod(rawDef, name, options = {}) {
   }
   let code = jsonSchemaToZod(prep, zOptions);
   code = transformZodSyntax(code);
+  if (options.ref !== undefined) code = markerToRefMeta(code, rawDef.description);
   if (options.transformCode) {
     code = options.transformCode(code, name);
   }
   return code;
+}
+
+/**
+ * Replaces the `REF_MARKER` description `compileDefToZod` passed through
+ * `json-schema-to-zod` with `.meta({$ref, description})`.
+ *
+ * @param {string} code The compiled code.
+ * @param {string} [description] The definition's description.
+ * @returns {string} The code.
+ */
+function markerToRefMeta(code, description) {
+  // A definition that is only a reference, such as v1.0's `Child`, compiles
+  // to the referenced schema without a description, so without the marker.
+  return code.replace(
+    /\.describe\(\s*"__A2UI_REF__:([^"|]+)\|(?:\\.|[^"\\])*",?\s*\)/,
+    (_match, ref) => refMetaCode(ref, description),
+  );
 }
 
 /**

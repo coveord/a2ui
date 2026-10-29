@@ -1,5 +1,7 @@
 ## Unreleased
 
+- The superset common types that `@a2ui/web_core` uses internally describe `DynamicBoolean` and `Surface` without stray backslashes: their descriptions read `'valid'` and `'child': 'root'` instead of `\'valid\'` and `\'child\': \'root\'`.
+- The schema generators write Zod 4 code directly, instead of writing Zod 3 code and converting it. `generateCatalogApi` no longer takes a `zod` option.
 - **BREAKING CHANGE**: Zod 3 is no longer supported. Write schemas with Zod 4 (`import {z} from 'zod/v4'`), another Standard JSON Schema library, or as JSON Schema objects.
   - `EntrySchema` is an `A2uiSchema` and no longer accepts a Zod 3 schema. The `@a2ui/web_core/zod3` entry point and its `fromZod3` are removed, as are `spec()`, `specDef()` and `exclusiveUnion`: annotate with `.meta(specMeta(...))`, name a model with `.meta(specMeta({defName}))`, and write an exclusive union with `z.xor()`. `SpecMixin` is a name, and `JsonSpecAnnotation` is `SpecAnnotation`.
   - `markChildRef`, `childRefKindOf` and `ChildRefKind` are removed; a schema refers to `ComponentId` or `ChildList` with `.meta({$ref})`, as the common types do. A `REF:` description marker is no longer read as a reference when the core binds or inspects a schema.

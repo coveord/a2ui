@@ -96,9 +96,9 @@ export const DynamicBooleanSchema = z
   .meta({
     $ref: 'common_types.json#/$defs/DynamicBoolean',
     description:
-      "A boolean value that can be a literal, a path, or a function call returning a boolean or a validation result object (coerced to its \\'valid\\' boolean).",
+      "A boolean value that can be a literal, a path, or a function call returning a boolean or a validation result object (coerced to its 'valid' boolean).",
   });
-/** A boolean value that can be a literal, a path, or a function call returning a boolean or a validation result object (coerced to its \'valid\' boolean). */
+/** A boolean value that can be a literal, a path, or a function call returning a boolean or a validation result object (coerced to its 'valid' boolean). */
 export type DynamicBoolean = z.infer<typeof DynamicBooleanSchema>;
 
 export const AccessibilityAttributesSchema = z
@@ -140,7 +140,7 @@ export const ExtensionsSchema = z
     description:
       "Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.",
   });
-/** Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with \'a2ui_\' are reserved for official extensions. */
+/** Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions. */
 export type Extensions = z.infer<typeof ExtensionsSchema>;
 
 export const ComponentCommonSchema = z
@@ -338,7 +338,7 @@ export const FunctionCommonSchema = z
     description:
       "Baseline envelope properties common to all function calls. Function-specific argument schemas ('args') are defined individually by each function in the active catalog.",
   });
-/** Baseline envelope properties common to all function calls. Function-specific argument schemas (\'args\') are defined individually by each function in the active catalog. */
+/** Baseline envelope properties common to all function calls. Function-specific argument schemas ('args') are defined individually by each function in the active catalog. */
 export type FunctionCommon = z.infer<typeof FunctionCommonSchema>;
 
 export const IndexSystemFunctionSchema = z
@@ -371,9 +371,9 @@ export const SurfaceSchema = z
   .meta({
     $ref: 'common_types.json#/$defs/Surface',
     description:
-      "The reserved canonical container component representing an A2UI surface. The Surface component is immutable and always has \\'child\\': \\'root\\'.",
+      "The reserved canonical container component representing an A2UI surface. The Surface component is immutable and always has 'child': 'root'.",
   });
-/** The reserved canonical container component representing an A2UI surface. The Surface component is immutable and always has \'child\': \'root\'. */
+/** The reserved canonical container component representing an A2UI surface. The Surface component is immutable and always has 'child': 'root'. */
 export type Surface = z.infer<typeof SurfaceSchema>;
 
 export const FunctionResponseSchema = z
