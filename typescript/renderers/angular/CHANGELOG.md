@@ -1,5 +1,6 @@
 ## Unreleased
 
+- `AngularCatalog` and the options of the v1.0 and v0.9 `BasicCatalogBase` take a theme schema as an `EntrySchema`: a Zod 3 or Zod 4 schema, another Standard JSON Schema library's schema, or a JSON Schema object. The default theme schema is the Zod 4 `BasicCatalogThemeSchema`.
 - **BREAKING CHANGE**: Depends on `zod@^4.6.7` and imports the Zod 3 API from its `zod/v3` entry point, instead of depending on `zod@^3.25.76`. Schemas passed to this package must come from the same `zod` copy: install `zod@^4.6.7` and write `import {z} from 'zod/v3'` where you wrote `import {z} from 'zod'`. The schemas and their behavior are unchanged.
 - `ComponentApiToProps` infers a component's properties with `InferredComponentApiSchemaType`, through Standard Schema, so it types components written with Zod 4 or another Standard JSON Schema library, and gives the same props for Zod 3. `AngularCatalog` accepts a library theme schema.
 

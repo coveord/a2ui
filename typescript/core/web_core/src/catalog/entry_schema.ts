@@ -186,9 +186,14 @@ export function functionSchemaOf(
 
 /**
  * Returns the schema that the core validates a catalog's theme against: the
- * catalog's own Zod 3 theme schema, or the one compiled from the theme its
- * document writes, for a theme written with another library or as JSON
- * Schema.
+ * catalog's own theme schema when it is a validator, such as a Zod schema, or
+ * the one compiled from the theme its document writes, for a theme written as
+ * JSON Schema.
+ *
+ * A theme validator is its own authority, unlike an entry's schema: a
+ * catalog's document may write a stricter theme, as the basic catalogs write
+ * the specification's hexadecimal `primaryColor` while their theme accepts
+ * any CSS color.
  *
  * @param catalog The catalog.
  */
@@ -196,10 +201,10 @@ export function themeSchemaOf(
   catalog: CatalogInterface<ComponentApi, FunctionApi>,
 ): A2uiValidator | undefined {
   if (!catalog.themeSchema) return undefined;
-  // A theme the catalog loader compiled is already read through its definition.
-  if (hasDefinitionView(catalog.themeSchema)) return catalog.themeSchema as A2uiValidator;
   const zod3 = zod3SchemaOf(catalog.themeSchema);
   if (zod3) return zod3;
+  // A theme the catalog loader compiled, or one written with a library.
+  if ('~standard' in catalog.themeSchema) return catalog.themeSchema as A2uiValidator;
   return typeof catalog.toJson === 'function' ? reloadedEntries(catalog).themeSchema : undefined;
 }
 

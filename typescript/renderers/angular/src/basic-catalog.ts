@@ -33,7 +33,6 @@ import {
   BASIC_FUNCTIONS,
   createBasicCatalogFunctions,
   BasicCatalogThemeSchema,
-  type BasicCatalogTheme,
   A2uiText,
   A2uiRow,
   A2uiColumn,
@@ -53,8 +52,7 @@ import {
   A2uiSlider,
   A2uiDateTimeInput,
 } from '@a2ui/web_core/catalogs/basic/v1';
-import {FunctionImplementation} from '@a2ui/web_core/v1_0';
-import {z} from 'zod/v3';
+import {type EntrySchema, FunctionImplementation} from '@a2ui/web_core/v1_0';
 
 /**
  * The set of default Angular universal implementations for each component in the v1.0 basic catalog.
@@ -118,7 +116,7 @@ export interface BasicCatalogOptions {
   /**
    * Optional theme schema to override default basic catalog theme schema.
    */
-  themeSchema?: z.ZodType<BasicCatalogTheme>;
+  themeSchema?: EntrySchema;
 }
 
 /**
