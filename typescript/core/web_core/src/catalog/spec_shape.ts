@@ -580,13 +580,16 @@ export class SpecShaper {
   private coreJson(node: JsonObject, annotation: SpecAnnotation): JsonObject {
     if (node['const'] !== undefined) return {const: copyJson(node['const'])};
     if (Array.isArray(node['enum'])) return {type: 'string', enum: [...node['enum']]};
-    const branches = node['anyOf'] ?? node['oneOf'];
-    if (Array.isArray(branches)) {
+    if (Array.isArray(node['oneOf'])) {
+      // An exclusive union, such as Zod 4's `z.xor`, keeps its semantics.
+      return {oneOf: node['oneOf'].filter(isObject).map(branch => this.nodeJson(branch))};
+    }
+    if (Array.isArray(node['anyOf'])) {
       // A union accepts a value any of its branches accepts, as `anyOf`
       // does. It is written as `oneOf`, as the specification writes its
       // unions, only when no value matches two branches, so that both
       // keywords accept the same values.
-      const written = branches.filter(isObject).map(branch => this.nodeJson(branch));
+      const written = node['anyOf'].filter(isObject).map(branch => this.nodeJson(branch));
       const resolve = (ref: string) => this.resolveStandardRef(ref);
       const disjoint = written.every((branch, i) =>
         written.slice(i + 1).every(other => provablyDisjoint(branch, other, resolve)),

@@ -256,3 +256,34 @@ describe('the JSON Schema of a Zod 4 schema on a cycle', () => {
     });
   });
 });
+
+describe('an exclusive union written with z.xor', () => {
+  const Sized = {
+    name: 'Sized',
+    schema: z
+      .strictObject({size: z.xor([z.enum(['s', 'm']), z.string().max(1)])})
+      .meta(specMeta({mixins: ['ComponentCommon']})),
+  };
+  const catalog = new Catalog('sized', '1.0', [Sized]);
+
+  it('is written as oneOf, even when its branches overlap', () => {
+    const sized = (catalog.toJson()['components'] as Record<string, unknown>)['Sized'] as {
+      allOf: {properties?: Record<string, unknown>}[];
+    };
+    assert.deepStrictEqual(sized.allOf[1].properties?.['size'], {
+      oneOf: [
+        {type: 'string', enum: ['s', 'm']},
+        {type: 'string', maxLength: 1},
+      ],
+    });
+  });
+
+  it('rejects a value more than one branch accepts', () => {
+    const validator = new PayloadValidator(catalog, STRICT_VALIDATION);
+    validator.validateComponent({id: 'a', component: 'Sized', size: 'x'});
+    assert.throws(
+      () => validator.validateComponent({id: 'b', component: 'Sized', size: 's'}),
+      /size: Invalid input: more than one option matched/,
+    );
+  });
+});

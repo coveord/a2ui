@@ -42,7 +42,9 @@ export function formatZodIssue(err: z.ZodIssue): string {
       if (unionIssues && unionIssues.length > 0) {
         return unionIssues.map(formatZodIssue).join('; ');
       }
-      return `${path}: Invalid union`;
+      // A Zod 4 exclusive union (`z.xor`) that more than one branch accepts
+      // reports no branch issues, only its message.
+      return zod4Errors ? `${path}: ${err.message}` : `${path}: Invalid union`;
     }
 
     case z.ZodIssueCode.unrecognized_keys: {

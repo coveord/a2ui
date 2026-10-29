@@ -84,6 +84,8 @@ const annotationsByDef = new WeakMap<object, SpecAnnotation>();
  * used wherever `schema` is. Annotating a copy keeps a shared schema, such as
  * a common type, free of the annotations of one of its uses.
  *
+ * @deprecated For Zod 3 schemas only. With Zod 4, annotate with
+ *     `.meta(specMeta(annotation))`.
  * @param schema The schema to annotate.
  * @param annotation What the document writes about it.
  * @returns An annotated copy of `schema`.
@@ -101,6 +103,8 @@ export function spec<T extends z.ZodTypeAny>(schema: T, annotation: SpecAnnotati
  * `$defs` as `name`, such as the `CatalogComponentCommon` mixin of the v0.9
  * basic catalog or its `theme`.
  *
+ * @deprecated For Zod 3 schemas only. With Zod 4, name the model with
+ *     `.meta(specMeta({defName: name}))`.
  * @param name The definition's name.
  * @param schema The definition's model.
  * @param annotation Anything else the document writes about the model.
