@@ -26,7 +26,7 @@ Create an API definition with the component name and a Zod schema describing its
 
 ```typescript
 // stat-card.api.ts
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   type ComponentApi,
   DynamicStringSchema,
@@ -510,7 +510,7 @@ The example below implements these steps for a `StatBadgeApi` with `title` and `
 
 ```typescript
 // stat-badge.ts
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   ComponentContext,
   GenericBinder,

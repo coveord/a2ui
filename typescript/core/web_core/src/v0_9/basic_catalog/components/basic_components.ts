@@ -31,7 +31,7 @@ import {
   DynamicNumberSchema,
   DynamicStringListSchema,
   DynamicStringSchema,
-} from '../../zod4/common-types.js';
+} from '../../schema/common-types.js';
 
 export const CatalogComponentCommonSchema = z
   .object({

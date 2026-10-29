@@ -16,23 +16,19 @@
 
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated from specification/v1.0/json/ via src/v1_0/scripts/generate-schemas.mjs
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {isValidUax31Identifier} from '../../common/uax31.js';
-import {markChildRef} from '../../types/child-ref-helpers.js';
 
-export const ComponentIdSchema = markChildRef(
-  z
-    .string()
-    .describe(
-      'REF:#/$defs/ComponentId|The unique identifier for a component, used for both definitions and references within the same surface.',
-    ),
-  'component-id',
-);
+export const ComponentIdSchema = z.string().meta({
+  $ref: '#/$defs/ComponentId',
+  description:
+    'The unique identifier for a component, used for both definitions and references within the same surface.',
+});
 export type ComponentId = z.infer<typeof ComponentIdSchema>;
 
 export const CallIdSchema = z
   .string()
-  .describe('REF:#/$defs/CallId|The unique identifier for a function call.');
+  .meta({$ref: '#/$defs/CallId', description: 'The unique identifier for a function call.'});
 export type CallId = z.infer<typeof CallIdSchema>;
 
 export const DataBindingSchema = z
@@ -43,7 +39,7 @@ export const DataBindingSchema = z
   .refine(data => data['@path'] !== undefined || data.path !== undefined, {
     message: "Either '@path' or 'path' must be provided.",
   })
-  .describe('REF:#/$defs/DataBinding');
+  .meta({$ref: '#/$defs/DataBinding'});
 export type DataBinding = z.infer<typeof DataBindingSchema>;
 
 export const FunctionCommonSchema = z
@@ -58,29 +54,35 @@ export const FunctionCommonSchema = z
   .refine(data => data['@call'] !== undefined || data.call !== undefined, {
     message: "Either '@call' or 'call' must be provided.",
   })
-  .describe(
-    "REF:#/$defs/FunctionCommon|Baseline envelope properties common to all function calls. Function-specific argument schemas ('args') are defined individually by each function in the active catalog.",
-  );
+  .meta({
+    $ref: '#/$defs/FunctionCommon',
+    description:
+      "Baseline envelope properties common to all function calls. Function-specific argument schemas ('args') are defined individually by each function in the active catalog.",
+  });
 export type FunctionCommon = z.infer<typeof FunctionCommonSchema>;
 
 export const FunctionCallSchema = z
   .record(z.string(), z.any())
   .and(z.intersection(FunctionCommonSchema, z.any()))
-  .describe(
-    'REF:#/$defs/FunctionCall|Invokes a named function, combining common function properties with the catalog function definition.',
-  );
+  .meta({
+    $ref: '#/$defs/FunctionCall',
+    description:
+      'Invokes a named function, combining common function properties with the catalog function definition.',
+  });
 export type FunctionCall = z.infer<typeof FunctionCallSchema>;
 
 export const DynamicStringSchema = z
   .union([z.string(), DataBindingSchema, FunctionCallSchema])
-  .describe('REF:#/$defs/DynamicString|Represents a string');
+  .meta({$ref: '#/$defs/DynamicString', description: 'Represents a string'});
 export type DynamicString = z.infer<typeof DynamicStringSchema>;
 
 export const DynamicBooleanSchema = z
   .union([z.boolean(), DataBindingSchema, FunctionCallSchema])
-  .describe(
-    "REF:#/$defs/DynamicBoolean|A boolean value that can be a literal, a path, or a function call returning a boolean or a validation result object (coerced to its 'valid' boolean).",
-  );
+  .meta({
+    $ref: '#/$defs/DynamicBoolean',
+    description:
+      "A boolean value that can be a literal, a path, or a function call returning a boolean or a validation result object (coerced to its 'valid' boolean).",
+  });
 export type DynamicBoolean = z.infer<typeof DynamicBooleanSchema>;
 
 export const AccessibilityAttributesSchema = z
@@ -96,9 +98,11 @@ export const AccessibilityAttributesSchema = z
     'hidden': DynamicBooleanSchema.optional(),
   })
   .strict()
-  .describe(
-    'REF:#/$defs/AccessibilityAttributes|Attributes to enhance accessibility when using assistive technologies like screen readers or model understanding.',
-  );
+  .meta({
+    $ref: '#/$defs/AccessibilityAttributes',
+    description:
+      'Attributes to enhance accessibility when using assistive technologies like screen readers or model understanding.',
+  });
 export type AccessibilityAttributes = z.infer<typeof AccessibilityAttributesSchema>;
 
 export const ExtensionsSchema = z
@@ -108,15 +112,17 @@ export const ExtensionsSchema = z
       if (!isValidUax31Identifier(key)) {
         ctx.addIssue({
           path: [key],
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: `Invalid extension key "${key}": Keys MUST be Unicode identifiers (UAX #31).`,
         });
       }
     }
   })
-  .describe(
-    "REF:#/$defs/Extensions|Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.",
-  );
+  .meta({
+    $ref: '#/$defs/Extensions',
+    description:
+      "Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.",
+  });
 export type Extensions = z.infer<typeof ExtensionsSchema>;
 
 export const ComponentCommonSchema = z
@@ -135,31 +141,28 @@ export const ComponentCommonSchema = z
       .describe('Optional component-level metadata for vendor extensions.')
       .optional(),
   })
-  .describe('REF:#/$defs/ComponentCommon');
+  .meta({$ref: '#/$defs/ComponentCommon'});
 export type ComponentCommon = z.infer<typeof ComponentCommonSchema>;
 
-export const ChildSchema = ComponentIdSchema;
+export const ChildSchema = ComponentIdSchema.meta({$ref: '#/$defs/Child'});
 export type Child = z.infer<typeof ChildSchema>;
 
-export const ChildListSchema = markChildRef(
-  z
-    .union([
-      z.array(ComponentIdSchema).describe('A static list of child component IDs.'),
-      z
-        .object({
-          'componentId': ComponentIdSchema,
-          'path': z
-            .string()
-            .describe('The path to the list of component property objects in the data model.'),
-        })
-        .strict()
-        .describe(
-          'A template for generating a dynamic list of children from a data model list. The `componentId` is the component to use as a template.',
-        ),
-    ])
-    .describe('REF:#/$defs/ChildList'),
-  'child-list',
-);
+export const ChildListSchema = z
+  .union([
+    z.array(ComponentIdSchema).describe('A static list of child component IDs.'),
+    z
+      .object({
+        'componentId': ComponentIdSchema,
+        'path': z
+          .string()
+          .describe('The path to the list of component property objects in the data model.'),
+      })
+      .strict()
+      .describe(
+        'A template for generating a dynamic list of children from a data model list. The `componentId` is the component to use as a template.',
+      ),
+  ])
+  .meta({$ref: '#/$defs/ChildList'});
 export type ChildList = z.infer<typeof ChildListSchema>;
 
 export const DynamicValueSchema = z
@@ -177,23 +180,28 @@ export const DynamicValueSchema = z
     DataBindingSchema,
     FunctionCallSchema,
   ])
-  .describe(
-    'REF:#/$defs/DynamicValue|A value that can be a literal, a path, or a function call returning any type.',
-  );
+  .meta({
+    $ref: '#/$defs/DynamicValue',
+    description: 'A value that can be a literal, a path, or a function call returning any type.',
+  });
 export type DynamicValue = z.infer<typeof DynamicValueSchema>;
 
 export const DynamicNumberSchema = z
   .union([z.number(), DataBindingSchema, FunctionCallSchema])
-  .describe(
-    'REF:#/$defs/DynamicNumber|Represents a value that can be either a literal number, a path to a number in the data model, or a function call returning a number.',
-  );
+  .meta({
+    $ref: '#/$defs/DynamicNumber',
+    description:
+      'Represents a value that can be either a literal number, a path to a number in the data model, or a function call returning a number.',
+  });
 export type DynamicNumber = z.infer<typeof DynamicNumberSchema>;
 
 export const DynamicStringListSchema = z
   .union([z.array(z.string()), DataBindingSchema, FunctionCallSchema])
-  .describe(
-    'REF:#/$defs/DynamicStringList|Represents a value that can be either a literal array of strings, a path to a string array in the data model, or a function call returning a string array.',
-  );
+  .meta({
+    $ref: '#/$defs/DynamicStringList',
+    description:
+      'Represents a value that can be either a literal array of strings, a path to a string array in the data model, or a function call returning a string array.',
+  });
 export type DynamicStringList = z.infer<typeof DynamicStringListSchema>;
 
 export const IndexSystemFunctionSchema = z
@@ -205,7 +213,7 @@ export const IndexSystemFunctionSchema = z
   .refine(data => data['@call'] !== undefined || data.call !== undefined, {
     message: "Either '@call' or 'call' must be '@index'.",
   })
-  .describe('REF:#/$defs/IndexSystemFunction');
+  .meta({$ref: '#/$defs/IndexSystemFunction'});
 export type IndexSystemFunction = z.infer<typeof IndexSystemFunctionSchema>;
 
 export const CheckRuleSchema = z
@@ -218,9 +226,11 @@ export const CheckRuleSchema = z
     'message': z.string().describe('Optional fallback error message.').optional(),
   })
   .strict()
-  .describe(
-    'REF:#/$defs/CheckRule|A single validation check rule applied to an input component. The condition function or path evaluates to a structured validation result object or a boolean (which is coerced to a validation result object).',
-  );
+  .meta({
+    $ref: '#/$defs/CheckRule',
+    description:
+      'A single validation check rule applied to an input component. The condition function or path evaluates to a structured validation result object or a boolean (which is coerced to a validation result object).',
+  });
 export type CheckRule = z.infer<typeof CheckRuleSchema>;
 
 export const CheckableSchema = z
@@ -230,7 +240,10 @@ export const CheckableSchema = z
       .describe('A list of validation check rules to perform on the component.')
       .optional(),
   })
-  .describe('REF:#/$defs/Checkable|Properties for components that support renderer-side checks.');
+  .meta({
+    $ref: '#/$defs/Checkable',
+    description: 'Properties for components that support renderer-side checks.',
+  });
 export type Checkable = z.infer<typeof CheckableSchema>;
 
 export const ActionSchema = z
@@ -258,17 +271,21 @@ export const ActionSchema = z
       .strict()
       .describe('Executes a renderer or agent-side function.'),
   ])
-  .describe(
-    'REF:#/$defs/Action|Defines an interaction handler that can either trigger an agent-side event or execute a local renderer-side function.',
-  );
+  .meta({
+    $ref: '#/$defs/Action',
+    description:
+      'Defines an interaction handler that can either trigger an agent-side event or execute a local renderer-side function.',
+  });
 export type Action = z.infer<typeof ActionSchema>;
 
 export const SurfaceSchema = z
   .object({'component': z.literal('Surface').optional(), 'child': z.literal('root').optional()})
   .strict()
-  .describe(
-    "REF:#/$defs/Surface|The reserved canonical container component representing an A2UI surface. The Surface component is immutable and always has 'child': 'root'.",
-  );
+  .meta({
+    $ref: '#/$defs/Surface',
+    description:
+      "The reserved canonical container component representing an A2UI surface. The Surface component is immutable and always has 'child': 'root'.",
+  });
 export type Surface = z.infer<typeof SurfaceSchema>;
 
 export const FunctionResponseSchema = z
@@ -287,14 +304,16 @@ export const FunctionResponseSchema = z
     const hasError = 'error' in val;
     if ((hasValue && hasError) || (!hasValue && !hasError)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'FunctionResponse must have either "value" or "error", but not both or neither.',
       });
     }
   })
-  .describe(
-    'REF:#/$defs/FunctionResponse|The return response matching a callAgentFunction or callRendererFunction invocation.',
-  );
+  .meta({
+    $ref: '#/$defs/FunctionResponse',
+    description:
+      'The return response matching a callAgentFunction or callRendererFunction invocation.',
+  });
 export type FunctionResponse = z.infer<typeof FunctionResponseSchema>;
 
 export const CommonSchemas = {

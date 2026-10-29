@@ -17,7 +17,7 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated from specification/v1.0/json/ via src/v1_0/scripts/generate-schemas.mjs
 import {z} from 'zod/v4';
-import {ExtensionsSchema} from '../zod4/common-types.js';
+import {ExtensionsSchema} from './common-types.js';
 
 export const FunctionCallValidationSchemaSchema = z
   .object({

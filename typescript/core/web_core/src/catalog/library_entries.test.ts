@@ -21,7 +21,7 @@ import {z} from 'zod';
 import {z as z3} from 'zod/v3';
 
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
-import {DynamicStringSchema} from '../types/common-types.js';
+import {DynamicStringSchema as Zod3DynamicStringSchema} from '../test/zod3-common-types.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {componentSchemaOf} from './entry_schema.js';
 import {
@@ -125,7 +125,7 @@ describe('createFunctionImplementation', () => {
   });
 
   it('keeps typing arguments from a Zod 3 schema as before', () => {
-    type Schema = z3.ZodObject<{value: typeof DynamicStringSchema}>;
+    type Schema = z3.ZodObject<{value: typeof Zod3DynamicStringSchema}>;
     // What the helper gave when it inferred with `z.infer`.
     assertType<Equal<ResolvedFunctionArgs<Schema>, ResolvedDynamic<z3.infer<Schema>>>>();
   });

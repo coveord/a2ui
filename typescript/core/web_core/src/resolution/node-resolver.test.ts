@@ -23,7 +23,8 @@
 
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from 'zod/v3';
+import {z as z3} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   Catalog,
   CatalogApi,
@@ -1012,8 +1013,8 @@ describe('NodeResolver child markers survive schema description', () => {
   it('still recognizes a hand-authored REF description', () => {
     const Api = {
       name: 'HandAuthored',
-      schema: z.object({
-        child: z
+      schema: z3.object({
+        child: z3
           .string()
           .describe('REF:common_types.json#/$defs/ComponentId|Authored by hand.')
           .optional(),

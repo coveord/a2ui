@@ -129,7 +129,7 @@ import {
 import type {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {CallToolResultSchema} from '@modelcontextprotocol/sdk/types.js';
 import type {CallToolResult, ReadResourceResult} from '@modelcontextprotocol/sdk/types.js';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {resolveDynamicRecord} from '../dynamic-values.js';
 
@@ -164,7 +164,7 @@ export const CallMcpToolApi = {
   schema: z.object({
     name: DynamicStringSchema.describe('The name of the MCP tool to execute.'),
     arguments: z
-      .record(DynamicValueSchema)
+      .record(z.string(), DynamicValueSchema)
       .optional()
       .default({})
       .describe('The arguments to pass to the MCP tool.'),

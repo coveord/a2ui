@@ -22,8 +22,8 @@ import {
   ExtensionsSchema,
   FunctionCallSchema,
   FunctionResponseSchema,
-} from '../zod4/common-types.js';
-import {ComponentsListSchema} from '../zod4/helpers.js';
+} from './common-types.js';
+import {ComponentsListSchema} from './helpers.js';
 
 export const CreateSurfaceMessageSchema = z
   .object({

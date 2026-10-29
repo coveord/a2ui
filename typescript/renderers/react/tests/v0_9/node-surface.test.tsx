@@ -17,7 +17,7 @@
 import {describe, it, expect, beforeEach} from 'vitest';
 import React, {createContext, useContext} from 'react';
 import {render, screen, act, fireEvent, within} from '@testing-library/react';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   Catalog,
   CommonSchemas,

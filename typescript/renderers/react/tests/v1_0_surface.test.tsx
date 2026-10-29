@@ -16,7 +16,7 @@
 
 import {describe, it, expect} from 'vitest';
 import {render, act, waitFor} from '@testing-library/react';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 import {
   A2uiSurface,
   createBinderlessComponentImplementation,

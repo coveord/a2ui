@@ -25,7 +25,6 @@ import {CatalogInterface} from '../catalog/types.js';
 import {isAtLeastVersion} from '../common/semver.js';
 import {isValidUax31Identifier} from '../common/uax31.js';
 import {A2uiValidationError} from '../errors.js';
-import {formatZodIssue} from '../processing/format-zod-issue.js';
 import {getKnownSchemaKeys} from '../resolution/data-context.js';
 import {AccessibilityAttributesSchema, ComponentCommonSchema} from '../types/common-types.js';
 import {MAX_FUNCTION_CALL_ARGS} from '../types/helpers.js';
@@ -252,7 +251,7 @@ export class PayloadValidator {
       delete properties['accessibility'];
       const accResult = AccessibilityAttributesSchema.optional().safeParse(accVal);
       if (!accResult.success) {
-        const formattedErrors = accResult.error.errors.map(formatZodIssue).join(', ');
+        const formattedErrors = accResult.error.issues.map(formatA2uiSchemaIssue).join(', ');
         throw new A2uiValidationError(
           `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
           accResult.error.issues,
@@ -266,7 +265,7 @@ export class PayloadValidator {
       delete properties['metadata'];
       const metaResult = ComponentCommonSchema.shape.metadata.safeParse(metaVal);
       if (!metaResult.success) {
-        const formattedErrors = metaResult.error.errors.map(formatZodIssue).join(', ');
+        const formattedErrors = metaResult.error.issues.map(formatA2uiSchemaIssue).join(', ');
         throw new A2uiValidationError(
           `Validation failed for component '${componentType}' (${id}): ${formattedErrors}`,
           metaResult.error.issues,

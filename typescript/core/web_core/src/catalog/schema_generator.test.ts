@@ -19,6 +19,7 @@ import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
 import {z} from 'zod/v3';
+import {z as z4} from 'zod/v4';
 
 import {CheckRuleSchema} from '../types/common-types.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
@@ -833,7 +834,7 @@ describe('Catalog.validationSchema & schema_generator', () => {
   it("describes standard references from the catalog's own protocol version", () => {
     const Field: ComponentApi = {
       name: 'Field',
-      schema: z.object({checks: z.array(CheckRuleSchema).optional()}),
+      schema: z4.object({checks: z4.array(CheckRuleSchema).optional()}),
     };
     const describedRule = (version: string) =>
       (

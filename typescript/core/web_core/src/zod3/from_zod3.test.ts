@@ -25,7 +25,7 @@ import {spec, specDef} from '../catalog/spec_annotations.js';
 import {Catalog} from '../catalog/types.js';
 import {A2uiCatalogError} from '../errors.js';
 import {scrapeSchemaBehavior} from '../resolution/generic-binder.js';
-import {ComponentIdSchema, DynamicStringSchema} from '../types/common-types.js';
+import {ComponentIdSchema, DynamicStringSchema} from '../test/zod3-common-types.js';
 import {PayloadValidator} from '../validation/payload-validator.js';
 import {fromZod3} from './index.js';
 

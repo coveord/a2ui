@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
+import {readFileSync, mkdirSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
@@ -36,17 +36,13 @@ const VERSION_TAG = 'v1.0';
 const SCRIPT_SOURCE = 'src/v1_0/scripts/generate-schemas.mjs';
 
 /**
- * Writes a generated message schema file in Zod 4, on the Zod 4 copies of the
- * common types.
+ * Writes a generated message schema file in Zod 4.
  *
  * @param {string} file The file name in the schema directory.
  * @param {string} code The generated Zod 3 code.
  */
 function writeMessageSchemas(file, code) {
-  const zod4 = toZod4Code(code)
-    .replace("from './helpers.js'", "from '../zod4/helpers.js'")
-    .replace("from './common-types.js'", "from '../zod4/common-types.js'");
-  writeFormattedZod4(join(destDir, file), zod4);
+  writeFormattedZod4(join(destDir, file), toZod4Code(code));
 }
 
 /**
@@ -223,10 +219,7 @@ export type FunctionResponse = z.infer<typeof FunctionResponseSchema>;`;
   const commonEntries = defKeys.map(k => `  ${k}: ${k}Schema,`).join('\n');
   commonTs += `export const CommonSchemas = {\n${commonEntries}\n};\n\n`;
 
-  writeFileSync(join(destDir, 'common-types.ts'), commonTs);
-  // The same common types in Zod 4, which catalogs written with Zod 4, such
-  // as the basic catalog, build on. The protocol's own schemas keep Zod 3.
-  writeFormattedZod4(join(v10Dir, 'zod4', 'common-types.ts'), toZod4Code(commonTs));
+  writeFormattedZod4(join(destDir, 'common-types.ts'), toZod4Code(commonTs));
 
   const pureCommonNames = new Set(Object.keys(commonJson.$defs));
   const helperNames = new Set();

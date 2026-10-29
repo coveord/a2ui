@@ -30,7 +30,7 @@ import {
   DynamicNumberSchema,
   DynamicStringListSchema,
   DynamicStringSchema,
-} from '../../../../v1_0/zod4/common-types.js';
+} from '../../../../v1_0/schema/common-types.js';
 
 export const TextApi = {
   name: 'Text',

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
+import {readFileSync, mkdirSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
@@ -36,18 +36,13 @@ const VERSION_TAG = 'v0.9';
 const SCRIPT_SOURCE = 'src/v0_9/scripts/generate-schemas.mjs';
 
 /**
- * Writes a generated message schema file in Zod 4, on the Zod 4 copies of the
- * common types.
+ * Writes a generated message schema file in Zod 4.
  *
  * @param {string} file The file name in the schema directory.
  * @param {string} code The generated Zod 3 code.
  */
 function writeMessageSchemas(file, code) {
-  const zod4 = toZod4Code(code).replace(
-    "from './common-types.js'",
-    "from '../zod4/common-types.js'",
-  );
-  writeFormattedZod4(join(destDir, file), zod4);
+  writeFormattedZod4(join(destDir, file), toZod4Code(code));
 }
 
 /**
@@ -132,18 +127,7 @@ function generateCommonTypes() {
   const commonEntries = defKeys.map(k => `  ${k}: ${k}Schema,`).join('\n');
   commonTs += `export const CommonSchemas = {\n${commonEntries}\n};\n\n`;
 
-  writeFileSync(join(destDir, 'common-types.ts'), commonTs);
-  // The same common types in Zod 4, which the catalog loader builds on. Their
-  // recursive types are those of the Zod 3 file, which the package exports, so
-  // types inferred from the Zod 4 schemas can be named by their users.
-  const zod4CommonTs = toZod4Code(commonTs)
-    .replace(/\nexport interface FunctionCall \{[^}]*\}\n/, '\n')
-    .replace(/\nexport type DynamicValue = [^;]*;\n/, '\n')
-    .replace(
-      "import {z} from 'zod/v4';\n",
-      "import {z} from 'zod/v4';\n\nimport type {DynamicValue, FunctionCall} from '../schema/common-types.js';\n\nexport type {DynamicValue, FunctionCall};\n",
-    );
-  writeFormattedZod4(join(v09Dir, 'zod4', 'common-types.ts'), zod4CommonTs);
+  writeFormattedZod4(join(destDir, 'common-types.ts'), toZod4Code(commonTs));
 
   const allExportNames = new Set(Object.keys(commonJson.$defs));
   const helpersPath = join(destDir, 'helpers.ts');

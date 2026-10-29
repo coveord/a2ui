@@ -30,6 +30,7 @@ import type {z} from 'zod/v3';
 import {parseDef, zodToJsonSchema, type OverrideCallback} from 'zod-to-json-schema';
 
 import {
+  libraryOptionsFor,
   normalizeSchema,
   zod3SchemaOf,
   type A2uiSchema,
@@ -216,7 +217,8 @@ function convert(schema: EntrySchema, options: A2uiJsonSchemaOptions): Record<st
   // A schema implementing Standard JSON Schema, or a JSON Schema object, is
   // read through `normalizeSchema`, which throws for a Standard Schema that
   // implements no JSON Schema conversion.
-  return liftSpecKeywords(normalizeSchema(schema as A2uiSchema), options) as Record<
+  const libraryOptions = options.expandReferences ? EXPANDING_LIBRARY_OPTIONS : undefined;
+  return liftSpecKeywords(normalizeSchema(schema as A2uiSchema, libraryOptions), options) as Record<
     string,
     unknown
   >;
@@ -317,6 +319,14 @@ function withSpecFacts<T extends object>(json: T, def: unknown, annotation?: Spe
  */
 const OPAQUE_DEFS =
   /^(Dynamic.*|DataBinding|FunctionCall|ComponentId|ChildList|Action|CheckRule|Checkable)$/;
+
+/**
+ * Converter options that keep the contents of a schema naming a definition
+ * that is not opaque, as a Zod 3 view does when it expands references.
+ */
+const EXPANDING_LIBRARY_OPTIONS = libraryOptionsFor(
+  ref => !OPAQUE_DEFS.test(refDefName({$ref: ref})),
+);
 
 /** Whether a `REF:` marker points to a named JSON Schema definition. */
 function isDefinitionRef(ref: string): boolean {
