@@ -351,7 +351,10 @@ describe('generate-catalog-schemas.mjs', () => {
       commonDefs,
       usedImports,
     );
-    assert.strictEqual(code, "DynamicStringSchema.describe('REF:#/$defs/DynamicString|text')");
+    assert.strictEqual(
+      code,
+      "DynamicStringSchema.meta({$ref: '#/$defs/DynamicString', description: 'text'})",
+    );
     assert.ok(usedImports.has('DynamicStringSchema'));
   });
 
@@ -375,8 +378,8 @@ describe('generate-catalog-schemas.mjs', () => {
     );
     assert.strictEqual(
       code,
-      "spec(DynamicStringSchema.describe('REF:#/$defs/DynamicString|The minimum.'), " +
-        '{allOf: [{if: {type: "string"}, then: {format: "date"}}]}).optional()',
+      "DynamicStringSchema.meta({$ref: '#/$defs/DynamicString', description: 'The minimum.'})" +
+        '.meta(specMeta({allOf: [{if: {type: "string"}, then: {format: "date"}}]})).optional()',
     );
     const plainCode = generatePropertyZod(
       'count',
@@ -386,7 +389,7 @@ describe('generate-catalog-schemas.mjs', () => {
       usedImports,
       uri,
     );
-    assert.strictEqual(plainCode, 'spec(z.number().int(), {keywords: {minimum: 0}})');
+    assert.strictEqual(plainCode, 'z.number().int().meta(specMeta({keywords: {minimum: 0}}))');
   });
 
   it('derives annotations from the difference to the published schema', () => {
@@ -474,7 +477,9 @@ describe('generate-catalog-schemas.mjs', () => {
       usedImports,
     );
     assert.ok(
-      arrCode.includes("z.array(DynamicStringSchema.describe('REF:#/$defs/DynamicString')).min(2)"),
+      arrCode.includes(
+        "z.array(DynamicStringSchema.meta({$ref: '#/$defs/DynamicString', description: undefined})).min(2)",
+      ),
     );
   });
 

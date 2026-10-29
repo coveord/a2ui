@@ -15,7 +15,7 @@
  */
 
 import { Signal } from '@angular/core';
-import { z } from 'zod/v3';
+import { z } from 'zod/v4';
 import {
   ComponentApi,
   DataBindingSchema,

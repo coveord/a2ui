@@ -16,7 +16,7 @@
 
 import * as assert from 'node:assert';
 import {describe, it} from 'node:test';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {DataContext} from '../resolution/data-context.js';
 import {DataModel} from '../state/data-model.js';
@@ -77,7 +77,7 @@ describe('isDynamicBooleanSchema', () => {
         },
       },
     });
-    const schema = catalog.functions.get('flag')!.schema as unknown as z.ZodObject<z.ZodRawShape>;
+    const schema = catalog.functions.get('flag')!.schema as z.ZodObject<z.ZodRawShape>;
     assert.ok(isDynamicBooleanSchema(schema.shape['on']));
   });
 

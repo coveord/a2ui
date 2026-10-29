@@ -317,10 +317,14 @@ export class SpecShaper {
    * @param protocolVersion The catalog's protocol version.
    * @param commonTypesUri How the catalog's document writes the common types
    *     document in references, such as `common_types.json`.
+   * @param defModels The catalog's definition models by name, which a
+   *     component's mixin can name instead of a common type, and which a
+   *     property that is one of them refers to.
    */
   constructor(
-    protocolVersion: string,
+    private readonly protocolVersion: string,
     private readonly commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
+    private readonly defModels: ReadonlyMap<string, EntrySchema> = new Map(),
   ) {
     this.isV08 = !isAtLeastVersion(protocolVersion, '0.9');
     this.isV10 = isAtLeastVersion(protocolVersion, '1.0');
@@ -328,16 +332,17 @@ export class SpecShaper {
   }
 
   /**
-   * The definition models the schemas shaped so far carry through
-   * `specMeta({defs})`, by definition name.
+   * Returns a shaper that also knows the models `schema` carries (see
+   * `specMeta`), or this shaper when it knows them all.
    */
-  private readonly carriedModels = new Map<string, EntrySchema>();
-
-  /** Records the definition models `schema` carries. */
-  private collectCarriedModels(schema: EntrySchema): void {
-    for (const [name, model] of getSpecModels(schema) ?? []) {
-      this.carriedModels.set(name, model as EntrySchema);
+  private forSchema(schema: EntrySchema): SpecShaper {
+    const carried = getSpecModels(schema);
+    if (!carried || [...carried].every(([name, model]) => this.defModels.get(name) === model)) {
+      return this;
     }
+    const models = new Map(this.defModels);
+    for (const [name, model] of carried) models.set(name, model as EntrySchema);
+    return new SpecShaper(this.protocolVersion, this.commonTypesUri, models);
   }
 
   /**
@@ -354,7 +359,10 @@ export class SpecShaper {
     allowedParents?: readonly string[],
     allowedChildren?: readonly string[],
   ): SpecSchema {
-    this.collectCarriedModels(schema);
+    const shaper = this.forSchema(schema);
+    if (shaper !== this) {
+      return shaper.componentSchema(name, schema, allowedParents, allowedChildren);
+    }
     const catalogDefs = new Map<string, EntrySchema>();
     let result: JsonObject;
     if (this.isV08) {
@@ -376,6 +384,8 @@ export class SpecShaper {
       const mixins = annotation.mixins ?? [];
       const inherited = new Set<string>(ENVELOPE_PROPERTIES);
       const refs: JsonObject[] = [];
+      // A mixin name is that of a model the schema carries, of one of the
+      // catalog's models, or else of a common type.
       for (const mixin of mixins) {
         refs.push({$ref: this.mixinRef(mixin, catalogDefs)});
         for (const key of this.mixinProperties(mixin)) inherited.add(key);
@@ -452,9 +462,10 @@ export class SpecShaper {
 
   /**
    * Returns the definition a catalog document writes for a model, such as a
-   * mixin or a theme.
+   * mixin, a theme or a definition a property refers to.
    *
    * @param schema The model.
+   * @param catalogDefs Collects the catalog definitions the model refers to.
    */
   defSchema(schema: EntrySchema, catalogDefs?: Map<string, EntrySchema>): JsonObject {
     return this.toJson(schema, catalogDefs, true);
@@ -462,7 +473,12 @@ export class SpecShaper {
 
   /** Returns the reference a component's definition makes to a mixin. */
   private mixinRef(mixin: SpecMixin, catalogDefs: Map<string, EntrySchema>): string {
-    if (typeof mixin === 'string') return `${this.commonTypesUri}#/$defs/${mixin}`;
+    if (typeof mixin === 'string') {
+      const model = this.defModels.get(mixin);
+      if (model === undefined) return `${this.commonTypesUri}#/$defs/${mixin}`;
+      catalogDefs.set(mixin, model);
+      return `#/$defs/${mixin}`;
+    }
     const name = annotationOf(mixin).defName;
     if (name === undefined) {
       throw new Error('A component mixin model must be named with specDef().');
@@ -473,10 +489,12 @@ export class SpecShaper {
 
   /** Returns the names of the properties a mixin declares. */
   private mixinProperties(mixin: SpecMixin): string[] {
-    if (typeof mixin !== 'string') {
-      const properties = viewOf(mixin)['properties'];
+    const model = typeof mixin === 'string' ? this.defModels.get(mixin) : mixin;
+    if (model !== undefined) {
+      const properties = viewOf(model)['properties'];
       return isObject(properties) ? Object.keys(properties) : [];
     }
+    if (typeof mixin !== 'string') return [];
     const names: string[] = [];
     const collect = (def: unknown, seen: Set<unknown>): void => {
       if (!isObject(def) || seen.has(def)) return;
@@ -498,14 +516,21 @@ export class SpecShaper {
   /**
    * Returns the JSON Schema a catalog document writes for a schema.
    *
+   * A node annotated with the `defName` of one of the catalog's `defModels`
+   * is written as a reference to that definition, and its model collected in
+   * `catalogDefs`, unless the node is the definition's own root.
+   *
    * @param schema The schema.
+   * @param catalogDefs Collects the catalog definitions the schema refers to.
+   * @param isDefRoot Whether `schema` is the root of a `$defs` entry.
    */
   toJson(
     schema: EntrySchema,
     catalogDefs?: Map<string, EntrySchema>,
     isDefRoot = false,
   ): JsonObject {
-    this.collectCarriedModels(schema);
+    const shaper = this.forSchema(schema);
+    if (shaper !== this) return shaper.toJson(schema, catalogDefs, isDefRoot);
     return this.nodeJson(viewOf(schema), catalogDefs, isDefRoot);
   }
 
@@ -518,7 +543,7 @@ export class SpecShaper {
     const annotation = specAnnotationOf(node) ?? {};
     const defName = isDefRoot ? undefined : annotation.defName;
     const defModel =
-      defName === undefined ? undefined : (annotation.defModel ?? this.carriedModels.get(defName));
+      defName === undefined ? undefined : (annotation.defModel ?? this.defModels.get(defName));
     if (defName !== undefined && defModel !== undefined) {
       return this.defRefJson(node, defName, defModel, catalogDefs);
     }
@@ -541,10 +566,9 @@ export class SpecShaper {
   }
 
   /**
-   * Returns the reference a catalog document writes for a node annotated as
-   * the catalog definition `defName`, recording the definition's model in
-   * `catalogDefs`. The node's description and default are written beside the
-   * reference only where they differ from the model's.
+   * Returns the reference a node makes to one of the catalog's definitions,
+   * with the description and default the node has that the definition does
+   * not, and collects the definition's model.
    */
   private defRefJson(
     node: JsonObject,
@@ -569,6 +593,19 @@ export class SpecShaper {
     }
     return result;
   }
+
+  /**
+   * Returns the definition a reference to one of the catalog's definitions
+   * names, or else the standard definition it names.
+   */
+  private resolveRef(ref: string): JsonObject | undefined {
+    if (ref.startsWith('#/$defs/')) {
+      const model = this.defModels.get(ref.substring('#/$defs/'.length));
+      return model === undefined ? undefined : this.defSchema(model);
+    }
+    return this.resolveStandardRef(ref);
+  }
+
   /**
    * Returns the standard definition a reference in the catalog document names
    * (`<commonTypesUri>#/$defs/<name>`), or `undefined` for any other
@@ -636,9 +673,7 @@ export class SpecShaper {
         const model = ref.startsWith('#/$defs/')
           ? catalogDefs?.get(ref.substring('#/$defs/'.length))
           : undefined;
-        return model !== undefined
-          ? this.defSchema(model, catalogDefs)
-          : this.resolveStandardRef(ref);
+        return model !== undefined ? this.defSchema(model, catalogDefs) : this.resolveRef(ref);
       };
       const disjoint = written.every((branch, i) =>
         written.slice(i + 1).every(other => provablyDisjoint(branch, other, resolve)),

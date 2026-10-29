@@ -129,7 +129,7 @@ import {
 import type {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {CallToolResultSchema} from '@modelcontextprotocol/sdk/types.js';
 import type {CallToolResult, ReadResourceResult} from '@modelcontextprotocol/sdk/types.js';
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {isFunctionCall, isRecord, resolveDynamicRecord} from '../dynamic-values.js';
 import {DEFAULT_MESSAGE_VERSION, getMcpCatalogConfig} from '../mcp_catalog_config.js';
@@ -180,6 +180,16 @@ export type McpClientResolver = (
 ) => McpToolClient | undefined | null | Promise<McpToolClient | undefined | null>;
 
 /**
+ * A function call that produces the whole arguments object: only the `call`, `args` and
+ * `returnType` keys, so that a record of tool arguments with a `call` key stays a record.
+ */
+const ArgumentsCallSchema = z.strictObject({
+  call: z.string(),
+  args: z.record(z.string(), z.unknown()).optional(),
+  returnType: z.enum(['string', 'number', 'boolean', 'array', 'object', 'any', 'void']).optional(),
+});
+
+/**
  * Function API definition for `callMcpTool`.
  *
  * Payloads reference tools by name; the host application is responsible for
@@ -191,7 +201,7 @@ export const CallMcpToolApi = {
   schema: z.object({
     name: DynamicStringSchema.describe('The name of the MCP tool to execute.'),
     arguments: z
-      .union([z.custom<FunctionCall>(isArgumentsCall), z.record(DynamicValueSchema)])
+      .union([ArgumentsCallSchema, z.record(z.string(), DynamicValueSchema)])
       .optional()
       .default({})
       .describe(

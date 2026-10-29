@@ -49,6 +49,7 @@ generateCatalogApi({
   ),
   componentsOutPath: join(v09Dir, 'basic_catalog', 'components', 'basic_components.ts'),
   functionsOutPath: join(v09Dir, 'basic_catalog', 'functions', 'basic_functions_api.ts'),
+  commonTypesImportPath: '../../schema/common-types.js',
 });
 
 console.log('Successfully generated v0.9 Basic Catalog APIs.');

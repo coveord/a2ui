@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import {readFileSync, writeFileSync, mkdirSync, existsSync} from 'node:fs';
+import {readFileSync, mkdirSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {
   analyzeDependencies,
   compileDefToZod,
   getHeader,
-  toZod4Code,
+  refMetaCode,
   writeFormattedZod4,
   writeIndexFile,
 } from '../../../scripts/zod-generator-core.mjs';
@@ -36,18 +36,13 @@ const VERSION_TAG = 'v0.9';
 const SCRIPT_SOURCE = 'src/v0_9/scripts/generate-schemas.mjs';
 
 /**
- * Writes a generated message schema file in Zod 4, on the Zod 4 copies of the
- * common types.
+ * Writes a generated message schema file.
  *
  * @param {string} file The file name in the schema directory.
- * @param {string} code The generated Zod 3 code.
+ * @param {string} code The generated Zod 4 code.
  */
 function writeMessageSchemas(file, code) {
-  const zod4 = toZod4Code(code).replace(
-    "from './common-types.js'",
-    "from '../zod4/common-types.js'",
-  );
-  writeFormattedZod4(join(destDir, file), zod4);
+  writeFormattedZod4(join(destDir, file), code);
 }
 
 /**
@@ -61,10 +56,7 @@ function generateCommonTypes() {
     ...Array.from(lazyEdges).map(e => e.split('->')[1]),
   ]);
 
-  let commonTs =
-    getHeader(VERSION_TAG, SCRIPT_SOURCE) +
-    "import {z} from 'zod/v3';\n" +
-    "import {markChildRef} from '../../types/child-ref-helpers.js';\n\n";
+  let commonTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v4';\n\n";
 
   const defKeys = [
     ...topologicalOrder.filter(k => k in commonJson.$defs),
@@ -73,25 +65,10 @@ function generateCommonTypes() {
 
   for (const name of defKeys) {
     const rawDef = JSON.parse(JSON.stringify(commonJson.$defs[name]));
-    const desc = rawDef.description
-      ? `REF:#/$defs/${name}|${rawDef.description}`
-      : `REF:#/$defs/${name}`;
-    rawDef.description = desc;
+    let code = compileDefToZod(rawDef, name, {lazyEdges, topologicalOrder, ref: `#/$defs/${name}`});
 
-    let code = compileDefToZod(rawDef, name, {lazyEdges, topologicalOrder});
-
-    if (name === 'ComponentId') {
-      const parts = code.split('\nexport type ');
-      const schemaExp = parts[0].replace(`export const ComponentIdSchema = `, '').trim();
-      const typePart = parts[1] || 'ComponentId = z.infer<typeof ComponentIdSchema>';
-      code = `export const ComponentIdSchema = markChildRef(\n  ${schemaExp},\n  'component-id',\n);\nexport type ${typePart}`;
-    } else if (name === 'ChildList') {
-      const parts = code.split('\nexport type ');
-      const schemaExp = parts[0].replace(`export const ChildListSchema = `, '').trim();
-      const typePart = parts[1] || 'ChildList = z.infer<typeof ChildListSchema>';
-      code = `export const ChildListSchema = markChildRef(\n  ${schemaExp},\n  'child-list',\n);\nexport type ${typePart}`;
-    } else if (name === 'Child') {
-      code = `export const ChildSchema = ComponentIdSchema;\nexport type Child = z.infer<typeof ChildSchema>;`;
+    if (name === 'Child') {
+      code = `export const ChildSchema = ComponentIdSchema${refMetaCode('#/$defs/Child')};\nexport type Child = z.infer<typeof ChildSchema>;`;
     }
 
     if (recursiveSchemas.has(name)) {
@@ -123,7 +100,7 @@ function generateCommonTypes() {
     }
 
     if (name === 'Extensions') {
-      code = `export const ExtensionsSchema = z.record(z.string(), z.unknown()).describe("REF:#/$defs/Extensions|Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.");\nexport type Extensions = z.infer<typeof ExtensionsSchema>;`;
+      code = `export const ExtensionsSchema = z.record(z.string(), z.unknown())${refMetaCode('#/$defs/Extensions', "Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.")};\nexport type Extensions = z.infer<typeof ExtensionsSchema>;`;
     }
 
     commonTs += code + '\n\n';
@@ -132,9 +109,7 @@ function generateCommonTypes() {
   const commonEntries = defKeys.map(k => `  ${k}: ${k}Schema,`).join('\n');
   commonTs += `export const CommonSchemas = {\n${commonEntries}\n};\n\n`;
 
-  writeFileSync(join(destDir, 'common-types.ts'), commonTs);
-  // The same common types in Zod 4, which the catalog loader builds on.
-  writeFormattedZod4(join(v09Dir, 'zod4', 'common-types.ts'), toZod4Code(commonTs));
+  writeFormattedZod4(join(destDir, 'common-types.ts'), commonTs);
 
   const allExportNames = new Set(Object.keys(commonJson.$defs));
   const helpersPath = join(destDir, 'helpers.ts');
@@ -177,7 +152,7 @@ function generateIncomingMessageSchemas(commonDefNames) {
     .filter(schemaName => new RegExp('\\b' + schemaName + '\\b').test(bodyCode))
     .sort();
 
-  let outTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n";
+  let outTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v4';\n";
   if (neededImports.length > 0) {
     outTs += `import {${neededImports.join(', ')}} from './common-types.js';\n\n`;
   } else {
@@ -195,7 +170,7 @@ function generateOutgoingMessageSchemas() {
   const c2sJson = JSON.parse(readFileSync(join(specDir, 'client_to_server.json'), 'utf8'));
   const cdmJson = JSON.parse(readFileSync(join(specDir, 'client_data_model.json'), 'utf8'));
 
-  let c2sTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n\n";
+  let c2sTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v4';\n\n";
 
   let actionCode = compileDefToZod(c2sJson.properties.action, 'A2uiClientAction');
   actionCode = actionCode.replace(/\.passthrough\(\)/g, '.strict()');
@@ -236,7 +211,7 @@ function generateCapabilitiesSchemas() {
   const ccJson = JSON.parse(readFileSync(join(specDir, 'client_capabilities.json'), 'utf8'));
   let ccTs =
     getHeader(VERSION_TAG, SCRIPT_SOURCE) +
-    `import {z} from 'zod/v3';\n\nexport type JsonSchema = Record<string, unknown>;\n\n`;
+    `import {z} from 'zod/v4';\n\nexport type JsonSchema = Record<string, unknown>;\n\n`;
 
   for (const [name, def] of Object.entries(ccJson.$defs || {})) {
     const typeName = name === 'Catalog' ? 'InlineCatalog' : name;

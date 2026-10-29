@@ -19,8 +19,8 @@ import {z} from 'zod/v4';
 import {isAtLeastVersion} from '../common/semver.js';
 import {assertUax31Identifier} from '../common/uax31.js';
 import {A2uiCatalogError} from '../errors.js';
-import {CommonSchemas} from '../types/zod4/common-types.js';
-import {CommonSchemas as V09CommonSchemas} from '../v0_9/zod4/common-types.js';
+import {CommonSchemas} from '../types/common-types.js';
+import {CommonSchemas as V09CommonSchemas} from '../v0_9/schema/common-types.js';
 import {V09_STANDARD_DEFS} from '../v0_9/standard_defs.js';
 import {V10_STANDARD_DEFS} from '../v1_0/standard_defs.js';
 import {setDefinitionView} from './a2ui_json_schema.js';
@@ -267,7 +267,7 @@ function convertRefToZod(
     if (!ref.startsWith('#')) return undefined;
     return z.unknown().superRefine((_val, ctx) => {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: `Unresolvable schema reference: '${ref}'`,
       });
     });

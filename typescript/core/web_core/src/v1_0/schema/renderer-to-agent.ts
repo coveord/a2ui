@@ -22,7 +22,7 @@ import {
   ExtensionsSchema,
   FunctionCallSchema,
   FunctionResponseSchema,
-} from '../zod4/common-types.js';
+} from './common-types.js';
 
 export const ActionMessageSchema = z
   .object({

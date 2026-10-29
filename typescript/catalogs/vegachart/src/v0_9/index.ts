@@ -20,7 +20,7 @@
  * Matches `catalogs/vegachart/v0_9/catalog.json`.
  */
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {
   AccessibilityAttributesSchema,
@@ -29,7 +29,7 @@ import {
   DynamicNumberSchema,
   DynamicValueSchema,
 } from '@a2ui/web_core/v0_9';
-import {spec} from '@a2ui/web_core/v1_0';
+import {specMeta} from '@a2ui/web_core/v1_0';
 
 import {A2uiVegaChartElement} from '../components/vegaChart.js';
 
@@ -45,44 +45,28 @@ const V09_COMMON_TYPES = 'https://a2ui.org/specification/v0_9/common_types.json'
  * branch. The explicit `anyOf` keeps the serialized schema identical to the
  * published `catalog.json`.
  */
-const SpecValueSchema = z.union([DynamicValueSchema, z.record(z.string(), z.unknown())]);
-
-const SpecSchema = spec(
-  z.unknown().superRefine((val, ctx) => {
-    const parsed = SpecValueSchema.safeParse(val);
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        ctx.addIssue(issue);
-      }
-    }
-  }),
-  {
+const SpecSchema = z.union([DynamicValueSchema, z.record(z.string(), z.unknown())]).meta(
+  specMeta({
     keywords: {
       description: 'The Vega-Lite spec to render as a JSON object.',
       anyOf: [{$ref: `${V09_COMMON_TYPES}#/$defs/DynamicValue`}, {type: 'object'}],
     },
-  },
+  }),
 );
-Object.defineProperty(SpecSchema, 'description', {value: 'REF:#/$defs/DynamicValue'});
 
 /** Component API for `VegaChart` (protocol v0.9). */
 export const VegaChartApi = {
   name: 'VegaChart',
-  schema: spec(
-    z
-      .object({
-        accessibility: AccessibilityAttributesSchema.describe(
-          'REF:#/$defs/AccessibilityAttributes',
-        ).optional(),
-        spec: SpecSchema,
-        height: DynamicNumberSchema.describe(
-          'REF:#/$defs/DynamicNumber|Optional height of the chart in pixels. Defaults to 290.',
-        ).optional(),
-      })
-      .describe('Displays a Vega or Vega-Lite chart.')
-      .strict(),
-    {mixins: ['ComponentCommon'], required: ['spec']},
-  ),
+  schema: z
+    .strictObject({
+      accessibility: AccessibilityAttributesSchema.meta({description: undefined}).optional(),
+      spec: SpecSchema,
+      height: DynamicNumberSchema.describe(
+        'Optional height of the chart in pixels. Defaults to 290.',
+      ).optional(),
+    })
+    .describe('Displays a Vega or Vega-Lite chart.')
+    .meta(specMeta({mixins: ['ComponentCommon'], required: ['spec']})),
 } satisfies ComponentApi;
 
 /** `VegaChart` web component implementation (protocol v0.9). */

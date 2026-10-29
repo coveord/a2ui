@@ -20,14 +20,14 @@
  * Matches `catalogs/vegachart/v1/catalog.json`.
  */
 
-import {z} from 'zod/v3';
+import {z} from 'zod/v4';
 
 import {
   Catalog,
   type ComponentApi,
   DynamicNumberSchema,
   DynamicValueSchema,
-  spec,
+  specMeta,
 } from '@a2ui/web_core/v1_0';
 
 import {A2uiVegaChartElement} from '../components/vegaChart.js';
@@ -39,20 +39,15 @@ export const VEGACHART_V1_CATALOG_ID =
 /** Component API for `VegaChart` (protocol v1.0). */
 export const VegaChartV1Api = {
   name: 'VegaChart',
-  schema: spec(
-    z
-      .object({
-        spec: DynamicValueSchema.describe(
-          'REF:#/$defs/DynamicValue|The Vega-Lite spec to render as a JSON object.',
-        ),
-        height: DynamicNumberSchema.describe(
-          'REF:#/$defs/DynamicNumber|Optional height of the chart in pixels. Defaults to 290.',
-        ).optional(),
-      })
-      .describe('Displays a Vega or Vega-Lite chart.')
-      .strict(),
-    {mixins: [], required: ['spec']},
-  ),
+  schema: z
+    .strictObject({
+      spec: DynamicValueSchema.describe('The Vega-Lite spec to render as a JSON object.'),
+      height: DynamicNumberSchema.describe(
+        'Optional height of the chart in pixels. Defaults to 290.',
+      ).optional(),
+    })
+    .describe('Displays a Vega or Vega-Lite chart.')
+    .meta(specMeta({mixins: [], required: ['spec']})),
 } satisfies ComponentApi;
 
 /** `VegaChart` web component implementation (protocol v1.0). */

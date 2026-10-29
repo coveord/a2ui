@@ -29,13 +29,14 @@ import {
   isChildOrChildListSchema,
   isChildSchema,
 } from './reference-map.js';
-import {spec, specDef} from './spec_annotations.js';
+import {specMeta} from './spec_annotations.js';
 import {Catalog, ComponentApi} from './types.js';
 import {CommonSchemas} from '../types/common-types.js';
 import {V08_CHILD_REF_OPTIONS} from '../v0_8/standard_defs.js';
 import {V09_CHILD_REF_OPTIONS} from '../v0_9/standard_defs.js';
 import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
-import {z} from 'zod/v3';
+import {z as z3} from 'zod/v3';
+import {z} from 'zod/v4';
 
 describe('reference-map schema introspection', () => {
   it('identifies JSON Schema $ref pointers to ChildList and ComponentId', () => {
@@ -95,10 +96,10 @@ describe('reference-map schema introspection', () => {
   });
 
   it('identifies Zod schemas stamped with markChildRef metadata without description', () => {
-    const markedChild = z.string();
+    const markedChild = z3.string();
     (markedChild._def as any).a2uiChildRef = 'component-id';
 
-    const markedList = z.union([z.array(z.string()), z.any()]);
+    const markedList = z3.union([z3.array(z3.string()), z3.any()]);
     (markedList._def as any).a2uiChildRef = 'child-list';
 
     assert.strictEqual(isChildSchema(markedChild, V10_CHILD_REF_OPTIONS), true);
@@ -109,10 +110,15 @@ describe('reference-map schema introspection', () => {
   });
 
   it('reads ChildList mixins through the catalog document', () => {
-    const childMixin = specDef('ChildMixin', z.object({children: CommonSchemas.ChildList}));
+    const childMixin = z
+      .object({children: CommonSchemas.ChildList})
+      .meta(specMeta({defName: 'ChildMixin'}));
     const field = {
       name: 'Field',
-      schema: spec(z.object({label: z.string()}).strict(), {mixins: [childMixin]}),
+      schema: z
+        .object({label: z.string()})
+        .strict()
+        .meta(specMeta({mixins: [childMixin]})),
     };
     const catalog = new Catalog('mixin-cat', '1.0', [field], [], {defModels: [childMixin]});
 
@@ -122,10 +128,10 @@ describe('reference-map schema introspection', () => {
   it('builds dynamic ref map for custom components with non-standard property names', () => {
     const customSplitPaneApi = {
       name: 'CustomSplitPane',
-      schema: z.object({
-        topSlot: z.string().describe('REF:#/$defs/ComponentId'),
-        bottomSlot: z.string().describe('REF:#/$defs/ComponentId'),
-        sidePanels: z.array(z.string().describe('REF:#/$defs/ComponentId')),
+      schema: z3.object({
+        topSlot: z3.string().describe('REF:#/$defs/ComponentId'),
+        bottomSlot: z3.string().describe('REF:#/$defs/ComponentId'),
+        sidePanels: z3.array(z3.string().describe('REF:#/$defs/ComponentId')),
       }),
     };
 

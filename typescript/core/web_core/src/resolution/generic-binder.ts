@@ -284,6 +284,18 @@ type ActionLike =
  */
 type HasStringIndex<T> = string extends keyof T ? true : false;
 
+/**
+ * Removes the dynamic value types from T.
+ *
+ * A type with a string index signature carries data and is kept: a record is assignable to
+ * the binding and call types, whose properties are all optional.
+ */
+type ExcludeDynamic<T> = T extends DynamicTypes
+  ? HasStringIndex<T> extends true
+    ? T
+    : never
+  : T;
+
 /** Evaluates to true if type T can contain a dynamic binding. */
 type IsDynamic<T> = ({path: string} extends NonNullable<T> ? true : false) extends true
   ? true
@@ -329,14 +341,14 @@ export interface ResolvedChildRef {
  */
 export type ResolveA2uiProp<T> = [NonNullable<T>] extends [ActionLike]
   ? HasStringIndex<NonNullable<T>> extends true
-    ? Exclude<T, DynamicTypes>
+    ? ExcludeDynamic<T>
     : (() => Promise<void>) | Extract<T, undefined>
   : IsChildList<T> extends true
     ? (string | ResolvedChildRef)[] | Extract<T, undefined>
-    : Exclude<T, DynamicTypes> extends never
+    : ExcludeDynamic<T> extends never
       ? unknown
       : IsDynamic<T> extends true
-        ? Exclude<T, DynamicTypes>
+        ? ExcludeDynamic<T>
         : ResolveNested<T>;
 
 /**
