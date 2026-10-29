@@ -18,7 +18,7 @@
  * @fileoverview Generates the component models of the v0.8 basic catalog.
  *
  * A v0.8 catalog document has no common types: every property is written
- * inline. Each component becomes a strict Zod object, annotated (see
+ * inline. Each component becomes a strict Zod 4 object, annotated (see
  * src/catalog/spec_annotations.ts) with what the document writes that Zod
  * does not express, so that `Catalog.toJson` computes the published document
  * from the models. The `styles` theme becomes `ThemeSchema`.
@@ -79,11 +79,11 @@ function strictObject(schema, ctx, extra = {}) {
   const node = generateObjectNode(schema, ctx, '    ');
   let code = node.code;
   const prediction = {...node.prediction, additionalProperties: false};
+  code = code.replace(/^z(\s*)\.object\(/, 'z$1.strictObject(');
   if (schema.description) {
     code += `.describe('${escapeStr(schema.description)}')`;
     prediction.description = schema.description;
   }
-  code += '.strict()';
   // A strict object whose schema writes no closure, such as the theme.
   const open = schema.additionalProperties === undefined;
   if (open) delete prediction.additionalProperties;
@@ -92,19 +92,21 @@ function strictObject(schema, ctx, extra = {}) {
     ...(open ? {closure: 'none'} : {}),
     ...annotationFor(schema, prediction),
   };
-  return Object.keys(annotation).length > 0 ? `spec(${code}, ${literal(annotation)})` : code;
+  return Object.keys(annotation).length > 0
+    ? `${code}.meta(specMeta(${literal(annotation)}))`
+    : code;
 }
 
 console.log('Generating v0.8 Basic Catalog APIs...');
 
 const catalogJson = JSON.parse(readFileSync(catalogPath, 'utf8'));
 // The document has no references, so no common types are written.
-const ctx = {commonDefs: {}, usedImports: new Set(), commonTypesUri: ''};
+const ctx = {commonDefs: {}, usedImports: new Set(), commonTypesUri: '', zod4: true};
 
 let out = HEADER;
-out += `import {z} from 'zod/v3';
+out += `import {z} from 'zod/v4';
 
-import {spec} from '../../../catalog/spec_annotations.js';
+import {specMeta} from '../../../catalog/spec_annotations.js';
 import {CatalogDocumentOptions, ComponentApi} from '../../../catalog/types.js';
 
 `;
