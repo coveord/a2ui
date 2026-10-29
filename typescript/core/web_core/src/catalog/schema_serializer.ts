@@ -16,11 +16,10 @@
  */
 
 import type {z} from 'zod/v3';
-import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
-import {normalizeSchema, zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
-import {entrySchemaOverride} from './entry_json_override.js';
+import {copyA2uiJsonSchemaOf} from './a2ui_json_schema.js';
+import {zod3SchemaOf, type A2uiSchema, type EntrySchema} from './a2ui_schema.js';
 import {loadedDefinition} from './json_entries.js';
 import {getSpecAnnotation, type JsonSchemaObject} from './spec_annotations.js';
 import {
@@ -230,22 +229,20 @@ export function retainedDefs(
  * @param localDefs Names of authored definitions that stay local references.
  * @param commonTypesUri The URI of the common types document.
  */
-function rewriteRefMarkers(
+function rewriteRefs(
   node: unknown,
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): void {
   if (Array.isArray(node)) {
-    for (const item of node) rewriteRefMarkers(item, localDefs, commonTypesUri);
+    for (const item of node) rewriteRefs(item, localDefs, commonTypesUri);
     return;
   }
   if (!isObject(node)) return;
 
-  if (typeof node.description === 'string' && node.description.startsWith('REF:')) {
-    const content = node.description.substring(4);
-    const pipeIndex = content.indexOf('|');
-    const ref = pipeIndex === -1 ? content : content.substring(0, pipeIndex);
-    const desc = pipeIndex === -1 ? '' : content.substring(pipeIndex + 1);
+  if (typeof node.$ref === 'string') {
+    const ref = node.$ref;
+    const desc = typeof node.description === 'string' ? node.description : '';
     const savedDefault = node.default;
     for (const key of Object.keys(node)) delete node[key];
     // The first segment names the definition; a deeper pointer into it, such as
@@ -268,14 +265,14 @@ function rewriteRefMarkers(
     if (isObject(value) && Object.keys(value).length === 0) node[key] = true;
   }
   delete node.$schema;
-  for (const value of Object.values(node)) rewriteRefMarkers(value, localDefs, commonTypesUri);
+  for (const value of Object.values(node)) rewriteRefs(value, localDefs, commonTypesUri);
 }
 
 /**
  * Converts an entry's schema into an unbundled JSON Schema object, as
  * `toJson()` writes an entry defined in code without specification
- * annotations: a Zod 3 schema with `zod-to-json-schema`, and any other
- * `A2uiSchema` as it writes itself as JSON Schema.
+ * annotations: its JSON Schema view (see `a2uiJsonSchemaOf`), with its
+ * `$ref`s rewritten so common types references stay external.
  *
  * @param schema The entry's schema.
  * @param localDefs Names of authored definitions that stay local references.
@@ -286,20 +283,13 @@ export function zodToUnbundledJson(
   localDefs: ReadonlySet<string>,
   commonTypesUri: string = DEFAULT_COMMON_TYPES_URI,
 ): JsonObject {
-  const zod3 = zod3SchemaOf(schema);
-  if (!zod3) {
-    return schema && typeof schema === 'object'
-      ? (deepCopyJson(normalizeSchema(schema as A2uiSchema)) as JsonObject)
-      : {type: 'object', properties: {}};
+  if (!schema || typeof schema !== 'object') {
+    return {type: 'object', properties: {}};
   }
-  const json = zodToJsonSchema(zod3, {
-    target: 'jsonSchema2019-09',
-    $refStrategy: 'none',
-    override: entrySchemaOverride,
-  }) as JsonObject;
+  const json = copyA2uiJsonSchemaOf(schema as A2uiSchema) as JsonObject;
   delete json.definitions;
   delete json.$defs;
-  rewriteRefMarkers(json, localDefs, commonTypesUri);
+  rewriteRefs(json, localDefs, commonTypesUri);
   return json;
 }
 
@@ -485,7 +475,7 @@ export function catalogDocumentModel(catalog: SerializableCatalog): CatalogDocum
 
 function buildDocumentModel(catalog: SerializableCatalog): CatalogDocumentModel {
   const shaper = new SpecShaper(catalog.protocolVersion, catalog.commonTypesUri);
-  const computedDefs = new Map<string, z.ZodTypeAny>();
+  const computedDefs = new Map<string, EntrySchema>();
   const shapedComponents = new Map<string, JsonSchemaObject>();
   for (const [name, comp] of catalog.components) {
     // A loaded entry's schema is derived on first read, so it is not read here.

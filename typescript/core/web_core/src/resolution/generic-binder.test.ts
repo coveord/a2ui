@@ -28,6 +28,7 @@ import {
 } from './generic-binder.js';
 import {ComponentContext} from './component-context.js';
 import {SurfaceModel} from '../state/surface-model.js';
+import {spec} from '../catalog/spec_annotations.js';
 import {Catalog, FunctionImplementation} from '../catalog/types.js';
 import {ComponentModel} from '../state/component-model.js';
 import {
@@ -68,6 +69,41 @@ describe('GenericBinder Checkable Trait', () => {
 
     return {catalog: mockCatalog, surface, schema};
   }
+
+  it('reads Checkable behavior from its catalog document when given the authored schema', () => {
+    const field = {
+      name: 'Field',
+      schema: spec(z.object({label: CommonSchemas.DynamicString}).strict(), {
+        mixins: ['Checkable'],
+      }),
+    };
+    const required: FunctionImplementation = {
+      name: 'required',
+      returnType: 'boolean',
+      schema: z.object({value: z.unknown()}),
+      execute: ({value}: Record<string, unknown>) => Boolean(value),
+    };
+    const catalog = new Catalog('test', '0.9', [field], [required]);
+    const surface = new SurfaceModel('s1', catalog);
+    const component = new ComponentModel(
+      'field',
+      'Field',
+      {
+        label: 'Name',
+        checks: [{condition: {call: 'required', args: {value: ''}}, message: 'Required'}],
+      },
+      catalog,
+    );
+    surface.componentsModel.addComponent(component);
+
+    const binder = new GenericBinder<Record<string, unknown>>(
+      new ComponentContext(surface, 'field'),
+      field.schema,
+    );
+
+    assert.strictEqual(binder.snapshot.isValid, false);
+    assert.deepStrictEqual(binder.snapshot.validationErrors, ['Required']);
+  });
 
   it('should resolve checkable validation state reactively', async () => {
     const {catalog, surface, schema} = setupSurfaceAndMocks();

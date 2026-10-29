@@ -14,7 +14,19 @@
  * limitations under the License.
  */
 
-import {z} from 'zod/v3';
+import {
+  a2uiJsonSchemaOf,
+  arrayItems,
+  CHILD_LIST_DEF_NAMES,
+  COMPONENT_ID_DEF_NAMES,
+  coreJsonSchema,
+  objectProperties,
+  refDefName,
+  unionBranches,
+} from '../catalog/a2ui_json_schema.js';
+import type {EntrySchema} from '../catalog/a2ui_schema.js';
+import {componentSchemaOf, zodSchemaFor} from '../catalog/entry_schema.js';
+import type {JsonSchemaObject} from '../catalog/spec_annotations.js';
 import {ComponentContext} from './component-context.js';
 import {
   AccessibilityAttributesSchema,
@@ -24,32 +36,14 @@ import {
   DataBinding,
   FunctionCall,
 } from '../types/common-types.js';
-import {childRefKindOf} from '../types/child-ref-helpers.js';
 import type {Action as V1Action, CheckRule as V1CheckRule} from '../v1_0/schema/common-types.js';
-import type {EntrySchema} from '../catalog/a2ui_schema.js';
-import {componentSchemaOf, zodSchemaFor} from '../catalog/entry_schema.js';
-import {exclusiveUnionOf} from '../catalog/exclusive_union.js';
-import {extractRefDefName} from '../catalog/reference-map.js';
 import {MAX_DYNAMIC_VALUE_DEPTH} from './data-context.js';
 import {isAtLeastVersion} from '../common/semver.js';
 
 // --- Schema Scraping ---
 
 /**
- * Returns the Zod schema a binder for `context` reads `schema` with: the one
- * derived from the catalog document when `schema` is the context's component
- * entry's schema, or `schema` itself otherwise.
- */
-function bindingSchemaOf(context: ComponentContext, schema: EntrySchema): z.ZodTypeAny {
-  const model = context?.componentModel;
-  const entry = model?.catalog?.components.get(model.type);
-  return entry && entry.schema === schema
-    ? componentSchemaOf(model.catalog, entry)
-    : zodSchemaFor(schema);
-}
-
-/**
- * Represents the intended runtime behavior of a property parsed from its Zod
+ * Represents the intended runtime behavior of a property parsed from its
  * schema.
  *
  * - DYNAMIC: The property can be bound to the DataModel (e.g. DynamicString).
@@ -77,32 +71,45 @@ export type BehaviorNode =
   | {type: 'OBJECT'; shape: Record<string, BehaviorNode>}
   | {type: 'ARRAY'; element: BehaviorNode};
 
-const behaviorCache = new WeakMap<z.ZodTypeAny, BehaviorNode>();
+const behaviorCache = new WeakMap<object, BehaviorNode>();
 
 /**
- * Traverses a Zod schema tree to build a `BehaviorNode` map.
+ * Returns the schema a binder reads with: the component's catalog-document
+ * schema when the caller passed that component's authored schema, or the
+ * caller's schema otherwise.
+ */
+function bindingSchemaOf(context: ComponentContext, schema: EntrySchema): EntrySchema {
+  const model = context.componentModel;
+  const entry = model.catalog?.components.get(model.type);
+  return entry && entry.schema === schema
+    ? componentSchemaOf(model.catalog, entry)
+    : zodSchemaFor(schema);
+}
+
+/**
+ * Traverses the JSON Schema view of a schema to build a `BehaviorNode` map.
  *
  * Enables GenericBinder to determine how to handle raw JSON properties
  * without hardcoding logic for specific component types.
  *
- * @param input Schema to inspect: a Zod 3 schema, or any other `EntrySchema`,
- *   read as JSON Schema.
+ * @param schema Schema to inspect.
  * @returns Root BehaviorNode describing schema properties.
  */
-export function scrapeSchemaBehavior(input: EntrySchema): BehaviorNode {
-  const schema = zodSchemaFor(input);
+export function scrapeSchemaBehavior(schema: EntrySchema): BehaviorNode {
   const cached = behaviorCache.get(schema);
   if (cached) {
     return cached;
   }
-  const behavior = getFieldBehavior(schema);
+  const behavior = getFieldBehavior(a2uiJsonSchemaOf(schema));
   const result: BehaviorNode =
     behavior.type === 'OBJECT' && behavior.shape && !('accessibility' in behavior.shape)
       ? {
           ...behavior,
           shape: {
             ...behavior.shape,
-            accessibility: getFieldBehavior(AccessibilityAttributesSchema),
+            accessibility: getFieldBehavior(
+              a2uiJsonSchemaOf(AccessibilityAttributesSchema, {expandReferences: true}),
+            ),
           },
         }
       : behavior;
@@ -111,155 +118,80 @@ export function scrapeSchemaBehavior(input: EntrySchema): BehaviorNode {
 }
 
 /**
- * Unwraps Zod wrapper schemas (ZodOptional, ZodNullable, ZodDefault,
- * ZodReadonly, ZodEffects, ZodBranded, ZodLazy) to retrieve the underlying inner schema type.
- *
- * @param type Zod schema to unwrap.
- * @returns The inner Zod schema.
+ * Returns the name of the definition a node refers to, looking through the
+ * wrappers around it (nullable unions and single-member `allOf`s).
  */
-function unwrapZodSchema(type: z.ZodTypeAny): z.ZodTypeAny {
-  let current: any = type;
-  while (current) {
-    const typeName = current._def?.typeName;
-    if (
-      typeName === 'ZodOptional' ||
-      typeName === 'ZodNullable' ||
-      typeName === 'ZodDefault' ||
-      typeName === 'ZodReadonly'
-    ) {
-      current = current._def.innerType;
-    } else if (typeName === 'ZodEffects') {
-      current = current._def.schema;
-    } else if (typeName === 'ZodBranded') {
-      current = current._def.type;
-    } else if (typeName === 'ZodLazy') {
-      current = current._def.getter();
-    } else if (exclusiveUnionOf(current)) {
-      current = exclusiveUnionOf(current);
-    } else {
-      break;
-    }
-  }
-  return current;
-}
-
-/**
- * Extracts the definition name from a schema's REF: description, if present.
- * Walks the schema wrapper chain to locate the first non-empty description.
- *
- * @param type Zod schema to inspect.
- * @returns Target definition name, or an empty string.
- */
-function getRefDefName(type: z.ZodTypeAny): string {
-  let current: any = type;
-  let desc = '';
-  while (current) {
-    desc = current.description ?? current._def?.description ?? '';
-    if (desc) break;
-    const typeName = current._def?.typeName;
-    if (
-      typeName === 'ZodOptional' ||
-      typeName === 'ZodNullable' ||
-      typeName === 'ZodDefault' ||
-      typeName === 'ZodReadonly'
-    ) {
-      current = current._def.innerType;
-    } else if (typeName === 'ZodEffects') {
-      current = current._def.schema;
-    } else if (typeName === 'ZodBranded') {
-      current = current._def.type;
-    } else if (typeName === 'ZodLazy') {
-      current = current._def.getter();
-    } else if (exclusiveUnionOf(current)) {
-      current = exclusiveUnionOf(current);
-    } else {
-      break;
-    }
-  }
-  if (!desc || !desc.startsWith('REF:')) return '';
-  const cleanDesc = desc.slice(4);
-  return extractRefDefName(cleanDesc.split('|')[0]);
+function getRefDefName(node: JsonSchemaObject): string {
+  return refDefName(node) || refDefName(coreJsonSchema(node));
 }
 
 /**
  * Checks whether a schema represents a checkable validation rule or list of rules.
  *
- * @param type Zod schema to inspect.
+ * @param node Schema to inspect.
  * @returns Whether the schema represents a checkable field.
  */
-function isCheckableField(type: z.ZodTypeAny): boolean {
-  const defName = getRefDefName(type);
+function isCheckableField(node: JsonSchemaObject): boolean {
+  const defName = getRefDefName(node);
   if (defName === 'Checkable' || defName === 'CheckRule') {
     return true;
   }
-
-  const current: any = unwrapZodSchema(type);
-  if (current?._def?.typeName === 'ZodArray') {
-    const elem = current._def.type;
-    const elemDefName = getRefDefName(elem);
-    if (elemDefName === 'CheckRule') {
-      return true;
-    }
-  }
-
-  return false;
+  const items = arrayItems(coreJsonSchema(node));
+  return items !== undefined && getRefDefName(items) === 'CheckRule';
 }
 
-function isActionOption(option: z.ZodTypeAny): boolean {
+function isActionOption(option: JsonSchemaObject): boolean {
   if (getRefDefName(option) === 'Action') return true;
-  const current = unwrapZodSchema(option);
-  const def = (current as any)._def;
-  return def?.typeName === 'ZodObject' && Boolean(def.shape?.().event);
+  return Boolean(objectProperties(coreJsonSchema(option))?.['event']);
 }
 
-function isDynamicOption(option: z.ZodTypeAny): boolean {
+function isDynamicOption(option: JsonSchemaObject): boolean {
   const refDef = getRefDefName(option);
   if (refDef === 'DataBinding' || refDef === 'FunctionCall' || refDef.startsWith('Dynamic')) {
     return true;
   }
-  const current = unwrapZodSchema(option);
-  const def = (current as any)._def;
-  if (def?.typeName !== 'ZodObject') return false;
-  const shape = def.shape?.() || {};
-  const hasComponentId = Object.values(shape).some(
-    prop => getRefDefName(prop as z.ZodTypeAny) === 'ComponentId',
+  const shape = objectProperties(coreJsonSchema(option));
+  if (!shape) return false;
+  const hasComponentId = Object.values(shape).some(prop =>
+    COMPONENT_ID_DEF_NAMES.has(getRefDefName(prop)),
   );
   return (
     (Boolean(shape['@path']) ||
-      Boolean(shape.path) ||
+      Boolean(shape['path']) ||
       Boolean(shape['@call']) ||
-      Boolean(shape.call)) &&
+      Boolean(shape['call'])) &&
     !hasComponentId
   );
 }
 
-function isChildListOption(option: z.ZodTypeAny): boolean {
-  if (childRefKindOf(option) === 'child-list' || getRefDefName(option) === 'ChildList') {
+function isChildListOption(option: JsonSchemaObject): boolean {
+  if (CHILD_LIST_DEF_NAMES.has(getRefDefName(option))) {
     return true;
   }
-  const current = unwrapZodSchema(option);
-  const def = (current as any)._def;
-  if (def?.typeName !== 'ZodObject') return false;
-  const shape = def.shape?.() || {};
-  return Object.values(shape).some(prop => getRefDefName(prop as z.ZodTypeAny) === 'ComponentId');
-}
-
-function isDynamicDef(defName: string, typeName?: string): boolean {
-  return (
-    (defName === 'DataBinding' || defName === 'FunctionCall' || defName.startsWith('Dynamic')) &&
-    typeName !== 'ZodObject' &&
-    typeName !== 'ZodArray'
+  const shape = objectProperties(coreJsonSchema(option));
+  return Boolean(
+    shape && Object.values(shape).some(prop => COMPONENT_ID_DEF_NAMES.has(getRefDefName(prop))),
   );
 }
 
-function matchUnionBehavior(options: z.ZodTypeAny[]): BehaviorNode | undefined {
+function isDynamicDef(defName: string, node: JsonSchemaObject): boolean {
+  return (
+    (defName === 'DataBinding' || defName === 'FunctionCall' || defName.startsWith('Dynamic')) &&
+    !objectProperties(node) &&
+    arrayItems(node) === undefined
+  );
+}
+
+function matchUnionBehavior(options: JsonSchemaObject[]): BehaviorNode | undefined {
   if (options.some(isActionOption)) return {type: 'ACTION'};
   if (options.some(isDynamicOption)) return {type: 'DYNAMIC'};
   if (options.some(isChildListOption)) return {type: 'STRUCTURAL'};
   return undefined;
 }
 
-function scrapeObjectShape(objShape: Record<string, z.ZodTypeAny>): Record<string, BehaviorNode> {
+function scrapeObjectShape(
+  objShape: Record<string, JsonSchemaObject>,
+): Record<string, BehaviorNode> {
   const shape: Record<string, BehaviorNode> = {};
   for (const [key, value] of Object.entries(objShape)) {
     shape[key] = getFieldBehavior(value);
@@ -268,15 +200,15 @@ function scrapeObjectShape(objShape: Record<string, z.ZodTypeAny>): Record<strin
 }
 
 /**
- * Recursively maps a Zod schema to its corresponding BehaviorNode.
+ * Recursively maps a JSON Schema node to its corresponding BehaviorNode.
  *
- * @param type Zod schema to inspect.
+ * @param node Schema to inspect.
  * @returns Behavior node representing runtime handling for the schema.
  */
-function getFieldBehavior(type: z.ZodTypeAny): BehaviorNode {
-  const defName = getRefDefName(type);
+function getFieldBehavior(node: JsonSchemaObject): BehaviorNode {
+  const defName = getRefDefName(node);
 
-  if (isCheckableField(type)) {
+  if (isCheckableField(node)) {
     return {type: 'CHECKABLE'};
   }
 
@@ -284,35 +216,37 @@ function getFieldBehavior(type: z.ZodTypeAny): BehaviorNode {
     return {type: 'ACTION'};
   }
 
-  const current: any = unwrapZodSchema(type);
-
-  if (childRefKindOf(current) === 'child-list' || defName === 'ChildList') {
+  if (CHILD_LIST_DEF_NAMES.has(defName)) {
     return {type: 'STRUCTURAL'};
   }
 
-  if (isDynamicDef(defName, current._def?.typeName)) {
+  const current = coreJsonSchema(node);
+
+  if (isDynamicDef(defName, current)) {
     return {type: 'DYNAMIC'};
   }
 
-  // Structural matching for A2UI primitives using typeName to avoid dual-module instanceof issues
-  if (current._def.typeName === 'ZodUnion') {
-    const unionBehavior = matchUnionBehavior(current._def.options as z.ZodTypeAny[]);
+  const options = unionBranches(current);
+  if (options) {
+    const unionBehavior = matchUnionBehavior(options);
     if (unionBehavior) return unionBehavior;
   }
 
   // Recursive array scraping
-  if (current._def.typeName === 'ZodArray') {
+  const items = arrayItems(current);
+  if (items !== undefined) {
     return {
       type: 'ARRAY',
-      element: getFieldBehavior(current._def.type),
+      element: getFieldBehavior(items),
     };
   }
 
   // Recursive object scraping
-  if (current._def.typeName === 'ZodObject') {
+  const properties = objectProperties(current);
+  if (properties) {
     return {
       type: 'OBJECT',
-      shape: scrapeObjectShape(current._def.shape()),
+      shape: scrapeObjectShape(properties),
     };
   }
 
@@ -508,11 +442,6 @@ export class GenericBinder<T> {
 
   /**
    * Creates a new binder for the given component context and schema.
-   *
-   * When `schema` is the schema of the context's component in its catalog,
-   * the binder reads it through the catalog's document, as the core does
-   * (see `componentSchemaOf`). Any other schema is read as is: a Zod 3 schema
-   * directly, and any other `EntrySchema` as JSON Schema.
    *
    * @param context Component context providing state and event dispatching.
    * @param schema Schema defining the component properties.

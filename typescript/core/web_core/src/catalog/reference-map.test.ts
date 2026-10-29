@@ -29,7 +29,9 @@ import {
   isChildOrChildListSchema,
   isChildSchema,
 } from './reference-map.js';
+import {spec, specDef} from './spec_annotations.js';
 import {Catalog, ComponentApi} from './types.js';
+import {CommonSchemas} from '../types/common-types.js';
 import {V08_CHILD_REF_OPTIONS} from '../v0_8/standard_defs.js';
 import {V09_CHILD_REF_OPTIONS} from '../v0_9/standard_defs.js';
 import {V10_CHILD_REF_OPTIONS} from '../v1_0/standard_defs.js';
@@ -104,6 +106,17 @@ describe('reference-map schema introspection', () => {
 
     assert.strictEqual(isChildListSchema(markedList, V10_CHILD_REF_OPTIONS), true);
     assert.strictEqual(isChildSchema(markedList, V10_CHILD_REF_OPTIONS), false);
+  });
+
+  it('reads ChildList mixins through the catalog document', () => {
+    const childMixin = specDef('ChildMixin', z.object({children: CommonSchemas.ChildList}));
+    const field = {
+      name: 'Field',
+      schema: spec(z.object({label: z.string()}).strict(), {mixins: [childMixin]}),
+    };
+    const catalog = new Catalog('mixin-cat', '1.0', [field], [], {defModels: [childMixin]});
+
+    assert.deepStrictEqual(Array.from(catalog.componentRefMap.Field.listRefs), ['children']);
   });
 
   it('builds dynamic ref map for custom components with non-standard property names', () => {
