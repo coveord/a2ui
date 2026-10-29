@@ -159,6 +159,37 @@ export function zod3SchemaOf(schema: unknown): z.ZodTypeAny | undefined {
 /** The JSON Schema version catalog documents are written in. */
 const TARGET = 'draft-2020-12';
 
+/**
+ * Converter options by vendor, passed as Standard JSON Schema `libraryOptions`.
+ *
+ * Zod 4 writes a schema that names its definition with `.meta({$ref})` as
+ * its contents beside the reference, and cannot write one on a cycle, such as
+ * v0.9's `DynamicValue` and `FunctionCall`. A2UI reads such a schema as the
+ * reference, so Zod writes it as its reference and its metadata alone.
+ */
+const LIBRARY_OPTIONS: Readonly<Record<string, Record<string, unknown>>> = {
+  zod: {
+    override({
+      zodSchema,
+      jsonSchema,
+    }: {
+      zodSchema: ZodMetaSchema;
+      jsonSchema: Record<string, unknown>;
+    }) {
+      const meta = zodSchema.meta?.();
+      if (typeof meta?.['$ref'] !== 'string') return;
+      for (const key of Object.keys(jsonSchema)) {
+        if (!(key in meta)) delete jsonSchema[key];
+      }
+    },
+  },
+};
+
+/** The part of a Zod 4 schema `LIBRARY_OPTIONS` reads: its metadata. */
+interface ZodMetaSchema {
+  meta?(): Readonly<Record<string, unknown>> | undefined;
+}
+
 /** Keywords that place a schema as a document, which an entry's definition does not keep. */
 const DOCUMENT_KEYWORDS = ['$schema', '$id'];
 
@@ -203,7 +234,10 @@ export function normalizeSchema(schema: A2uiSchema): JsonSchemaObject {
         `A schema from '${vendor}' implements Standard Schema but not Standard JSON Schema, which A2UI needs to read it as JSON Schema.`,
       );
     }
-    json = (converter as unknown as StandardJSONSchemaV1.Converter).input({target: TARGET});
+    json = (converter as unknown as StandardJSONSchemaV1.Converter).input({
+      target: TARGET,
+      libraryOptions: LIBRARY_OPTIONS[vendor],
+    });
     if (!isObject(json)) {
       throw new A2uiCatalogError(`A schema from '${vendor}' wrote no JSON Schema object.`);
     }

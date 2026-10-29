@@ -802,9 +802,6 @@ export function generateComponentsFile(version, catalogJson, commonDefs, options
     }
     if (!zod4) bodyCode += `    .strict()`;
     if (reproduce) {
-      if (zod4 && spreads.length > 0) {
-        throw new Error(`Zod 4 cannot name the catalog mixins of '${compName}'.`);
-      }
       const annotation = [`mixins: [${mixins.join(', ')}]`];
       if (zod4 && componentDefs.size > 0) {
         annotation.push(`defs: [${[...componentDefs].map(defModelName).join(', ')}]`);

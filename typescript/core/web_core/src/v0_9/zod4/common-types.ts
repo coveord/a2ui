@@ -18,6 +18,10 @@
 // Generated from specification/v0.9/json/ via src/v0_9/scripts/generate-schemas.mjs
 import {z} from 'zod/v4';
 
+import type {DynamicValue, FunctionCall} from '../schema/common-types.js';
+
+export type {DynamicValue, FunctionCall};
+
 export const ComponentIdSchema = z.string().meta({
   $ref: '#/$defs/ComponentId',
   description:
@@ -31,7 +35,6 @@ export const DataBindingSchema = z
   .meta({$ref: '#/$defs/DataBinding'});
 export type DataBinding = z.infer<typeof DataBindingSchema>;
 
-export type DynamicValue = string | number | boolean | unknown[] | DataBinding | FunctionCall;
 export const DynamicValueSchema: z.ZodType<DynamicValue> = z
   .union([
     z.string(),
@@ -46,11 +49,6 @@ export const DynamicValueSchema: z.ZodType<DynamicValue> = z
     description: 'A value that can be a literal, a path, or a function call returning any type.',
   });
 
-export interface FunctionCall {
-  call: string;
-  args?: Record<string, unknown>;
-  returnType?: 'string' | 'number' | 'boolean' | 'array' | 'object' | 'any' | 'void';
-}
 export const FunctionCallSchema: z.ZodType<FunctionCall> = z
   .object({
     'call': z.string().describe('The name of the function to call.'),

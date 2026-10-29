@@ -194,3 +194,70 @@ describe('the JSON Schema of a schema annotated with specMeta', () => {
     assert.strictEqual(view['minProperties'], 1);
   });
 });
+
+describe('the catalog mixins of components annotated with specMeta', () => {
+  const Common = z
+    .object({weight: z.number().optional()})
+    .meta(specMeta({defName: 'CatalogComponentCommon'}));
+  const badgeSchema = (mixin: string | typeof Common) =>
+    z
+      .strictObject({...Common.shape, label: z.string()})
+      .meta(specMeta({mixins: ['ComponentCommon', mixin]}));
+  const expectedBadge = {
+    type: 'object',
+    allOf: [
+      {$ref: 'common_types.json#/$defs/ComponentCommon'},
+      {$ref: '#/$defs/CatalogComponentCommon'},
+      {
+        type: 'object',
+        properties: {component: {const: 'Badge'}, label: {type: 'string'}},
+        required: ['component', 'label'],
+      },
+    ],
+    unevaluatedProperties: false,
+  };
+
+  it('writes a mixin model the component carries, in any catalog', () => {
+    const catalog = new Catalog('badges', '0.9', [{name: 'Badge', schema: badgeSchema(Common)}]);
+    const doc = catalog.toJson();
+    assert.deepStrictEqual((doc['components'] as Record<string, unknown>)['Badge'], expectedBadge);
+    assert.deepStrictEqual((doc['$defs'] as Record<string, unknown>)['CatalogComponentCommon'], {
+      type: 'object',
+      properties: {weight: {type: 'number'}},
+    });
+  });
+
+  it('writes a mixin named after one of the catalog models', () => {
+    const catalog = new Catalog(
+      'badges',
+      '0.9',
+      [{name: 'Badge', schema: badgeSchema('CatalogComponentCommon')}],
+      [],
+      {defModels: [Common]},
+    );
+    const doc = catalog.toJson();
+    assert.deepStrictEqual((doc['components'] as Record<string, unknown>)['Badge'], expectedBadge);
+    assert.ok('CatalogComponentCommon' in (doc['$defs'] as Record<string, unknown>));
+  });
+
+  it('rejects a mixin model without a definition name', () => {
+    assert.throws(
+      () => specMeta({mixins: [z.object({weight: z.number()})]}),
+      /must be named with specMeta\(\{defName\}\)/,
+    );
+  });
+});
+
+describe('the JSON Schema of a Zod 4 schema on a cycle', () => {
+  it('writes a schema that names its definition as that reference', () => {
+    const Value: z.ZodType = z
+      .union([z.string(), z.lazy(() => Call)])
+      .meta({$ref: '#/$defs/Value', description: 'A value.'});
+    const Call = z
+      .object({call: z.string(), args: z.record(z.string(), Value).optional()})
+      .meta({$ref: '#/$defs/Call'});
+    assert.deepStrictEqual(a2uiJsonSchemaOf(z.object({value: Value}))['properties'], {
+      value: {$ref: '#/$defs/Value', description: 'A value.'},
+    });
+  });
+});

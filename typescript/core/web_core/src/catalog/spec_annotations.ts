@@ -145,18 +145,22 @@ export function specDef<T extends z.ZodTypeAny>(
 export const SPEC_KEYWORD = 'x-a2ui-spec';
 
 /**
- * An annotation as a schema carries it in its JSON Schema: its mixins are the
- * names of common types, such as `Checkable`.
+ * An annotation as a schema carries it in its JSON Schema: its mixins are
+ * names, each that of one of the catalog's `defModels`, such as the v0.9
+ * basic catalog's `CatalogComponentCommon`, or else of a common type, such as
+ * `Checkable`.
  */
 export type JsonSpecAnnotation = Omit<SpecAnnotation, 'mixins'> & {
   readonly mixins?: readonly string[];
 };
 
 /**
- * An annotation as `specMeta` takes it: it may also list the models of the
- * catalog definitions the schema refers to.
+ * An annotation as `specMeta` takes it: a mixin is a common type's name, or a
+ * model named with `specMeta({defName})` that the catalog document declares
+ * under `$defs`.
  */
-export type SpecMetaAnnotation = JsonSpecAnnotation & {
+export type SpecMetaAnnotation = Omit<SpecAnnotation, 'mixins'> & {
+  readonly mixins?: readonly (string | SpecMetaSchema)[];
   /**
    * The models, each named with `specMeta({defName})`, of the catalog
    * definitions the schema's properties refer to, such as the v1.0 basic
@@ -172,7 +176,10 @@ interface SpecMetaSchema {
   meta(): Readonly<Record<string, unknown>> | undefined;
 }
 
-/** The models of the annotations `specMeta` returned, by definition name. */
+/**
+ * The models of the annotations `specMeta` returned, by definition name: the
+ * mixin models and the models of `defs`.
+ */
 const carriedModels = new WeakMap<object, ReadonlyMap<string, object>>();
 
 /**
@@ -184,23 +191,32 @@ const carriedModels = new WeakMap<object, ReadonlyMap<string, object>>();
  * z.object({...}).strict().meta(specMeta({mixins: ['Checkable']}))
  * ```
  *
- * The models of `defs` are left out of the schema's JSON Schema. A2UI finds
- * them through the schema's `meta()`.
+ * A mixin model is written to the schema's JSON Schema as its name, and the
+ * models of `defs` are left out of it. A2UI finds the models through the
+ * schema's `meta()`, so a component reused in another catalog brings its
+ * mixins and definitions along; with a library whose schemas have no
+ * `meta()`, list the models in the catalog's `defModels` instead.
  *
  * @param annotation What the catalog document writes about the schema.
  */
 export function specMeta(annotation: SpecMetaAnnotation): {
   readonly [SPEC_KEYWORD]: JsonSpecAnnotation;
 } {
-  const {defs, ...json} = annotation;
+  const {defs, mixins: mixinsOrModels, ...rest} = annotation;
   const models = new Map<string, object>();
-  for (const model of defs ?? []) {
+  const named = (model: SpecMetaSchema, kind: string): string => {
     const defName = specMetaOf(model)?.defName;
     if (defName === undefined) {
-      throw new Error('A definition model must be named with specMeta({defName}).');
+      throw new Error(`A ${kind} model must be named with specMeta({defName}).`);
     }
     models.set(defName, model);
-  }
+    return defName;
+  };
+  for (const model of defs ?? []) named(model, 'definition');
+  const mixins = mixinsOrModels?.map(mixin =>
+    typeof mixin === 'string' ? mixin : named(mixin, 'mixin'),
+  );
+  const json: JsonSpecAnnotation = mixins === undefined ? rest : {...rest, mixins};
   if (models.size > 0) carriedModels.set(json, models);
   return {[SPEC_KEYWORD]: json};
 }
@@ -215,8 +231,8 @@ function specMetaOf(schema: unknown): JsonSpecAnnotation | undefined {
 }
 
 /**
- * Returns the definition models a schema annotated with `specMeta` carries,
- * by definition name.
+ * Returns the models a schema annotated with `specMeta` carries, by
+ * definition name: its mixin models and the models of its `defs`.
  *
  * @internal
  * @param schema The annotated schema.
