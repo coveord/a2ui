@@ -16,6 +16,7 @@
 
 import {SurfaceModel} from '../state/surface-model.js';
 import {ComponentModel} from '../state/component-model.js';
+import {componentSchemaOf} from '../catalog/entry_schema.js';
 import {Catalog, ComponentApi, FunctionImplementation} from '../catalog/types.js';
 import {ComponentContext} from './component-context.js';
 import {DataContext} from './data-context.js';
@@ -353,7 +354,8 @@ export class NodeResolver<
       dataPath,
       parent?.context?.dataContext,
     );
-    const binder = new GenericBinder<NodeProps>(context, api.schema);
+    const schema = componentSchemaOf(compCatalog, api);
+    const binder = new GenericBinder<NodeProps>(context, schema);
     const record = this.registerNode(
       new MutableComponentNode(
         instanceIdFor(componentId, dataPath, occurrence),
@@ -368,8 +370,8 @@ export class NodeResolver<
         edgeKey,
         parent,
         occurrence,
-        refFields: extractRefFields(api.schema),
-        behavior: scrapeSchemaBehavior(api.schema),
+        refFields: extractRefFields(schema),
+        behavior: scrapeSchemaBehavior(schema),
         componentModel: model,
         binder,
       },

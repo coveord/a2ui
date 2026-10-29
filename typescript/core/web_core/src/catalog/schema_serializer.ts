@@ -19,7 +19,7 @@ import type {z} from 'zod/v3';
 import {zodToJsonSchema} from 'zod-to-json-schema';
 
 import {isAtLeastVersion, toCanonicalVersion} from '../common/semver.js';
-import {exclusiveUnionOverride} from './exclusive_union.js';
+import {entrySchemaOverride} from './entry_json_override.js';
 import {loadedDefinition} from './json_entries.js';
 import {getSpecAnnotation, type JsonSchemaObject} from './spec_annotations.js';
 import {
@@ -284,7 +284,7 @@ function zodToUnbundledJson(
   const json = zodToJsonSchema(schema, {
     target: 'jsonSchema2019-09',
     $refStrategy: 'none',
-    override: exclusiveUnionOverride,
+    override: entrySchemaOverride,
   }) as JsonObject;
   delete json.definitions;
   delete json.$defs;

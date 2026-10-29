@@ -16,6 +16,7 @@
 
 import {ReactiveController} from 'lit';
 import {GenericBinder, ResolveA2uiProps} from '../resolution/generic-binder.js';
+import {componentSchemaOf} from '../catalog/entry_schema.js';
 import {isComponentNode, type ComponentNode} from '../resolution/component-node.js';
 import {ResolvedBinding, isWritable} from '../resolution/resolved-binding.js';
 import {effect, getValue, peekValue} from '../reactivity/signals.js';
@@ -119,7 +120,10 @@ export class A2uiController<
         peekValue(this.host.node.props),
       ) as Props;
     } else {
-      this.binder = new GenericBinder(this.host.context, api.schema);
+      this.binder = new GenericBinder(
+        this.host.context,
+        componentSchemaOf(this.host.context?.componentModel?.catalog, api),
+      );
       this._props = this.binder.snapshot as Props;
     }
     this.host.addController(this);

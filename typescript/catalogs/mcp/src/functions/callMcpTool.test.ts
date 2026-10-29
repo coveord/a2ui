@@ -281,8 +281,8 @@ describe('callMcpTool', () => {
     });
 
     it('rejects a server argument when loaded with Catalog.fromJson, as the catalog closes args', () => {
-      // The code schema drops `server` instead. Reading entries through their
-      // JSON definition will make the published behavior the only one.
+      // `CallMcpToolApi.schema` alone drops `server`; the core validates
+      // against the published definition first, so a call carrying it fails.
       const loaded = Catalog.fromJson(mcpCatalogJson, '0.9', MCP_CATALOG_ID).functions.get(
         'callMcpTool',
       )!.schema;
@@ -491,6 +491,17 @@ describe('callMcpTool', () => {
           assert.ok(err.message.includes("MCP tool 'tool' did not return a result."));
           return true;
         },
+      );
+    });
+
+    it('throws A2uiExpressionError on a server argument, as the catalog closes args', () => {
+      const catalog = catalogFor(createFakeClient());
+      const context = createTestDataContext(new DataModel({}), catalog);
+
+      assert.throws(
+        () => catalog.invoker('callMcpTool', {name: 'get_time', server: 'x'} as any, context),
+        (err: any) =>
+          err instanceof A2uiExpressionError && err.message.includes('Validation failed'),
       );
     });
 
