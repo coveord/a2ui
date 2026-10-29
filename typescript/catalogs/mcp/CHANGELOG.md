@@ -1,5 +1,6 @@
 ## Unreleased
 
+- **BREAKING CHANGE**: `CallMcpToolApi.schema` and `McpAppApi.schema` are written with Zod 4, on web_core's Zod 4 common types. Accepted arguments and properties are unchanged; validation messages use Zod 4's wording. A function call that returns the whole `arguments` object is declared as an object of only `call`, `args` and `returnType`, so the catalog writes it to JSON Schema.
 - **BREAKING CHANGE**: A `callMcpTool` call carrying a `server` argument now fails validation, as the published catalog closes `args` to `name` and `arguments`. It was dropped before. Remove `server` from payloads: the host resolves the server from the tool name.
 - **BREAKING CHANGE**: Depends on `zod@^4.6.7` and imports the Zod 3 API from its `zod/v3` entry point, instead of depending on `zod@^3.25.76`. Schemas passed to this package must come from the same `zod` copy: install `zod@^4.6.7` and write `import {z} from 'zod/v3'` where you wrote `import {z} from 'zod'`. The schemas and their behavior are unchanged.
 - Emit `'1.0'` as `version` on synthesized `createSurface` and `updateComponents` messages in `callMcpTool` when creating a standalone MCP App surface, matching the unified v1.0 protocol version wire format. [#3097](https://github.com/a2ui-project/a2ui/issues/3097)

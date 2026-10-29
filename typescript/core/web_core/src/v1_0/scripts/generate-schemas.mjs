@@ -21,7 +21,7 @@ import {
   getHeader,
   analyzeDependencies,
   compileDefToZod,
-  toZod4Code,
+  refMetaCode,
   writeFormattedZod4,
   writeIndexFile,
 } from '../../../scripts/zod-generator-core.mjs';
@@ -36,13 +36,13 @@ const VERSION_TAG = 'v1.0';
 const SCRIPT_SOURCE = 'src/v1_0/scripts/generate-schemas.mjs';
 
 /**
- * Writes a generated message schema file in Zod 4.
+ * Writes a generated message schema file.
  *
  * @param {string} file The file name in the schema directory.
- * @param {string} code The generated Zod 3 code.
+ * @param {string} code The generated Zod 4 code.
  */
 function writeMessageSchemas(file, code) {
-  writeFormattedZod4(join(destDir, file), toZod4Code(code));
+  writeFormattedZod4(join(destDir, file), code);
 }
 
 /**
@@ -58,9 +58,8 @@ function generateCommonTypes() {
 
   let commonTs =
     getHeader(VERSION_TAG, SCRIPT_SOURCE) +
-    "import {z} from 'zod/v3';\n" +
-    "import {isValidUax31Identifier} from '../../common/uax31.js';\n" +
-    "import {markChildRef} from '../../types/child-ref-helpers.js';\n\n";
+    "import {z} from 'zod/v4';\n" +
+    "import {isValidUax31Identifier} from '../../common/uax31.js';\n\n";
 
   const defKeys = [
     ...topologicalOrder.filter(k => k in commonJson.$defs),
@@ -69,25 +68,10 @@ function generateCommonTypes() {
 
   for (const name of defKeys) {
     const rawDef = JSON.parse(JSON.stringify(commonJson.$defs[name]));
-    const desc = rawDef.description
-      ? `REF:#/$defs/${name}|${rawDef.description}`
-      : `REF:#/$defs/${name}`;
-    rawDef.description = desc;
+    let code = compileDefToZod(rawDef, name, {lazyEdges, topologicalOrder, ref: `#/$defs/${name}`});
 
-    let code = compileDefToZod(rawDef, name, {lazyEdges, topologicalOrder});
-
-    if (name === 'ComponentId') {
-      const parts = code.split('\nexport type ');
-      const schemaExp = parts[0].replace(`export const ComponentIdSchema = `, '').trim();
-      const typePart = parts[1] || 'ComponentId = z.infer<typeof ComponentIdSchema>';
-      code = `export const ComponentIdSchema = markChildRef(\n  ${schemaExp},\n  'component-id',\n);\nexport type ${typePart}`;
-    } else if (name === 'ChildList') {
-      const parts = code.split('\nexport type ');
-      const schemaExp = parts[0].replace(`export const ChildListSchema = `, '').trim();
-      const typePart = parts[1] || 'ChildList = z.infer<typeof ChildListSchema>';
-      code = `export const ChildListSchema = markChildRef(\n  ${schemaExp},\n  'child-list',\n);\nexport type ${typePart}`;
-    } else if (name === 'Child') {
-      code = `export const ChildSchema = ComponentIdSchema;\nexport type Child = z.infer<typeof ChildSchema>;`;
+    if (name === 'Child') {
+      code = `export const ChildSchema = ComponentIdSchema${refMetaCode('#/$defs/Child')};\nexport type Child = z.infer<typeof ChildSchema>;`;
     } else if (name === 'DataBinding') {
       code = `export const DataBindingSchema = z
   .object({
@@ -97,7 +81,7 @@ function generateCommonTypes() {
   .refine(data => data['@path'] !== undefined || data.path !== undefined, {
     message: "Either '@path' or 'path' must be provided.",
   })
-  .describe('REF:#/$defs/DataBinding');
+  .meta({$ref: '#/$defs/DataBinding'});
 export type DataBinding = z.infer<typeof DataBindingSchema>;`;
     } else if (name === 'FunctionCommon') {
       code = `export const FunctionCommonSchema = z
@@ -112,9 +96,11 @@ export type DataBinding = z.infer<typeof DataBindingSchema>;`;
   .refine(data => data['@call'] !== undefined || data.call !== undefined, {
     message: "Either '@call' or 'call' must be provided.",
   })
-  .describe(
-    "REF:#/$defs/FunctionCommon|Baseline envelope properties common to all function calls. Function-specific argument schemas ('args') are defined individually by each function in the active catalog.",
-  );
+  .meta({
+    $ref: '#/$defs/FunctionCommon',
+    description:
+      "Baseline envelope properties common to all function calls. Function-specific argument schemas ('args') are defined individually by each function in the active catalog.",
+  });
 export type FunctionCommon = z.infer<typeof FunctionCommonSchema>;`;
     } else if (name === 'IndexSystemFunction') {
       code = `export const IndexSystemFunctionSchema = z
@@ -126,7 +112,7 @@ export type FunctionCommon = z.infer<typeof FunctionCommonSchema>;`;
   .refine(data => data['@call'] !== undefined || data.call !== undefined, {
     message: "Either '@call' or 'call' must be '@index'.",
   })
-  .describe('REF:#/$defs/IndexSystemFunction');
+  .meta({$ref: '#/$defs/IndexSystemFunction'});
 export type IndexSystemFunction = z.infer<typeof IndexSystemFunctionSchema>;`;
     }
 
@@ -173,15 +159,17 @@ export type IndexSystemFunction = z.infer<typeof IndexSystemFunctionSchema>;`;
       if (!isValidUax31Identifier(key)) {
         ctx.addIssue({
           path: [key],
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: \`Invalid extension key "\${key}": Keys MUST be Unicode identifiers (UAX #31).\`,
         });
       }
     }
   })
-  .describe(
-    "REF:#/$defs/Extensions|Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.",
-  );
+  .meta({
+    $ref: '#/$defs/Extensions',
+    description:
+      "Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.",
+  });
 export type Extensions = z.infer<typeof ExtensionsSchema>;`;
     }
 
@@ -202,14 +190,16 @@ export type Extensions = z.infer<typeof ExtensionsSchema>;`;
     const hasError = 'error' in val;
     if ((hasValue && hasError) || (!hasValue && !hasError)) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'FunctionResponse must have either "value" or "error", but not both or neither.',
       });
     }
   })
-  .describe(
-    'REF:#/$defs/FunctionResponse|The return response matching a callAgentFunction or callRendererFunction invocation.',
-  );
+  .meta({
+    $ref: '#/$defs/FunctionResponse',
+    description:
+      'The return response matching a callAgentFunction or callRendererFunction invocation.',
+  });
 export type FunctionResponse = z.infer<typeof FunctionResponseSchema>;`;
     }
 
@@ -219,7 +209,7 @@ export type FunctionResponse = z.infer<typeof FunctionResponseSchema>;`;
   const commonEntries = defKeys.map(k => `  ${k}: ${k}Schema,`).join('\n');
   commonTs += `export const CommonSchemas = {\n${commonEntries}\n};\n\n`;
 
-  writeFormattedZod4(join(destDir, 'common-types.ts'), toZod4Code(commonTs));
+  writeFormattedZod4(join(destDir, 'common-types.ts'), commonTs);
 
   const pureCommonNames = new Set(Object.keys(commonJson.$defs));
   const helperNames = new Set();
@@ -251,7 +241,7 @@ function generateCatalogDefinition({pureCommonNames, helperNames}) {
         `.superRefine((val, ctx) => {
         if (val && val.requiresUserActivation && val.allowedCallers !== 'rendererOnly') {
           ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             message: "requiresUserActivation=true must have allowedCallers='rendererOnly'.",
             path: ['allowedCallers'],
           });
@@ -316,7 +306,7 @@ function generateCatalogDefinition({pureCommonNames, helperNames}) {
     .filter(schemaName => new RegExp('\\b' + schemaName + '\\b').test(bodyCode))
     .sort();
 
-  let catalogDefTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n";
+  let catalogDefTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v4';\n";
   if (commonImports.length > 0) {
     catalogDefTs += `import {${commonImports.join(', ')}} from './common-types.js';\n`;
   }
@@ -361,7 +351,7 @@ function generateIncomingMessageSchemas({pureCommonNames, helperNames}) {
     .filter(schemaName => new RegExp('\\b' + schemaName + '\\b').test(bodyCode))
     .sort();
 
-  let a2rTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n";
+  let a2rTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v4';\n";
   if (commonImports.length > 0) {
     a2rTs += `import {${commonImports.join(', ')}} from './common-types.js';\n`;
   }
@@ -412,7 +402,7 @@ function generateOutgoingMessageSchemas({pureCommonNames, helperNames}) {
     .filter(schemaName => new RegExp('\\b' + schemaName + '\\b').test(bodyCode))
     .sort();
 
-  let r2aTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n";
+  let r2aTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v4';\n";
   if (commonImports.length > 0) {
     r2aTs += `import {${commonImports.join(', ')}} from './common-types.js';\n`;
   }
@@ -433,7 +423,7 @@ function generateCapabilitiesSchemas() {
   let v10Code = compileDefToZod(v10Props, 'V10RendererCapabilities');
   v10Code = v10Code.replace(/\.passthrough\(\)/g, '.strict()');
 
-  let rcTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v3';\n\n";
+  let rcTs = getHeader(VERSION_TAG, SCRIPT_SOURCE) + "import {z} from 'zod/v4';\n\n";
   rcTs += `/** Zod schema validating the strict v1.0 protocol renderer capabilities payload. */\n`;
   rcTs += v10Code + '\n';
 

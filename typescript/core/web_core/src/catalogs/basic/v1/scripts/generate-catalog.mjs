@@ -33,7 +33,6 @@ generateCatalogApi({
   commonTypesImportPath: '../../../../v1_0/schema/common-types.js',
   typesImportPath: '../../../../catalog/types.js',
   specImportPath: '../../../../catalog/spec_annotations.js',
-  zod: 'v4',
 });
 
 console.log('Successfully generated Basic Catalog v1 APIs.');

@@ -18,7 +18,7 @@ import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import {join, dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-import {toZod4Code, writeFormattedZod4} from './zod-generator-core.mjs';
+import {refMetaCode, writeFormattedZod4} from './zod-generator-core.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
@@ -487,9 +487,8 @@ export function generateSupersetCommonTypes(options = {}) {
   ]);
 
   let outTs = HEADER;
-  outTs += `import {z} from 'zod/v3';
+  outTs += `import {z} from 'zod/v4';
 import {isValidUax31Identifier} from '../common/uax31.js';
-import {markChildRef} from './child-ref-helpers.js';
 
 `;
 
@@ -502,28 +501,23 @@ import {markChildRef} from './child-ref-helpers.js';
 
   for (const name of defKeys) {
     const rawDef = JSON.parse(JSON.stringify(mergedDefs[name]));
-    const desc = rawDef.description
-      ? `REF:common_types.json#/$defs/${name}|${escapeStr(rawDef.description)}`
-      : `REF:common_types.json#/$defs/${name}`;
-    rawDef.description = desc;
+    const description = rawDef.description;
+    // The schema names its definition, with the definition's description, in
+    // its metadata, so the definition is generated without a description.
+    delete rawDef.description;
+    const meta = refMetaCode(`common_types.json#/$defs/${name}`, description);
 
     let zodCode;
     if (name === 'ComponentId') {
-      zodCode = `markChildRef(
-  z.string().describe('${desc}'),
-  'component-id',
-)`;
+      zodCode = `z.string()${meta}`;
     } else if (name === 'ChildList') {
-      zodCode = `markChildRef(
-  z.union([
-    z.array(ComponentIdSchema).describe('A static list of child component IDs.'),
-    z.object({
-      'componentId': ComponentIdSchema,
-      'path': z.string().describe('The path to the list of component property objects in the data model.'),
-    }).describe('A template for generating a dynamic list of children.'),
-  ]).describe('${desc}'),
-  'child-list',
-)`;
+      zodCode = `z.union([
+  z.array(ComponentIdSchema).describe('A static list of child component IDs.'),
+  z.object({
+    'componentId': ComponentIdSchema,
+    'path': z.string().describe('The path to the list of component property objects in the data model.'),
+  }).describe('A template for generating a dynamic list of children.'),
+])${meta}`;
     } else if (name === 'DataBinding') {
       zodCode = `z.object({
   'path': z.string().describe('A JSON Pointer path to a value in the data model.').optional(),
@@ -532,7 +526,7 @@ import {markChildRef} from './child-ref-helpers.js';
 .refine(data => data['@path'] !== undefined || data.path !== undefined, {
   message: "Either '@path' or 'path' must be provided.",
 })
-.describe('${desc}')`;
+${meta}`;
     } else if (name === 'FunctionCommon') {
       zodCode = `z.object({
   'call': z.string().describe('The name of the function to call.').optional(),
@@ -545,7 +539,7 @@ import {markChildRef} from './child-ref-helpers.js';
 .refine(data => data['@call'] !== undefined || data.call !== undefined, {
   message: "Either '@call' or 'call' must be provided.",
 })
-.describe('${desc}')`;
+${meta}`;
     } else if (name === 'IndexSystemFunction') {
       zodCode = `z.object({
   'call': z.literal('@index').optional(),
@@ -559,7 +553,7 @@ import {markChildRef} from './child-ref-helpers.js';
 .refine(data => data['@call'] !== undefined || data.call !== undefined, {
   message: "Either '@call' or 'call' must be '@index'.",
 })
-.describe('${desc}')`;
+${meta}`;
     } else if (name === 'FunctionCall') {
       zodCode = `z.object({
   'call': z.string().describe('The name of the function to call.').optional(),
@@ -581,7 +575,7 @@ import {markChildRef} from './child-ref-helpers.js';
 .refine(data => data['@call'] !== undefined || data.call !== undefined, {
   message: "Either '@call' or 'call' must be provided.",
 })
-.describe('${desc}')`;
+${meta}`;
     } else if (name === 'Extensions') {
       zodCode = `z.record(z.string(), z.unknown())
   .superRefine((value, ctx) => {
@@ -589,14 +583,17 @@ import {markChildRef} from './child-ref-helpers.js';
       if (!isValidUax31Identifier(key)) {
         ctx.addIssue({
           path: [key],
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: \`Invalid extension key "\${key}": Keys MUST be Unicode identifiers (UAX #31).\`,
         });
       }
     }
-  }).describe("REF:#/$defs/Extensions|Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.")`;
+  })${refMetaCode('#/$defs/Extensions', "Optional extension metadata. Keys MUST be Unicode identifiers (UAX #31). Keys starting with 'a2ui_' are reserved for official extensions.")}`;
     } else {
       zodCode = generateZod(rawDef, name, '', lazyEdges, topologicalOrder);
+      // `Child` is a `ComponentId` named for itself, which keeps the
+      // description of the `ComponentId` it is.
+      zodCode += name === 'Child' ? refMetaCode('#/$defs/Child') : meta;
       if (name === 'DynamicValue') {
         zodCode = zodCode.replace(
           'z.record(z.string(), z.unknown())',
@@ -611,8 +608,8 @@ import {markChildRef} from './child-ref-helpers.js';
       outTs += `export const ${name}Schema = ${zodCode};\n`;
     }
 
-    if (rawDef.description) {
-      outTs += `/** ${rawDef.description.replace(/\n/g, ' ')} */\n`;
+    if (description) {
+      outTs += `/** ${description.replace(/\n/g, ' ')} */\n`;
     }
     outTs += `export type ${name} = z.infer<typeof ${name}Schema>;\n\n`;
     generatedSchemaNames.push(name);
@@ -637,7 +634,7 @@ export const CommonSchemas = {
   }
   outTs += `};\n\n`;
 
-  writeFormattedZod4(destinationFile, toZod4Code(outTs));
+  writeFormattedZod4(destinationFile, outTs);
   console.log(`Successfully generated superset common types in ${destinationFile}`);
 }
 
